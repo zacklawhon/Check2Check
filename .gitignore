@@ -1,0 +1,10 @@
+# Environment variables - DO NOT COMMIT
+.env
+.env-pro
+.vscode
+
+# CodeIgniter system folders
+/vendor
+/writable
+/vendor
+/system
