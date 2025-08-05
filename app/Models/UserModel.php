@@ -16,7 +16,6 @@ class UserModel extends Model
     // CORRECTED ALLOWED FIELDS
     protected $allowedFields    = [
         'email',
-        'experience_mode',
         'demographic_zip_code',         // Corrected
         'demographic_age_range',        // Corrected
         'demographic_sex',              // Corrected

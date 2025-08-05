@@ -61,6 +61,7 @@ function EditItemModal({ item, isOpen, onClose, onSuccess }) {
                             <option value="one-time">One-Time</option>
                             <option value="weekly">Weekly</option>
                             <option value="bi-weekly">Bi-Weekly</option>
+                            <option value="semi-monthly ">Twice a Month</option>
                             <option value="monthly">Monthly</option>
                         </select>
                     ) : (

@@ -3,13 +3,11 @@ import { useNavigate, useParams } from 'react-router-dom';
 import VariableExpenseItem from '../components/VariableExpenseItem';
 import RecurringExpenseItem from '../components/RecurringExpenseItem';
 import AddItemModal from '../components/AddItemModal';
-import EditIncomeModal from '../components/EditIncomeModal';
+// EditIncomeModal is no longer needed
 import ConfirmationModal from '../components/ConfirmationModal';
 import EditDatesModal from '../components/EditDatesModal';
 
-// FIX: The component no longer receives props like 'budgetId'
 function BudgetPage() {
-    // FIX: budgetId is correctly retrieved from the URL using the hook
     const { budgetId } = useParams();
     const navigate = useNavigate();
 
@@ -19,8 +17,9 @@ function BudgetPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalType, setModalType] = useState(null);
-    const [itemToEdit, setItemToEdit] = useState(null);
-    const [itemToRemove, setItemToRemove] = useState(null);
+    // These state variables for editing/removing income are no longer needed
+    // const [itemToEdit, setItemToEdit] = useState(null);
+    // const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [showSoftClose, setShowSoftClose] = useState(false);
 
@@ -59,8 +58,6 @@ function BudgetPage() {
         }
     };
 
-    // FIX: The dependency array now correctly uses the 'budgetId' from the useParams hook,
-    // which will trigger the data fetch when the page loads.
     useEffect(() => {
         fetchBudgetData();
     }, [budgetId]);
@@ -68,22 +65,7 @@ function BudgetPage() {
     const refreshBudget = () => { fetchBudgetData(true); };
     const handleSuccess = () => { setModalType(null); refreshBudget(); };
 
-    const handleRemoveIncome = async () => {
-        if (!itemToRemove) return;
-        try {
-            const response = await fetch(`/api/budget/remove-income/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: itemToRemove.label })
-            });
-            if (!response.ok) throw new Error('Failed to remove income.');
-            setItemToRemove(null);
-            refreshBudget();
-        } catch (err) {
-            setError(err.message);
-        }
-    };
+    // The handleRemoveIncome function is no longer needed as there's no UI for it.
 
     if (loading) return <div className="text-white p-8 text-center">Loading your budget...</div>;
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
@@ -156,16 +138,10 @@ function BudgetPage() {
                             <button onClick={() => setModalType('income')} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg">+ Add</button>
                         </div>
                         <ul className="space-y-2">
-                            {budget.initial_income.map((item, index) => (
-                                <li key={`inc-${index}`} className="flex justify-between items-center bg-gray-700 p-3 rounded-md">
-                                    <span>{item.label}</span>
-                                    <div className="flex items-center gap-4">
-                                        <span>+ ${parseFloat(item.amount).toFixed(2)}</span>
-                                        <div className="flex gap-2">
-                                            <button onClick={() => setItemToEdit(item)} className="text-gray-400 hover:text-white text-xs">Edit</button>
-                                            <button onClick={() => setItemToRemove(item)} className="text-gray-400 hover:text-white font-bold">&times;</button>
-                                        </div>
-                                    </div>
+                            {transactions.filter(t => t.type === 'income').map((t, index) => (
+                                <li key={`trans-inc-${index}`} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-md">
+                                    <span>{t.description}</span>
+                                    <span className="font-semibold text-green-400">+ ${parseFloat(t.amount).toFixed(2)}</span>
                                 </li>
                             ))}
                         </ul>
@@ -230,18 +206,6 @@ function BudgetPage() {
                 />
             )}
 
-            {itemToEdit && (
-                <EditIncomeModal
-                    item={itemToEdit}
-                    budgetId={budgetId}
-                    onClose={() => setItemToEdit(null)}
-                    onSuccess={() => {
-                        setItemToEdit(null);
-                        refreshBudget();
-                    }}
-                />
-            )}
-
             {isEditDatesModalOpen && (
                 <EditDatesModal
                     budget={budget}
@@ -252,19 +216,13 @@ function BudgetPage() {
                     }}
                 />
             )}
-
-            <ConfirmationModal
-                isOpen={!!itemToRemove}
-                onClose={() => setItemToRemove(null)}
-                onConfirm={handleRemoveIncome}
-                title="Confirm Removal"
-                message={`Are you sure you want to remove the income source "${itemToRemove?.label}"? This will create a negative transaction to balance your budget.`}
-            />
         </div>
     );
 }
 
+// The SavingsSetupPrompt component is unchanged and remains here.
 function SavingsSetupPrompt({ onSetupComplete }) {
+    // The state can still be a string, that's fine.
     const [hasSavings, setHasSavings] = useState(null);
     const [zipCode, setZipCode] = useState('');
     const [initialBalance, setInitialBalance] = useState('');
@@ -287,7 +245,8 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    hasSavings: hasSavings === 'true',
+                    // FIX: This now sends a 1 or 0, which matches the backend validation.
+                    hasSavings: hasSavings === 'true' ? 1 : 0,
                     zipCode: zipCode,
                     initialBalance: initialBalance
                 })
@@ -326,6 +285,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 <div>
                     <label className="block text-sm font-semibold mb-2">Do you have a savings account?</label>
                     <div className="flex gap-4">
+                        {/* The radio button values remain "true" and "false" as strings */}
                         <label className="flex items-center gap-2 cursor-pointer">
                             <input type="radio" name="hasSavings" value="true" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
                             <span>Yes</span>
@@ -347,7 +307,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                             value={initialBalance}
                             onChange={(e) => setInitialBalance(e.target.value)}
                             placeholder="e.g., 150.00"
-                            className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                            className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700"
                         />
                     </div>
                 )}
@@ -365,7 +325,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                         onChange={(e) => setZipCode(e.target.value)}
                         placeholder="e.g., 90210"
                         required
-                        className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
+                        className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700"
                     />
                 </div>
 

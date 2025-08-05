@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BudgetList from '../components/BudgetList';
+// FIX: Add the missing import for the GuidedWizard component
 import GuidedWizard from '../components/wizard/GuidedWizard';
 
 function DashboardPage() {
@@ -35,7 +36,7 @@ function DashboardPage() {
   if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
   if (!user) return <div className="text-red-500 p-8 text-center">Could not find user profile.</div>;
 
-  // If a user has no budgets, always send them to the wizard.
+  // This logic correctly sends a new user to the wizard
   if (budgetCycles.length === 0) {
       return <GuidedWizard user={user} />;
   }
@@ -43,7 +44,6 @@ function DashboardPage() {
   return (
     <div className="container mx-auto p-4 md:p-8 text-white">
         <h1 className="text-3xl font-bold mb-6 text-center">Your Budgets</h1>
-        {/* The user prop is no longer needed here */}
         <BudgetList budgetCycles={budgetCycles} onRefresh={fetchDashboardData} />
     </div>
   );

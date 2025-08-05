@@ -226,7 +226,7 @@ class AccountController extends BaseController
     $session->setTempdata('email_change_token', $token, 900);
     $session->setTempdata('new_email_for_change', $newEmail, 900);
 
-    $verificationLink = 'https://check2check.org/verify-email-change/' . $token;
+    $verificationLink = site_url('verify-email-change/' . $token);
 
     try {
         $email = Services::email();

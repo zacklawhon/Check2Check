@@ -31,8 +31,7 @@ class AuthController extends BaseController
             if (!$user) {
                 $userId = $userModel->insert([
                     'email' => $emailAddress,
-                    'status' => 'active', // Ensure status is set on creation
-                    'experience_mode' => 'guided' // Set the default mode here
+                    'status' => 'active'
                     ]);
             } else {
                 $userId = $user['id'];
@@ -83,7 +82,7 @@ class AuthController extends BaseController
     private function sendReturningUserEmail($email, string $recipientEmail, string $token, int $userId)
     {
         // FIX: Use site_url() to generate a dynamic link
-        $magicLink = site_url('/verify-login?token=' . $token);
+        $magicLink = site_url('verify-login?token=' . $token);
         $snapshotData = null;
 
         $budgetCycleModel = new BudgetCycleModel();

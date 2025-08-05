@@ -46,6 +46,11 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
         );
         setSelectedExpenses(updatedSelected);
+        setAllExpenses(prev =>
+            prev.map(item =>
+                item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
+            )
+        );
     };
 
     const handleFormChange = (e) => {
@@ -73,10 +78,11 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
             
+            // --- FIX: This logic adds the new item to the state so it appears in the list ---
             const newExpense = { ...recurringData, id: data.id, estimated_amount: formState.amount };
-            
             setAllExpenses(prev => [...prev, newExpense]);
             setSelectedExpenses(prev => [...prev, newExpense]);
+            // --- End of FIX ---
 
             setFormState({
                 label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
@@ -96,7 +102,6 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 3: Confirm Recurring Expenses</h2>
-
             {filteredSuggestions.length > 0 && (
                  <div className="mb-6">
                     <h3 className="font-semibold mb-2">Suggested Recurring Expenses</h3>
@@ -112,7 +117,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                                             type="checkbox"
                                             checked={isSelected}
                                             onChange={(e) => handleSelectionChange(exp, e.target.checked)}
-                                            className="h-5 w-5 rounded bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-600"/>
+                                            className="h-5 w-5 rounded bg-gray-800 border-gray-600 text-indigo-500"/>
                                     </label>
                                     <div className="col-span-7">
                                         <p className="font-semibold">{exp.label}</p>
@@ -127,7 +132,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                                             value={selectedItem.estimated_amount}
                                             onChange={(e) => handleAmountChange(exp.id, e.target.value)}
                                             disabled={!isSelected}
-                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-700 disabled:opacity-50"/>
+                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 disabled:bg-gray-700"/>
                                     </div>
                                 </div>
                             )
@@ -138,10 +143,10 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             
             <p className="text-gray-400 my-4">Add any new recurring bills for this budget period.</p>
             <form onSubmit={handleSubmit} className="space-y-4">
-                <input type="text" name="label" value={formState.label} onChange={handleFormChange} placeholder="Bill Name" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
-                <input type="number" step="0.01" name="amount" value={formState.amount} onChange={handleFormChange} placeholder="Amount for this budget" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
-                <input type="number" name="dueDate" value={formState.dueDate} onChange={handleFormChange} placeholder="Due Day (e.g., 15)" min="1" max="31" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
-                <select name="category" value={formState.category} onChange={handleFormChange} className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
+                <input type="text" name="label" value={formState.label} onChange={handleFormChange} placeholder="Bill Name" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
+                <input type="number" step="0.01" name="amount" value={formState.amount} onChange={handleFormChange} placeholder="Amount for this budget" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
+                <input type="number" name="dueDate" value={formState.dueDate} onChange={handleFormChange} placeholder="Due Day (e.g., 15)" min="1" max="31" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
+                <select name="category" value={formState.category} onChange={handleFormChange} className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600">
                     <option value="other">Other</option>
                     <option value="housing">Housing</option>
                     <option value="utilities">Utilities</option>
@@ -150,7 +155,6 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                     <option value="insurance">Insurance</option>
                     <option value="subscription">Subscription</option>
                 </select>
-
                 {formState.category === 'loan' && (
                     <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                         <h4 className="font-semibold text-gray-300">Loan Details (Optional)</h4>
@@ -162,7 +166,6 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                         </div>
                     </div>
                 )}
-
                 {formState.category === 'credit-card' && (
                     <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                          <h4 className="font-semibold text-gray-300">Credit Card Details (Optional)</h4>
@@ -170,7 +173,6 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                         <input type="number" step="0.01" name="interest_rate" value={formState.interest_rate} onChange={handleFormChange} placeholder="Interest Rate (%)" className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"/>
                     </div>
                 )}
-                
                 <button type="submit" disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500">
                     {loading ? 'Adding...' : 'Add Expense'}
                 </button>

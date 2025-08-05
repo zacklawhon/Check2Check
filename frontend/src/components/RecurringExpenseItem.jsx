@@ -7,7 +7,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
-    // State for the new inline form
     const [amount, setAmount] = useState(item.estimated_amount || '');
 
     const handleSetAmount = async (e) => {
@@ -30,13 +29,50 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         }
     };
 
+    // --- FIX: Restored the logic for the handleMarkPaid function ---
     const handleMarkPaid = async (e) => {
-        e.stopPropagation();
-        // (This function remains the same as your original)
+        e.stopPropagation(); // Prevent the detail modal from opening
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`/api/budget/mark-bill-paid/${budgetId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ label: item.label, amount: item.estimated_amount })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to mark as paid.');
+            }
+            onUpdate(); // Refresh the budget data
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
     };
     
+    // --- FIX: Restored the logic for the handleDeleteConfirm function ---
     const handleDeleteConfirm = async () => {
-        // (This function remains the same as your original)
+        setIsConfirmModalOpen(false);
+        try {
+            const response = await fetch(`/api/budget/remove-expense/${budgetId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ label: item.label })
+            });
+
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to remove expense.');
+            }
+            onUpdate();
+        } catch (err) {
+            setError(err.message); 
+        }
     };
     
     const handleDeleteClick = (e) => {
@@ -44,7 +80,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         setIsConfirmModalOpen(true);
     };
 
-    // --- FIX: Conditionally render the "Set Amount" form or the "Pay" button ---
     if (!item.estimated_amount) {
         return (
             <li className="bg-gray-700 p-3 rounded-md">
@@ -80,7 +115,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                 onClick={() => setIsDetailModalOpen(true)}
                 className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : 'hover:bg-gray-600 cursor-pointer'}`}
             >
-                {/* This is the original rendering logic for an item with an amount */}
                 <div>
                     <span className={`${item.is_paid ? 'line-through' : ''}`}>{item.label}</span>
                     <span className="text-xs text-gray-400 block capitalize">

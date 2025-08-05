@@ -7,33 +7,31 @@ import SpendingStep from './SpendingStep';
 
 function GuidedWizard({ user }) {
     const navigate = useNavigate();
+    // FIX: The wizard now always starts at step 1.
     const [step, setStep] = useState(1);
     const [wizardData, setWizardData] = useState({
         confirmedDates: { startDate: '', endDate: '' },
         confirmedIncome: [],
         confirmedExpenses: [],
-        suggestions: null, // Start as null until loaded
+        suggestions: null,
     });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
 
-    // FIX: A user is "returning" if they have completed at least one budget.
-    // We check for > 0 because the user object might not have the count for a brand new user.
-    const isReturningUser = (user.completed_budget_count || 0) > 0;
-
     useEffect(() => {
+        // FIX: The wizard now ALWAYS calls the 'wizard-suggestions' endpoint.
+        // For a new user, the backend will provide default, non-personalized suggestions.
         const fetchSuggestions = async () => {
-            const endpoint = isReturningUser ? '/api/budget/wizard-suggestions' : '/api/onboarding/data';
             try {
-                const response = await fetch(endpoint, { credentials: 'include' });
+                const response = await fetch('/api/budget/wizard-suggestions', { credentials: 'include' });
                 if (!response.ok) throw new Error('Could not load setup data.');
                 const data = await response.json();
 
                 const suggestions = {
                     proposedStartDate: data.proposedStartDate,
                     proposedEndDate: data.proposedEndDate,
-                    suggestedIncome: data.suggestedIncome || data.income_sources || [],
-                    suggestedExpenses: data.suggestedExpenses || data.recurring_expenses || [],
+                    suggestedIncome: data.suggestedIncome || [],
+                    suggestedExpenses: data.suggestedExpenses || [],
                     learned_spending_categories: data.learned_spending_categories || [],
                 };
 
@@ -51,22 +49,14 @@ function GuidedWizard({ user }) {
         };
 
         fetchSuggestions();
-    }, [isReturningUser]);
-    
-    // Set the initial step correctly for new vs returning users
-    useEffect(() => {
-        if (!loading) {
-            setStep(isReturningUser ? 1 : 2);
-        }
-    }, [loading, isReturningUser]);
-
+    }, []); // The dependency array is now empty, so this runs once on mount.
 
     const nextStep = () => setStep(prev => prev + 1);
     const prevStep = () => setStep(prev => prev - 1);
 
     const handleDatesConfirmed = (dates) => {
         setWizardData(prev => ({ ...prev, confirmedDates: dates }));
-        // Re-filter expenses based on user-confirmed dates
+        
         const start = new Date(`${dates.startDate}T00:00:00`);
         const end = new Date(`${dates.endDate}T00:00:00`);
 
@@ -107,19 +97,14 @@ function GuidedWizard({ user }) {
     const handleFinishSetup = async (finalSpendingCategories) => {
         setLoading(true);
         setError('');
-        
-        // For a new user, dates are suggested, not confirmed. Use them here.
-        const finalStartDate = wizardData.confirmedDates.startDate || wizardData.suggestions.proposedStartDate;
-        const finalEndDate = wizardData.confirmedDates.endDate || wizardData.suggestions.proposedEndDate;
-
         try {
             const response = await fetch('/api/budget/create', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    start_date: finalStartDate,
-                    end_date: finalEndDate,
+                    start_date: wizardData.confirmedDates.startDate,
+                    end_date: wizardData.confirmedDates.endDate,
                     income_sources: JSON.stringify(wizardData.confirmedIncome),
                     recurring_expenses: JSON.stringify(wizardData.confirmedExpenses),
                     spending_categories: JSON.stringify(finalSpendingCategories)
@@ -135,13 +120,9 @@ function GuidedWizard({ user }) {
         }
     };
     
-    if (loading) return <div className="text-center p-8 text-white">Loading your setup...</div>
+    if (loading) return <div className="text-center p-8 text-white">Loading your setup...</div>;
     if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
-
-    // Do not render any steps until the suggestions have loaded
-    if (!wizardData.suggestions) {
-        return <div className="text-center p-8 text-white">Preparing suggestions...</div>;
-    }
+    if (!wizardData.suggestions) return null;
 
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
@@ -156,7 +137,8 @@ function GuidedWizard({ user }) {
                 )}
                 {step === 2 && (
                     <IncomeStep
-                        onBack={isReturningUser ? prevStep : null}
+                        // The back button is only shown if they are on a step after the first one.
+                        onBack={prevStep}
                         onComplete={handleIncomeConfirmed}
                         suggestions={wizardData.suggestions.suggestedIncome}
                         existingIncome={wizardData.confirmedIncome}

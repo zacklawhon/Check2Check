@@ -18,6 +18,28 @@ class OnboardingController extends BaseController
 
     private function getUserId() { return session()->get('userId'); }
 
+    // In OnboardingController.php
+
+public function addIncomeSource()
+{
+    $session = session();
+    $userId = $session->get('userId');
+    $incomeModel = new \App\Models\IncomeSourceModel();
+
+    $data = [
+        'label' => $this->request->getVar('label'),
+        'frequency' => $this->request->getVar('frequency')
+    ];
+
+    $newId = $incomeModel->findOrCreate($userId, $data);
+
+    if (!$newId) {
+        return $this->failServerError('Could not save income source.');
+    }
+
+    return $this->respondCreated(['id' => $newId, 'message' => 'Income source saved.']);
+}
+
     public function addRecurringExpense()
     {
         $session = session();
@@ -28,7 +50,7 @@ class OnboardingController extends BaseController
         $data = [
             'user_id'  => $userId,
             'label'    => $json['label'],
-            'due_date' => $json['due_date'] ?? null,
+            'due_date' => $json['dueDate'] ?? null,
             'category' => $json['category'] ?? 'other'
         ];
 

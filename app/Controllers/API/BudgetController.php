@@ -685,7 +685,7 @@ class BudgetController extends BaseController
             $userId = $session->get('userId');
 
             $rules = [
-                'hasSavings' => 'required|in_list[true,false]',
+                'hasSavings' => 'required|in_list[1,0]',
                 'zipCode' => 'required|string|max_length[10]',
                 'initialBalance' => 'permit_empty|decimal'
             ];
@@ -784,71 +784,72 @@ class BudgetController extends BaseController
     }
     
     public function getWizardSuggestions()
-    {
-        // Add a try-catch block to capture any fatal error
-        try {
-            $session = session();
-            $userId = $session->get('userId');
+{
+    $session = session();
+    $userId = $session->get('userId');
+    $incomeModel = new \App\Models\IncomeSourceModel();
+    $expenseModel = new \App\Models\RecurringExpenseModel();
+    $spendingCategoryModel = new \App\Models\LearnedSpendingCategoryModel();
 
-            $incomeSourceModel = new IncomeSourceModel();
-            $recurringExpenseModel = new RecurringExpenseModel();
-            // FIX: Instantiate the model for spending categories
-            $spendingCategoryModel = new LearnedSpendingCategoryModel();
+    $lastIncome = $incomeModel->where('user_id', $userId)
+                            ->where('is_active', 1)
+                            ->orderBy('created_at', 'DESC')
+                            ->first();
 
-            $incomeSources = $incomeSourceModel->where('user_id', $userId)->where('is_active', 1)->findAll();
-            $recurringExpenses = $recurringExpenseModel->where('user_id', $userId)->where('is_active', 1)->findAll();
-            // FIX: Fetch the spending categories from the database
-            $spendingCategories = $spendingCategoryModel->where('user_id', $userId)->findAll();
+    // --- FIX: This block now handles a new user gracefully ---
+    if (!$lastIncome) {
+        // This is a new user with no saved income. Provide default dates.
+        $proposedStartDate = date('Y-m-d');
+        $proposedEndDate = date('Y-m-d', strtotime('+2 weeks'));
 
-            if (empty($incomeSources)) {
-                return $this->failValidationErrors('User must have at least one income source to generate suggestions.');
-            }
+        $data = [
+            'proposedStartDate' => $proposedStartDate,
+            'proposedEndDate'   => $proposedEndDate,
+            'suggestedIncome'   => [],
+            'suggestedExpenses' => [],
+            'learned_spending_categories' => []
+        ];
 
-            // --- Calculate Proposed Dates ---
-            $frequencies = array_column($incomeSources, 'frequency');
-            $counts = array_count_values($frequencies);
-            arsort($counts);
-            $dominantFrequency = key($counts);
+        return $this->respond($data);
+    }
+    // --- End of FIX ---
 
-            $startDate = new DateTime();
-            $endDate = new DateTime();
-
-            switch ($dominantFrequency) {
-                case 'weekly':
-                    $endDate->modify('+1 week');
-                    break;
-                case 'bi-weekly':
-                    $endDate->modify('+2 weeks');
-                    break;
-                case 'semi-monthly':
-                    $endDate->modify('+15 days');
-                    break;
-                default:
-                    $endDate->modify('+1 month');
-                    break;
-            }
-            
-            return $this->respond([
-                'proposedStartDate' => $startDate->format('Y-m-d'),
-                'proposedEndDate' => $endDate->format('Y-m-d'),
-                'suggestedIncome' => $incomeSources,
-                'suggestedExpenses' => $recurringExpenses,
-                // FIX: Add the learned_spending_categories to the JSON response
-                'learned_spending_categories' => $spendingCategories,
-            ]);
-
-        } catch (\Throwable $e) {
-            // If any error occurs, catch it and return it as a proper JSON response
-            log_message('error', '[FATAL_ERROR] ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
-            
-            return $this->failServerError(
-                'A server error occurred: ' . $e->getMessage(),
-                500,
-                'Error',
-                ['file' => $e->getFile(), 'line' => $e->getLine()]
-            );
+    // The rest of the function is the original logic for a returning user
+    $frequency = $lastIncome['frequency'];
+    $today = new \DateTime();
+    
+    // Logic to propose dates based on income frequency
+    if ($frequency === 'weekly') {
+        $proposedStartDate = $today->modify('next Sunday')->format('Y-m-d');
+        $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+6 days')->format('Y-m-d');
+    } elseif ($frequency === 'bi-weekly') {
+        $proposedStartDate = $today->modify('next Friday')->format('Y-m-d');
+        $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+13 days')->format('Y-m-d');
+    } else { // Default for semi-monthly, monthly
+        $dayOfMonth = (int)$today->format('d');
+        if ($dayOfMonth < 15) {
+            $proposedStartDate = $today->format('Y-m-15');
+            $proposedEndDate = $today->format('Y-m-t'); // Last day of current month
+        } else {
+            $proposedStartDate = $today->format('Y-m-t');
+            $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+15 days')->format('Y-m-t');
         }
     }
+
+    $suggestedIncome = $incomeModel->where('user_id', $userId)->where('is_active', 1)->findAll();
+    $suggestedExpenses = $expenseModel->where('user_id', $userId)->where('is_active', 1)->findAll();
+    $learnedCategories = $spendingCategoryModel->where('user_id', $userId)->findAll();
+
+    $data = [
+        'proposedStartDate' => $proposedStartDate,
+        'proposedEndDate'   => $proposedEndDate,
+        'suggestedIncome'   => $suggestedIncome,
+        'suggestedExpenses' => $suggestedExpenses,
+        'learned_spending_categories' => $learnedCategories
+    ];
+
+    return $this->respond($data);
+}
     
     public function getExpenseHistory()
     {
@@ -963,6 +964,48 @@ class BudgetController extends BaseController
         }
         return $this->fail('Income item not found in this budget.');
     }
+
+    public function addVariableExpense($budgetId)
+{
+    $session = session();
+    $userId = $session->get('userId');
+    $budgetModel = new \App\Models\BudgetCycleModel();
+
+    $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+    if (!$budget) {
+        return $this->failNotFound('Budget cycle not found.');
+    }
+
+    $label = $this->request->getVar('label');
+    $amount = $this->request->getVar('amount');
+    if (!$label || !is_numeric($amount)) {
+        return $this->failValidationErrors('Label and amount are required.');
+    }
+
+    // Step 1: Create or find the reusable category in 'learned_spending_categories'
+    $spendingCategoryModel = new \App\Models\LearnedSpendingCategoryModel();
+    $category = $spendingCategoryModel->where('user_id', $userId)
+                                      ->where('name', $label)
+                                      ->first();
+    if (!$category) {
+        $spendingCategoryModel->insert([
+            'user_id' => $userId,
+            'name' => $label,
+        ]);
+    }
+
+    // Step 2: Add this item to the current budget's 'initial_expenses' JSON
+    $expenseItems = json_decode($budget['initial_expenses'], true);
+    $newExpense = [
+        'label' => $label,
+        'estimated_amount' => $amount,
+        'type' => 'variable'
+    ];
+    $expenseItems[] = $newExpense;
+    $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenseItems)]);
+
+    return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
+}
 
 
 }
