@@ -4,8 +4,9 @@ import EditItemModal from '../components/modals/EditItemModal';
 import ProfileForm from '../components/account/ProfileForm';
 import FinancialToolsForm from '../components/account/FinancialToolsForm';
 import AccountActions from '../components/account/AccountActions';
+// FIX: Import the date formatting helper
+import { getDayWithOrdinal } from '../components/utils/formatters';
 
-// FIX: The `Maps` prop is removed. The `user` prop is still passed from App.jsx
 function AccountPage({ user: initialUser }) {
     const [items, setItems] = useState({ income_sources: [], recurring_expenses: [] });
     const [user, setUser] = useState(initialUser);
@@ -118,7 +119,13 @@ function AccountPage({ user: initialUser }) {
                                             <li key={item.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center">
                                                 <div>
                                                     <p className="font-semibold">{item.label}</p>
-                                                    <p className="text-sm text-gray-400 capitalize">Due Day: {item.due_date || 'N/A'}</p>
+                                                    {/* --- FIX: This section now formats the due date and shows optional data --- */}
+                                                    <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+                                                        <span className="capitalize">{item.category}</span>
+                                                        {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
+                                                        {item.principal_balance && <span className="hidden sm:inline">(Bal: ${item.principal_balance})</span>}
+                                                        {item.interest_rate && <span className="hidden sm:inline">({item.interest_rate}%)</span>}
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
                                                     <button onClick={() => setEditingItem(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
@@ -131,7 +138,6 @@ function AccountPage({ user: initialUser }) {
                             ))}
                         </div>
                     </div>
-                    {/* FIX: `Maps` prop removed. AccountActions must be updated to use the hook. */}
                     <AccountActions />
                 </div>
             </div>

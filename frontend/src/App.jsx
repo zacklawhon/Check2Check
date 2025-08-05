@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { Toaster } from 'react-hot-toast'; //
 
 // Layouts and Pages
 import AccountPage from './pages/AccountPage';
@@ -11,6 +12,7 @@ import BudgetPage from './pages/BudgetPage';
 import BudgetReviewPage from './pages/BudgetReviewPage';
 import GuidedWizard from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
+
 
 
 
@@ -55,6 +57,15 @@ function App() {
   return (
     <div className="bg-gray-900 min-h-screen">
       <BrowserRouter>
+      <Toaster
+          position="top-center"
+          toastOptions={{
+            style: {
+              background: '#374151', // gray-700
+              color: '#fff',
+            },
+          }}
+        />
         <Routes>
           {/* Unauthenticated Pages */}
           <Route path="/" element={<LandingPage />} />

@@ -1,4 +1,4 @@
-import React, { useState, useEffect } from 'react';
+import React, {useState, useEffect, useRef } from 'react'; // 1. Import useRef
 
 function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] }) {
     const [sourceName, setSourceName] = useState('');
@@ -6,17 +6,18 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
     const [frequency, setFrequency] = useState('weekly');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    const [allIncomeSources, setAllIncomeSources] = useState([]);
     const [selectedIncome, setSelectedIncome] = useState([]);
+    
+    // 2. Create a ref to hold our input elements
+    const inputRefs = useRef([]);
 
     useEffect(() => {
-        const preparedSuggestions = suggestions.map(item => ({ ...item, amount: item.amount || '' }));
-        setAllIncomeSources(preparedSuggestions);
-        
-        const preparedIncome = existingIncome.map(item => ({ ...item, amount: item.amount || '' }));
+        const preparedIncome = existingIncome.map(item => ({
+            ...item,
+            amount: item.amount || ''
+        }));
         setSelectedIncome(preparedIncome);
-    }, [suggestions, existingIncome]);
+    }, [existingIncome]);
 
     const handleSelectionChange = (source, isChecked) => {
         if (isChecked) {
@@ -32,11 +33,6 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
                 item.id === sourceId ? { ...item, amount: newAmount } : item
             )
         );
-        setAllIncomeSources(prev =>
-            prev.map(item =>
-                item.id === sourceId ? { ...item, amount: newAmount } : item
-            )
-        );
     };
 
     const handleSubmit = async (e) => {
@@ -49,7 +45,6 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         setError('');
         
         try {
-            // FIX: This now calls the correct endpoint in your OnboardingController
             const response = await fetch('/api/onboarding/add-income', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
@@ -60,7 +55,6 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
             if (!response.ok) throw new Error(data.message || 'Failed to add income source.');
             
             const newIncomeSource = { id: data.id, label: sourceName, amount, frequency };
-            setAllIncomeSources(prev => [...prev, newIncomeSource]);
             setSelectedIncome(prev => [...prev, newIncomeSource]);
             
             setSourceName('');
@@ -76,6 +70,21 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
     const handleNext = () => {
         onComplete(selectedIncome);
     };
+    
+    // 3. Add keydown handler for tab navigation
+    const handleKeyDown = (e, index) => {
+        // On Tab (but not Shift+Tab)
+        if (e.key === 'Tab' && !e.shiftKey) {
+            const nextEnabledInputIndex = suggestions.findIndex((source, i) => 
+                i > index && selectedIncome.some(item => item.id === source.id)
+            );
+
+            if (nextEnabledInputIndex !== -1) {
+                e.preventDefault();
+                inputRefs.current[nextEnabledInputIndex]?.focus();
+            }
+        }
+    };
 
     const isNextDisabled = selectedIncome.length === 0 || selectedIncome.some(item => !item.amount || parseFloat(item.amount) <= 0);
     
@@ -83,21 +92,21 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 2: Confirm Your Income</h2>
             
-            {allIncomeSources.length > 0 && (
+            {suggestions.length > 0 && (
                 <div className="mb-6">
                     <h3 className="font-semibold mb-2">Suggested Income Sources</h3>
                     <p className="text-sm text-gray-400 mb-2">Check the box for each income source you expect this period and confirm the amount.</p>
                     <div className="space-y-3 bg-gray-700 p-4 rounded-lg">
-                        {allIncomeSources.map(source => {
+                        {suggestions.map((source, index) => { // 4. Get the index
                             const isSelected = selectedIncome.some(item => item.id === source.id);
-                            const selectedItem = selectedIncome.find(item => item.id === source.id) || source;
+                            const selectedItem = selectedIncome.find(item => item.id === source.id);
 
                             return (
                                 <div key={source.id} className="grid grid-cols-12 gap-2 items-center">
                                     <label className="col-span-1 flex items-center">
                                         <input
                                             type="checkbox"
-                                            className="h-5 w-5 rounded bg-gray-800 border-gray-600 text-indigo-500"
+                                            className="h-5 w-5 rounded bg-gray-800 border-gray-600 text-indigo-500 focus:ring-indigo-600"
                                             checked={isSelected}
                                             onChange={(e) => handleSelectionChange(source, e.target.checked)}
                                         />
@@ -109,13 +118,17 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
                                     <div className="col-span-4 flex items-center">
                                         <span className="mr-1 text-gray-400">$</span>
                                         <input
+                                            // 5. Assign the ref to the input element
+                                            ref={el => inputRefs.current[index] = el}
+                                            // 6. Add the keydown handler
+                                            onKeyDown={(e) => handleKeyDown(e, index)}
                                             type="number"
                                             step="0.01"
                                             placeholder="0.00"
                                             value={isSelected ? selectedItem.amount : ''}
                                             onChange={(e) => handleAmountChange(source.id, e.target.value)}
                                             disabled={!isSelected}
-                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 disabled:bg-gray-700"
+                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-700 disabled:opacity-50"
                                         />
                                     </div>
                                 </div>
@@ -128,11 +141,11 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
             <p className="text-gray-400 mb-4">Add any new or one-time income for this budget period.</p>
             <form onSubmit={handleSubmit} className="space-y-4 mb-6">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <input type="text" value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g., Side Job" className="col-span-1 md:col-span-2 bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
-                    <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g., 250.00" className="bg-gray-700 text-white rounded-lg p-2 border border-gray-600" />
+                    <input type="text" value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g., Side Job" className="col-span-1 md:col-span-2 bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>
+                    <input type="number" step="0.01" value={amount} onChange={(e) => setAmount(e.target.value)} placeholder="e.g., 250.00" className="bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none" />
                 </div>
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="col-span-1 md:col-span-2 bg-gray-700 text-white rounded-lg p-2 border border-gray-600">
+                    <select value={frequency} onChange={(e) => setFrequency(e.target.value)} className="col-span-1 md:col-span-2 bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none">
                         <option value="weekly">Weekly</option>
                         <option value="bi-weekly">Every 2 Weeks</option>
                         <option value="semi-monthly">Twice a Month</option>

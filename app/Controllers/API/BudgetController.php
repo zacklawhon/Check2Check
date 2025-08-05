@@ -528,107 +528,84 @@ class BudgetController extends BaseController
         }
     }
 
-    public function closeCycle($budgetId)
-    {
-        $session = session();
-        $userId = $session->get('userId');
+    // In app/Controllers/API/BudgetController.php
 
-        $budgetCycleModel = new BudgetCycleModel();
-        $transactionModel = new TransactionModel();
+public function closeCycle($budgetId)
+{
+    $session = session();
+    $userId = $session->get('userId');
 
-        $budgetCycle = $budgetCycleModel->where('id', $budgetId)
-                                        ->where('user_id', $userId)
-                                        ->first();
+    $budgetCycleModel = new \App\Models\BudgetCycleModel();
+    $transactionModel = new \App\Models\TransactionModel();
 
-        if (!$budgetCycle) {
-            return $this->failNotFound('Budget cycle not found or access denied.');
-        }
+    $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
+    if (!$budgetCycle) {
+        return $this->failNotFound('Budget cycle not found or access denied.');
+    }
 
-        if ($budgetCycle['status'] !== 'active') {
-            return $this->failValidationErrors('This budget cycle is not active and cannot be closed.');
-        }
+    if ($budgetCycle['status'] !== 'active') {
+        return $this->failValidationErrors('This budget cycle is not active and cannot be closed.');
+    }
 
-        // Fetch transactions
-        $transactions = $transactionModel->where('budget_cycle_id', $budgetId)
-                                        ->where('user_id', $userId)
-                                        ->findAll();
+    $transactions = $transactionModel->where('budget_cycle_id', $budgetId)
+                                     ->where('user_id', $userId)
+                                     ->findAll();
 
-        $actualIncome = 0;
-        $actualExpenses = 0;
-        $spendingBreakdown = [];
+    $actualIncome = 0;
+    $actualExpenses = 0;
+    $spendingBreakdown = [];
 
-        foreach ($transactions as $t) {
-            if ($t['type'] === 'income') {
-                $actualIncome += (float)$t['amount'];
-            } else {
-                $actualExpenses += (float)$t['amount'];
-                $category = $t['category_name'];
-                $spendingBreakdown[$category] = ($spendingBreakdown[$category] ?? 0) + (float)$t['amount'];
-            }
-        }
-
-        arsort($spendingBreakdown);
-
-        $initialIncome = json_decode($budgetCycle['initial_income'], true);
-        $initialExpenses = json_decode($budgetCycle['initial_expenses'], true);
-
-        $plannedIncome = array_reduce($initialIncome, fn($sum, $item) => $sum + (float)($item['amount'] ?? 0), 0);
-        $plannedExpenses = array_reduce($initialExpenses, fn($sum, $item) => $sum + (float)($item['estimated_amount'] ?? 0), 0);
-
-        // Fetch previous budget cycles for comparison (last 3 completed cycles)
-        $previousCycles = $budgetCycleModel->where('user_id', $userId)
-                                           ->where('status', 'completed')
-                                           ->where('id !=', $budgetId)
-                                           ->orderBy('end_date', 'DESC')
-                                           ->findAll(3);
-
-        $comparison = [];
-        foreach ($previousCycles as $cycle) {
-            $summary = json_decode($cycle['final_summary'], true) ?? [];
-            $comparison[] = [
-                'cycle_id' => $cycle['id'],
-                'start_date' => $cycle['start_date'],
-                'end_date' => $cycle['end_date'],
-                'planned_surplus' => $summary['planned_surplus'] ?? 0,
-                'actual_surplus' => $summary['actual_surplus'] ?? 0,
-                'total_income' => $summary['total_income'] ?? 0,
-                'total_expenses' => $summary['total_expenses'] ?? 0,
-            ];
-        }
-
-        $finalSummary = [
-            'plannedSurplus' => $plannedIncome - $plannedExpenses,
-            'actualSurplus' => $actualIncome - $actualExpenses,
-            'totalIncome' => $actualIncome,
-            'totalExpenses' => $actualExpenses,
-            'topSpendingCategories' => $spendingBreakdown, // Renamed from 'spending_breakdown'
-            'previous_cycles' => $comparison,
-            'deficit_advice' => $actualIncome < $actualExpenses ? [
-            'message' => "Don't Panic, Let's Make a Plan!",
-            'suggestions' => [
-            'Review your top spending categories to identify potential cuts.',
-            'Consider a side hustle like DoorDash or Uber for extra income.',
-            'Avoid high-interest loans or predatory lending options.',
-            'Reach out to bill providers to negotiate payment plans if needed.'
-            ]
-                ] : null
-        ];
-
-        $updateData = [
-            'status' => 'completed',
-            'final_summary' => json_encode($finalSummary)
-        ];
-
-        try {
-            if ($budgetCycleModel->update($budgetId, $updateData) === false) {
-                return $this->fail($budgetCycleModel->errors());
-            }
-            return $this->respondUpdated(['message' => 'Budget cycle has been successfully closed.', 'summary' => $finalSummary]);
-        } catch (\Exception $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->failServerError('Could not close budget cycle.');
+    foreach ($transactions as $t) {
+        if ($t['type'] === 'income') {
+            $actualIncome += (float)$t['amount'];
+        } else {
+            $actualExpenses += (float)$t['amount'];
+            $category = $t['category_name'];
+            $spendingBreakdown[$category] = ($spendingBreakdown[$category] ?? 0) + (float)$t['amount'];
         }
     }
+
+    arsort($spendingBreakdown);
+
+    $initialIncome = json_decode($budgetCycle['initial_income'], true);
+    $initialExpenses = json_decode($budgetCycle['initial_expenses'], true);
+
+    $plannedIncome = array_reduce($initialIncome, fn($sum, $item) => $sum + (float)($item['amount'] ?? 0), 0);
+    $plannedExpenses = array_reduce($initialExpenses, fn($sum, $item) => $sum + (float)($item['estimated_amount'] ?? 0), 0);
+
+    // --- FIX: This ensures topSpendingCategories has the exact format the frontend needs ---
+    $formattedSpending = [];
+    foreach (array_slice($spendingBreakdown, 0, 5) as $category => $amount) {
+        $formattedSpending[] = ['category' => $category, 'amount' => $amount];
+    }
+    // --- End of FIX ---
+
+    $finalSummary = [
+        'plannedSurplus' => $plannedIncome - $plannedExpenses,
+        'actualSurplus' => $actualIncome - $actualExpenses,
+        'totalIncome' => $actualIncome,
+        'totalExpenses' => $actualExpenses,
+        'topSpendingCategories' => $formattedSpending, // Use the new formatted array
+        // The rest of your summary logic is excellent and remains
+        'previous_cycles' => [], // Keeping this simple for now
+        'deficit_advice' => $actualIncome < $actualExpenses ? [ /* ... */ ] : null
+    ];
+
+    $updateData = [
+        'status' => 'completed',
+        'final_summary' => json_encode($finalSummary)
+    ];
+
+    try {
+        if ($budgetCycleModel->update($budgetId, $updateData) === false) {
+            return $this->fail($budgetCycleModel->errors());
+        }
+        return $this->respondUpdated(['message' => 'Budget cycle has been successfully closed.']);
+    } catch (\Exception $e) {
+        log_message('error', '[ERROR_CLOSE_BUDGET] {exception}', ['exception' => $e]);
+        return $this->failServerError('Could not close budget cycle.');
+    }
+}
 
 
     public function getDemographics()

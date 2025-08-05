@@ -1,10 +1,7 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Import hooks
 import { useParams, useNavigate } from 'react-router-dom';
 
-// FIX: Remove props
 function BudgetReviewPage() {
-    // FIX: Initialize hooks
     const { budgetId } = useParams();
     const navigate = useNavigate();
 
@@ -39,7 +36,7 @@ function BudgetReviewPage() {
 
     if (loading) return <div className="text-white p-8 text-center">Loading your review...</div>;
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
-    if (!budget) return <div className="text-white p-8 text-center">Budget review not found.</div>;
+    if (!budget || !budget.final_summary) return <div className="text-white p-8 text-center">Budget review not found.</div>;
 
     const summary = budget.final_summary;
 
@@ -52,9 +49,53 @@ function BudgetReviewPage() {
                 </p>
             </header>
             
+            {/* --- FIX: Restored the missing JSX for the summary cards --- */}
             <div className="grid grid-cols-1 md:grid-cols-2 gap-8 max-w-4xl mx-auto">
-                {/* Card rendering... same as before */}
+                {/* Final Summary Card */}
+                <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+                    <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Final Summary</h2>
+                    <div className="space-y-3">
+                        <div className="flex justify-between">
+                            <span className="text-gray-400">Planned Surplus:</span>
+                            <span className="font-semibold">${summary.plannedSurplus.toFixed(2)}</span>
+                        </div>
+                        <div className="flex justify-between">
+                            <span className="text-gray-400">Actual Surplus:</span>
+                            <span className={`font-bold text-lg ${summary.actualSurplus >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                                ${summary.actualSurplus.toFixed(2)}
+                            </span>
+                        </div>
+                    </div>
+                </div>
+
+                {/* Spending Breakdown Card */}
+                <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+                     <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Top Spending</h2>
+                     <ul className="space-y-2">
+                        {summary.topSpendingCategories.map((item) => (
+                             <li key={item.category} className="flex justify-between">
+                                <span className="text-gray-400 capitalize">{item.category.replace(/_/g, ' ')}:</span>
+                                <span>${parseFloat(item.amount).toFixed(2)}</span>
+                            </li>
+                        ))}
+                     </ul>
+                </div>
             </div>
+
+            {/* Smart Suggestion Card */}
+            <div className="max-w-4xl mx-auto mt-8 bg-gray-800 p-6 rounded-lg shadow-xl">
+                 <h2 className="text-2xl font-bold mb-4">Suggestions</h2>
+                 {summary.actualSurplus >= 0 ? (
+                     <p className="text-green-300">
+                         Great job finishing with a surplus! This is a perfect opportunity to move ${summary.actualSurplus.toFixed(2)} into a savings account to build your emergency fund.
+                     </p>
+                 ) : (
+                     <p className="text-yellow-300">
+                         It looks like you ended with a small deficit. Don't worry, it happens! Review your top spending categories to see where you might be able to cut back next time. Consider a side hustle like DoorDash or Uber for a quick income boost.
+                     </p>
+                 )}
+            </div>
+            {/* --- End of restored section --- */}
 
             <div className="text-center mt-8">
                 <button onClick={() => navigate('/dashboard')} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg">

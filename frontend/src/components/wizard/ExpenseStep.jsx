@@ -1,4 +1,5 @@
-import React, { useState, useEffect, useMemo } from 'react';
+import React, { useState, useEffect, useMemo, useRef } from 'react';
+import { getDayWithOrdinal } from '../utils/formatters'; // Import our new helper
 
 function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {} }) {
     const [formState, setFormState] = useState({
@@ -10,6 +11,8 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     
     const [allExpenses, setAllExpenses] = useState([]);
     const [selectedExpenses, setSelectedExpenses] = useState([]);
+    
+    const inputRefs = useRef([]); // Ref for tab order
 
     useEffect(() => {
         const initialSuggestions = suggestions.map(s => ({ ...s, estimated_amount: s.estimated_amount || '' }));
@@ -46,7 +49,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
         );
         setSelectedExpenses(updatedSelected);
-        setAllExpenses(prev =>
+         setAllExpenses(prev =>
             prev.map(item =>
                 item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
             )
@@ -78,11 +81,14 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
             
-            // --- FIX: This logic adds the new item to the state so it appears in the list ---
-            const newExpense = { ...recurringData, id: data.id, estimated_amount: formState.amount };
+            const newExpense = {
+                ...recurringData,
+                id: data.id,
+                due_date: recurringData.dueDate,
+                estimated_amount: formState.amount
+            };
             setAllExpenses(prev => [...prev, newExpense]);
             setSelectedExpenses(prev => [...prev, newExpense]);
-            // --- End of FIX ---
 
             setFormState({
                 label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
@@ -94,6 +100,19 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             setLoading(false);
         }
     };
+    
+    const handleKeyDown = (e, index) => {
+        if (e.key === 'Tab' && !e.shiftKey) {
+            const nextEnabledInputIndex = filteredSuggestions.findIndex((exp, i) =>
+                i > index && selectedExpenses.some(item => item.id === exp.id)
+            );
+
+            if (nextEnabledInputIndex !== -1) {
+                e.preventDefault();
+                inputRefs.current[nextEnabledInputIndex]?.focus();
+            }
+        }
+    };
 
     const handleNext = () => { onComplete(selectedExpenses); };
     
@@ -102,12 +121,13 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 3: Confirm Recurring Expenses</h2>
+
             {filteredSuggestions.length > 0 && (
                  <div className="mb-6">
                     <h3 className="font-semibold mb-2">Suggested Recurring Expenses</h3>
                     <p className="text-sm text-gray-400 mb-2">Check the box for each bill you expect this period and enter the amount you plan to pay.</p>
                     <div className="space-y-3 bg-gray-700 p-4 rounded-lg">
-                        {filteredSuggestions.map(exp => {
+                        {filteredSuggestions.map((exp, index) => {
                              const isSelected = selectedExpenses.some(item => item.id === exp.id);
                              const selectedItem = selectedExpenses.find(item => item.id === exp.id) || exp;
                             return (
@@ -121,11 +141,18 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                                     </label>
                                     <div className="col-span-7">
                                         <p className="font-semibold">{exp.label}</p>
-                                        <p className="text-xs text-gray-400 capitalize">{exp.category} (Due: {exp.due_date})</p>
+                                        <div className="text-xs text-gray-400 flex items-center gap-2">
+                                            <span className="capitalize">{exp.category}</span>
+                                            {exp.due_date && <span>(Due: {getDayWithOrdinal(parseInt(exp.due_date, 10))})</span>}
+                                            {exp.principal_balance && <span className="hidden sm:inline">(Bal: ${exp.principal_balance})</span>}
+                                            {exp.interest_rate && <span className="hidden sm:inline">({exp.interest_rate}%)</span>}
+                                        </div>
                                     </div>
                                     <div className="col-span-4 flex items-center">
                                          <span className="mr-1 text-gray-400">$</span>
                                          <input
+                                            ref={el => inputRefs.current[index] = el}
+                                            onKeyDown={e => handleKeyDown(e, index)}
                                             type="number"
                                             step="0.01"
                                             placeholder="0.00"
@@ -155,6 +182,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                     <option value="insurance">Insurance</option>
                     <option value="subscription">Subscription</option>
                 </select>
+
                 {formState.category === 'loan' && (
                     <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                         <h4 className="font-semibold text-gray-300">Loan Details (Optional)</h4>
@@ -173,6 +201,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                         <input type="number" step="0.01" name="interest_rate" value={formState.interest_rate} onChange={handleFormChange} placeholder="Interest Rate (%)" className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"/>
                     </div>
                 )}
+                
                 <button type="submit" disabled={loading} className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500">
                     {loading ? 'Adding...' : 'Add Expense'}
                 </button>

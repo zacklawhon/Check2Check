@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import ConfirmationModal from './ConfirmationModal';
 import ExpenseDetailModal from './ExpenseDetailModal';
+import { getDayWithOrdinal } from './utils/formatters'; // Import our new helper function
 
 function RecurringExpenseItem({ item, budgetId, onUpdate }) {
     const [loading, setLoading] = useState(false);
@@ -29,9 +30,8 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         }
     };
 
-    // --- FIX: Restored the logic for the handleMarkPaid function ---
     const handleMarkPaid = async (e) => {
-        e.stopPropagation(); // Prevent the detail modal from opening
+        e.stopPropagation();
         setLoading(true);
         setError('');
         try {
@@ -41,12 +41,11 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                 credentials: 'include',
                 body: JSON.stringify({ label: item.label, amount: item.estimated_amount })
             });
-
             if (!response.ok) {
                 const data = await response.json();
                 throw new Error(data.message || 'Failed to mark as paid.');
             }
-            onUpdate(); // Refresh the budget data
+            onUpdate();
         } catch (err) {
             setError(err.message);
         } finally {
@@ -54,7 +53,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         }
     };
     
-    // --- FIX: Restored the logic for the handleDeleteConfirm function ---
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
         try {
@@ -64,7 +62,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                 credentials: 'include',
                 body: JSON.stringify({ label: item.label })
             });
-
             if (!response.ok) {
                 const data = await response.json();
                 throw new Error(data.message || 'Failed to remove expense.');
@@ -86,7 +83,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                 <form onSubmit={handleSetAmount} className="flex justify-between items-center gap-4">
                     <div className="flex-grow">
                         <span className="font-semibold">{item.label}</span>
-                        <div className="text-xs text-gray-400 capitalize">{item.category} (Due: {item.due_date})</div>
+                        <div className="text-xs text-gray-400 capitalize">{item.category} (Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</div>
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-gray-400">$</span>
@@ -117,9 +114,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
             >
                 <div>
                     <span className={`${item.is_paid ? 'line-through' : ''}`}>{item.label}</span>
-                    <span className="text-xs text-gray-400 block capitalize">
-                        {item.category} {item.due_date ? `(Due: ${item.due_date})` : ''}
-                    </span>
+                    {/* --- FIX: This section now formats the due date and shows optional data --- */}
+                    <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+                        <span className="capitalize">{item.category}</span>
+                        {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
+                        {item.principal_balance && <span className="hidden sm:inline">(Bal: ${item.principal_balance})</span>}
+                        {item.interest_rate && <span className="hidden sm:inline">({item.interest_rate}%)</span>}
+                    </div>
                 </div>
                 <div className="flex items-center gap-2">
                     <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>

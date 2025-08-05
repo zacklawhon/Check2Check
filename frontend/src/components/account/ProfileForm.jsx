@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import toast from 'react-hot-toast';
 
 function ProfileForm({ user, onUpdate }) {
     const [formData, setFormData] = useState({});
@@ -24,25 +25,27 @@ function ProfileForm({ user, onUpdate }) {
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
-        setError('');
-        setSuccess('');
-        try {
-            const response = await fetch('/api/account/profile', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to update profile.');
-            setSuccess('Profile updated successfully!');
-            onUpdate();
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-            setTimeout(() => setSuccess(''), 3000);
-        }
+
+        const promise = fetch('/api/account/profile', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(formData)
+        }).then(response => {
+            if (!response.ok) {
+                return response.json().then(data => Promise.reject(data.message || 'Failed to update.'));
+            }
+            return response.json();
+        });
+
+        await toast.promise(promise, {
+            loading: 'Saving Profile...',
+            success: 'Profile updated successfully!',
+            error: (err) => `Error: ${err.toString()}`,
+        });
+        
+        onUpdate();
+        setLoading(false);
     };
 
     return (
@@ -74,8 +77,6 @@ function ProfileForm({ user, onUpdate }) {
                         {loading ? 'Saving...' : 'Save Profile'}
                     </button>
                 </div>
-                {error && <p className="text-red-400 text-sm mt-2 text-right">{error}</p>}
-                {success && <p className="text-green-400 text-sm mt-2 text-right">{success}</p>}
             </form>
         </div>
     );
