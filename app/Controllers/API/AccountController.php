@@ -159,29 +159,6 @@ class AccountController extends BaseController
         }
     }
     
-    public function setExperienceMode()
-{
-    $userId = session()->get('userId');
-    $mode = $this->request->getJsonVar('mode');
-
-    // FIX: Add 'power' to the list of valid modes and reject any invalid value.
-    if (!in_array($mode, ['guided', 'power'])) {
-        return $this->failValidationErrors('Invalid experience mode provided.');
-    }
-
-    $userModel = new \App\Models\UserModel();
-    
-    try {
-        if ($userModel->update($userId, ['experience_mode' => $mode]) === false) {
-            return $this->fail($userModel->errors());
-        }
-        return $this->respond(['status' => 'success', 'message' => 'Experience mode updated.']);
-    } catch (\Exception $e) {
-        log_message('error', 'Error in setExperienceMode: ' . $e->getMessage());
-        return $this->failServerError('An unexpected error occurred while updating your settings.');
-    }
-}
-    
     public function updateFinancialTools()
     {
         $userId = session()->get('userId');

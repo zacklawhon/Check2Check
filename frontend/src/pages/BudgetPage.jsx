@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate, useParams } from 'react-router-dom';
 import VariableExpenseItem from '../components/VariableExpenseItem';
 import RecurringExpenseItem from '../components/RecurringExpenseItem';
 import AddItemModal from '../components/AddItemModal';
@@ -6,7 +7,12 @@ import EditIncomeModal from '../components/EditIncomeModal';
 import ConfirmationModal from '../components/ConfirmationModal';
 import EditDatesModal from '../components/EditDatesModal';
 
-function BudgetPage({ budgetId, navigate }) {
+// FIX: The component no longer receives props like 'budgetId'
+function BudgetPage() {
+    // FIX: budgetId is correctly retrieved from the URL using the hook
+    const { budgetId } = useParams();
+    const navigate = useNavigate();
+
     const [budget, setBudget] = useState(null);
     const [transactions, setTransactions] = useState([]);
     const [user, setUser] = useState(null);
@@ -53,6 +59,8 @@ function BudgetPage({ budgetId, navigate }) {
         }
     };
 
+    // FIX: The dependency array now correctly uses the 'budgetId' from the useParams hook,
+    // which will trigger the data fetch when the page loads.
     useEffect(() => {
         fetchBudgetData();
     }, [budgetId]);
@@ -266,7 +274,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        if (!hasSavings || !zipCode) {
+        if (hasSavings === null || !zipCode) {
             setError('Please answer all required questions.');
             return;
         }
@@ -279,7 +287,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    hasSavings: hasSavings,
+                    hasSavings: hasSavings === 'true',
                     zipCode: zipCode,
                     initialBalance: initialBalance
                 })

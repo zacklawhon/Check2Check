@@ -646,31 +646,6 @@ class BudgetController extends BaseController
         return $this->respond($demographics);
     }
 
-    public function setExperienceMode()
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        $userModel = new UserModel();
-
-        $rules = [
-            'mode' => 'required|in_list[simple,guided]'
-        ];
-
-        if (!$this->validate($rules)) {
-            return $this->fail($this->validator->getErrors());
-        }
-
-        $mode = $this->request->getVar('mode');
-
-        try {
-            $userModel->update($userId, ['experience_mode' => $mode]);
-            return $this->respondUpdated(['message' => 'Experience mode updated successfully.']);
-        } catch (\Exception $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->failServerError('Could not update experience mode.');
-        }
-    }
-
     public function getExperienceMode()
     {
         $session = session();
@@ -957,68 +932,7 @@ class BudgetController extends BaseController
             return $this->failServerError('Could not update expense details.');
         }
     }
-    
-    public function createFromTemplate()
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        if (!$userId) { return $this->failUnauthorized('User not logged in.'); }
 
-        $json = $this->request->getJSON();
-        $startDate = $json->start_date ?? null;
-        $endDate = $json->end_date ?? null;
-        if (!$startDate || !$endDate) { return $this->failValidationErrors('Start and end dates are required.'); }
-
-        $incomeModel = new IncomeSourceModel();
-        $expenseModel = new RecurringExpenseModel();
-        $spendingCategoryModel = new LearnedSpendingCategoryModel();
-        $budgetModel = new BudgetCycleModel();
-
-        $incomeSources = $incomeModel->where('user_id', $userId)->where('is_active', 1)->findAll();
-        $allRecurringExpenses = $expenseModel->where('user_id', $userId)->where('is_active', 1)->findAll();
-        $learnedCategories = $spendingCategoryModel->where('user_id', $userId)->findAll();
-
-        $start = new \DateTime($startDate);
-        $end = new \DateTime($endDate);
-
-        $filteredRecurring = array_filter($allRecurringExpenses, function($exp) use ($start, $end) {
-            if (empty($exp['due_date'])) return false;
-            $dueDateDay = (int)$exp['due_date'];
-            $current = clone $start;
-            while ($current <= $end) {
-                if ((int)$current->format('d') === $dueDateDay) return true;
-                $current->modify('+1 day');
-            }
-            return false;
-        });
-
-        // This mapping step is what correctly formats the bills for the budget
-        $formattedRecurring = array_map(function($expense) {
-            return array_merge($expense, [
-                'type' => 'recurring',
-                'estimated_amount' => '', // Amount is blank for user input
-                'is_paid' => false
-            ]);
-        }, $filteredRecurring);
-
-        $variableExpenses = array_map(function($category) {
-            return ['id' => 'var-' . $category['id'], 'label' => $category['name'], 'type' => 'variable', 'estimated_amount' => ''];
-        }, $learnedCategories);
-        
-        $formattedIncome = array_map(function($income) {
-            return array_merge($income, ['amount' => '']);
-        }, $incomeSources);
-
-        $newBudgetId = $budgetModel->insert([
-            'user_id' => $userId, 'start_date' => $startDate, 'end_date' => $endDate, 'status' => 'active',
-            'initial_income' => json_encode(array_values($formattedIncome)),
-            'initial_expenses' => json_encode(array_merge(array_values($formattedRecurring), $variableExpenses)),
-            'final_summary' => null
-        ]);
-
-        if (!$newBudgetId) { return $this->failServerError('Could not create budget from template.'); }
-        return $this->respondCreated(['id' => $newBudgetId]);
-    }
 
     // --- NEW: Method to update a planned income amount ---
     public function updateInitialIncomeAmount($budgetId)
@@ -1049,84 +963,6 @@ class BudgetController extends BaseController
         }
         return $this->fail('Income item not found in this budget.');
     }
-    
-    public function updateRecurringExpenseAmount($budgetId)
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetModel = new BudgetCycleModel();
-        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) { return $this->failNotFound('Budget cycle not found.'); }
-
-        $idToUpdate = $this->request->getVar('id');
-        $newAmount = $this->request->getVar('amount');
-        if (!is_numeric($newAmount)) { return $this->failValidationErrors('Amount must be a number.'); }
-
-        $expenseItems = json_decode($budget['initial_expenses'], true);
-        $updated = false;
-        foreach ($expenseItems as &$item) {
-            if (isset($item['id']) && $item['id'] == $idToUpdate && $item['type'] === 'recurring') {
-                $item['estimated_amount'] = $newAmount;
-                $updated = true;
-                break;
-            }
-        }
-
-        if ($updated) {
-            $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenseItems)]);
-            return $this->respondUpdated(['message' => 'Expense amount updated.']);
-        }
-        return $this->fail('Recurring expense not found in this budget.');
-    }
-    
-    public function setInitialIncomeAmount($budgetId)
-{
-    $session = session();
-    $userId = $session->get('userId');
-    $budgetModel = new BudgetCycleModel();
-    $transactionModel = new TransactionModel();
-
-    $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-    if (!$budget) { return $this->failNotFound('Budget cycle not found.'); }
-
-    $idToUpdate = $this->request->getVar('id');
-    $newAmount = $this->request->getVar('amount');
-    if (!is_numeric($newAmount) || $newAmount <= 0) { 
-        return $this->failValidationErrors('Amount must be a positive number.'); 
-    }
-
-    $incomeItems = json_decode($budget['initial_income'], true);
-    $itemFound = false;
-    $itemLabel = '';
-
-    // Step 1: Update the amount in the initial_income JSON array
-    foreach ($incomeItems as &$item) {
-        if ($item['id'] == $idToUpdate) {
-            $item['amount'] = $newAmount;
-            $itemLabel = $item['label'];
-            $itemFound = true;
-            break;
-        }
-    }
-
-    if (!$itemFound) {
-        return $this->fail('Income item not found in this budget.');
-    }
-
-    $budgetModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
-
-    // Step 2: Log the corresponding transaction
-    $transactionModel->logTransaction(
-        $userId,
-        $budgetId,
-        'income',
-        'Initial Income', // Use a consistent category
-        (float)$newAmount,
-        $itemLabel // Use the item's label as the description
-    );
-
-    return $this->respondUpdated(['message' => 'Income amount set and transaction logged.']);
-}
 
 
 }

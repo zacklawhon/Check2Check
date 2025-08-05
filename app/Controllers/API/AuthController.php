@@ -45,7 +45,7 @@ class AuthController extends BaseController
             $token = bin2hex(random_bytes(32));
             $expiresAt = date('Y-m-d H:i:s', time() + (15 * 60));
             $authTokenModel->insert(['user_id' => $userId, 'token' => $token, 'expires_at' => $expiresAt]);
-            
+
             $emailService = Services::email();
 
             if (!$user || !$hasBudgets) {

@@ -28,7 +28,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         // User Profile Routes
         $routes->group('user', static function ($routes) {
             $routes->get('profile', 'UserController::getProfile');
-            $routes->post('set-experience-mode', 'UserController::setExperienceMode');
             $routes->post('update-demographics', 'UserController::updateDemographics');
             $routes->post('update-financial-profile', 'UserController::updateFinancialProfile');
         });
@@ -56,10 +55,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('close/(:num)', 'BudgetController::closeCycle/$1');
             $routes->post('initialize-savings', 'BudgetController::initializeSavings');
             $routes->post('log-savings', 'BudgetController::logSavings');
-            $routes->post('create-from-template', 'BudgetController::createFromTemplate');
             $routes->post('update-income-amount/(:num)', 'BudgetController::updateInitialIncomeAmount/$1');
-            $routes->post('update-recurring-amount/(:num)', 'BudgetController::updateRecurringExpenseAmount/$1');
-            $routes->post('set-initial-income/(:num)', 'BudgetController::setInitialIncomeAmount/$1');
         });
         
         $routes->group('expenses', static function ($routes) {
@@ -78,7 +74,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');
             $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
             $routes->post('profile', 'AccountController::updateProfile');
-            $routes->post('experience-mode', 'AccountController::setExperienceMode');
             $routes->post('financial-tools', 'AccountController::updateFinancialTools');
             $routes->get('financial-tools', 'AccountController::getFinancialTools');
             $routes->post('request-email-change', 'AccountController::requestEmailChange');

@@ -35,7 +35,7 @@ function DashboardPage() {
   if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
   if (!user) return <div className="text-red-500 p-8 text-center">Could not find user profile.</div>;
 
-  // The logic for a new user is still to show the wizard
+  // If a user has no budgets, always send them to the wizard.
   if (budgetCycles.length === 0) {
       return <GuidedWizard user={user} />;
   }

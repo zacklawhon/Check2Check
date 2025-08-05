@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useMemo } from 'react';
 
-function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates }) {
-    // State for the "add new" form
+function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {} }) {
     const [formState, setFormState] = useState({
         label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
         interest_rate: '', maturity_date: '', outstanding_balance: ''
@@ -13,7 +12,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     const [selectedExpenses, setSelectedExpenses] = useState([]);
 
     useEffect(() => {
-        const initialSuggestions = suggestions.map(s => ({ ...s, estimated_amount: '' }));
+        const initialSuggestions = suggestions.map(s => ({ ...s, estimated_amount: s.estimated_amount || '' }));
         setAllExpenses(initialSuggestions);
         setSelectedExpenses(existingExpenses.map(e => ({ ...e, estimated_amount: e.estimated_amount || '' })));
     }, [suggestions, existingExpenses]);
@@ -43,16 +42,10 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     };
     
     const handleAmountChange = (expenseId, newAmount) => {
-        setSelectedExpenses(prev => 
-            prev.map(item => 
-                item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
-            )
+        const updatedSelected = selectedExpenses.map(item => 
+            item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
         );
-        setAllExpenses(prev =>
-            prev.map(item =>
-                item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
-            )
-        );
+        setSelectedExpenses(updatedSelected);
     };
 
     const handleFormChange = (e) => {
@@ -85,7 +78,6 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             setAllExpenses(prev => [...prev, newExpense]);
             setSelectedExpenses(prev => [...prev, newExpense]);
 
-            // Reset form
             setFormState({
                 label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
                 interest_rate: '', maturity_date: '', outstanding_balance: ''
@@ -99,7 +91,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
 
     const handleNext = () => { onComplete(selectedExpenses); };
     
-    const isNextDisabled = selectedExpenses.some(item => !item.estimated_amount || parseFloat(item.estimated_amount) <= 0);
+    const isNextDisabled = selectedExpenses.length > 0 && selectedExpenses.some(item => !item.estimated_amount || parseFloat(item.estimated_amount) <= 0);
 
     return (
         <div>
@@ -132,7 +124,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                                             type="number"
                                             step="0.01"
                                             placeholder="0.00"
-                                            value={isSelected ? selectedItem.estimated_amount : ''}
+                                            value={selectedItem.estimated_amount}
                                             onChange={(e) => handleAmountChange(exp.id, e.target.value)}
                                             disabled={!isSelected}
                                             className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-700 disabled:opacity-50"/>
@@ -159,7 +151,6 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                     <option value="subscription">Subscription</option>
                 </select>
 
-                {/* FIX: Replaced placeholders with actual input fields */}
                 {formState.category === 'loan' && (
                     <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                         <h4 className="font-semibold text-gray-300">Loan Details (Optional)</h4>

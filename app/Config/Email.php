@@ -7,7 +7,7 @@ use CodeIgniter\Config\BaseConfig;
 class Email extends BaseConfig
 {
     // FIX: These properties now read from your .env file
-    public string $fromEmail = 'test@example.com';
+    public string $fromEmail = 'no-reply@check2check.org';
     public string $fromName = 'Check2Check System';
     public string $recipients = '';
 

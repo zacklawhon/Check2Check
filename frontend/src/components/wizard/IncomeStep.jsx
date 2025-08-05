@@ -1,18 +1,19 @@
 import React, { useState, useEffect } from 'react';
 
 function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] }) {
-    // State for the "add new" form
     const [sourceName, setSourceName] = useState('');
     const [amount, setAmount] = useState('');
     const [frequency, setFrequency] = useState('weekly');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
-
-    // State to manage the list of selected income sources
     const [selectedIncome, setSelectedIncome] = useState([]);
 
     useEffect(() => {
-        setSelectedIncome(existingIncome);
+        const preparedIncome = existingIncome.map(item => ({
+            ...item,
+            amount: item.amount || ''
+        }));
+        setSelectedIncome(preparedIncome);
     }, [existingIncome]);
 
     const handleSelectionChange = (source, isChecked) => {
@@ -33,7 +34,6 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
 
     const handleSubmit = async (e) => {
         e.preventDefault();
-        // Client-side validation for the 'add new' form
         if (!sourceName || !amount || parseFloat(amount) <= 0) {
             setError('Please provide a valid name and amount.');
             return;
@@ -46,7 +46,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ label: sourceName, frequency }) // Amount is not saved here
+                body: JSON.stringify({ label: sourceName, frequency })
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to add income source.');
@@ -68,7 +68,6 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         onComplete(selectedIncome);
     };
 
-    // FIX: Check if any selected item has an invalid amount.
     const isNextDisabled = selectedIncome.length === 0 || selectedIncome.some(item => !item.amount || parseFloat(item.amount) <= 0);
     
     return (
