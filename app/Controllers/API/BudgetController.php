@@ -248,7 +248,7 @@ class BudgetController extends BaseController
             'label' => 'required|string',
             'amount' => 'required|decimal',
             'frequency' => 'permit_empty|string',
-            'save_recurring' => 'permit_empty|boolean'
+            'save_recurring' => 'permit_empty|in_list[1,0,true,false]'
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
@@ -299,55 +299,57 @@ class BudgetController extends BaseController
 
     public function addExpenseToCycle($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetCycleModel = new BudgetCycleModel();
-        $recurringExpenseModel = new RecurringExpenseModel();
+    $session = session();
+    $userId = $session->get('userId');
+    $budgetCycleModel = new BudgetCycleModel();
+    $transactionModel = new TransactionModel();
+    $recurringExpenseModel = new recurringExpenseModel();
 
-        $budgetCycle = $budgetCycleModel->getCycleForUser($cycleId, $userId);
-        if (!$budgetCycle) {
-            return $this->failNotFound('Budget cycle not found.');
-        }
-
-        $json = $this->request->getJSON(true);
-
-        // --- Data for the recurring_expenses table ---
-        $recurringData = [
-            'user_id' => $userId,
-            'label' => $json['label'],
-            'category' => $json['category'],
-            'due_date' => $json['due_date'] ?? null,
-        ];
-
-        // FIX: Add category-specific fields to the saved record
-        if ($recurringData['category'] === 'loan') {
-            $recurringData['principal_balance'] = $json['principal_balance'] ?? null;
-            $recurringData['interest_rate'] = $json['interest_rate'] ?? null;
-            $recurringData['maturity_date'] = $json['maturity_date'] ?? null;
-        } elseif ($recurringData['category'] === 'credit-card') {
-            $recurringData['outstanding_balance'] = $json['outstanding_balance'] ?? null;
-            $recurringData['interest_rate'] = $json['interest_rate'] ?? null;
-        }
-        
-        $recurringExpenseModel->save($recurringData);
-
-        // --- Data for the current budget cycle's initial_expenses JSON ---
-        $newExpenseForCycle = [
-            'label' => $json['label'],
-            'estimated_amount' => $json['amount'], // The amount for THIS cycle
-            'category' => $json['category'],
-            'type' => 'recurring',
-            'due_date' => $json['due_date'] ?? null,
-            'is_paid' => false,
-        ];
-
-        $expensesArray = json_decode($budgetCycle['initial_expenses'], true);
-        $expensesArray[] = $newExpenseForCycle;
-        $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expensesArray)]);
-
-        return $this->respondUpdated(['message' => 'New recurring bill added successfully.']);
+    $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+    if (!$budgetCycle) {
+        return $this->failNotFound('Budget cycle not found.');
     }
 
+    $rules = [
+        'label' => 'required|string',
+        'estimated_amount' => 'required|decimal',
+        'due_date' => 'permit_empty|integer',
+        'category' => 'permit_empty|string',
+        'save_recurring' => 'permit_empty|in_list[1,0,true,false]'
+    ];
+    if (!$this->validate($rules)) {
+        return $this->fail($this->validator->getErrors());
+    }
+
+    $newExpense = [
+        'label' => $this->request->getVar('label'),
+        'estimated_amount' => $this->request->getVar('estimated_amount'),
+        'due_date' => $this->request->getVar('due_date'),
+        'category' => $this->request->getVar('category') ?? 'other',
+        'type' => 'recurring',
+        'is_paid' => false
+    ];
+
+    if ($this->request->getVar('save_recurring')) {
+        $dataToSave = [
+            'user_id' => $userId,
+            'label' => $newExpense['label'],
+            'due_date' => $newExpense['due_date'],
+            'category' => $newExpense['category']
+        ];
+        // This logic correctly prevents duplicates
+        $exists = $recurringExpenseModel->where('user_id', $userId)->where('label', $dataToSave['label'])->first();
+        if (!$exists) {
+            $recurringExpenseModel->save($dataToSave);
+        }
+    }
+
+    $expenseArray = json_decode($budgetCycle['initial_expenses'], true);
+    $expenseArray[] = $newExpense;
+    $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenseArray)]);
+
+    return $this->respondUpdated(['message' => 'Recurring expense added successfully.']);
+    }
     public function removeExpenseFromCycle($cycleId)
     {
         $session = session();
@@ -764,9 +766,9 @@ public function closeCycle($budgetId)
 {
     $session = session();
     $userId = $session->get('userId');
-    $incomeModel = new \App\Models\IncomeSourceModel();
-    $expenseModel = new \App\Models\RecurringExpenseModel();
-    $spendingCategoryModel = new \App\Models\LearnedSpendingCategoryModel();
+    $incomeModel = new IncomeSourceModel();
+    $expenseModel = new RecurringExpenseModel();
+    $spendingCategoryModel = new LearnedSpendingCategoryModel();
 
     $lastIncome = $incomeModel->where('user_id', $userId)
                             ->where('is_active', 1)

@@ -48,7 +48,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                 label: formData.label,
                 amount: formData.amount,
                 frequency: formData.frequency,
-                save_recurring: formData.save_recurring
+                save_recurring: formData.save_recurring ? 1 : 0
             };
         } else if (type === 'variable') {
             url = `/api/budget/add-variable-expense/${budgetId}`;
@@ -57,13 +57,13 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                 amount: formData.amount
             };
         } else { // Default to 'recurring'
-            url = `/api/budget/add-recurring-expense/${budgetId}`;
+            url = `/api/budget/add-expense/${budgetId}`;
             body = {
                 label: formData.label,
                 due_date: formData.due_date,
                 estimated_amount: formData.amount,
                 category: formData.category,
-                save_recurring: formData.save_recurring
+                save_recurring: formData.save_recurring ? 1 : 0
             };
         }
 
