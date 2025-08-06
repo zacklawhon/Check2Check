@@ -123,14 +123,18 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
     const renderDetails = () => {
         const commonFields = (
             <div className="space-y-2">
-                <input 
-                    type="number" 
-                    name="interest_rate" 
-                    value={formData.interest_rate} 
-                    onChange={handleFormChange}
-                    placeholder="Interest Rate (%)" 
-                    className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
-                />
+                <div>
+                    <label htmlFor="interest_rate" className="block text-sm font-semibold mb-1 text-gray-400">Interest Rate (%)</label>
+                    <input 
+                        type="number" 
+                        name="interest_rate" 
+                        id="interest_rate"
+                        value={formData.interest_rate} 
+                        onChange={handleFormChange}
+                        placeholder="Interest Rate (%)" 
+                        className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
+                    />
+                </div>
             </div>
         );
 
@@ -138,9 +142,30 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
             case 'loan':
                 return isEditing ? (
                     <div className="space-y-2">
-                        <input type="number" name="principal_balance" value={formData.principal_balance} onChange={handleFormChange} placeholder="Principal Balance" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
+                        <div>
+                            <label htmlFor="principal_balance" className="block text-sm font-semibold mb-1 text-gray-400">Principal Balance</label>
+                            <input 
+                                type="number" 
+                                name="principal_balance" 
+                                id="principal_balance"
+                                value={formData.principal_balance} 
+                                onChange={handleFormChange} 
+                                placeholder="Principal Balance" 
+                                className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
+                            />
+                        </div>
                         {commonFields}
-                        <input type="date" name="maturity_date" value={formData.maturity_date} onChange={handleFormChange} className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
+                        <div>
+                            <label htmlFor="maturity_date" className="block text-sm font-semibold mb-1 text-gray-400">Maturity Date</label>
+                            <input 
+                                type="date" 
+                                name="maturity_date" 
+                                id="maturity_date"
+                                value={formData.maturity_date} 
+                                onChange={handleFormChange} 
+                                className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
+                            />
+                        </div>
                     </div>
                 ) : (
                     <div className="space-y-2 text-sm">
@@ -152,7 +177,18 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
             case 'credit-card':
                 return isEditing ? (
                      <div className="space-y-2">
-                        <input type="number" name="outstanding_balance" value={formData.outstanding_balance} onChange={handleFormChange} placeholder="Outstanding Balance" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"/>
+                        <div>
+                            <label htmlFor="outstanding_balance" className="block text-sm font-semibold mb-1 text-gray-400">Outstanding Balance</label>
+                            <input 
+                                type="number" 
+                                name="outstanding_balance" 
+                                id="outstanding_balance"
+                                value={formData.outstanding_balance} 
+                                onChange={handleFormChange} 
+                                placeholder="Outstanding Balance" 
+                                className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
+                            />
+                        </div>
                         {commonFields}
                     </div>
                 ) : (

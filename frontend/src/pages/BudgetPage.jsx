@@ -354,11 +354,25 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                     <label className="block text-sm font-semibold mb-2">Do you have a savings account?</label>
                     <div className="flex gap-4">
                         <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasSavings" value="true" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
+                            <input 
+                                type="radio" 
+                                name="hasSavings" 
+                                id="hasSavingsYes"
+                                value="true" 
+                                onChange={(e) => setHasSavings(e.target.value)} 
+                                className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"
+                            />
                             <span>Yes</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasSavings" value="false" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
+                            <input 
+                                type="radio" 
+                                name="hasSavings" 
+                                id="hasSavingsNo"
+                                value="false" 
+                                onChange={(e) => setHasSavings(e.target.value)} 
+                                className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"
+                            />
                             <span>No</span>
                         </label>
                     </div>

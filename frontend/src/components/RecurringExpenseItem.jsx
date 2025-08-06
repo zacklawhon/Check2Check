@@ -87,15 +87,19 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                     </div>
                     <div className="flex items-center gap-2">
                         <span className="text-gray-400">$</span>
-                        <input
-                            type="number"
-                            step="0.01"
-                            placeholder="0.00"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
-                            className="w-24 bg-gray-800 text-white rounded-md p-1 border border-gray-600"
-                            required
-                        />
+                        <div>
+                            <label htmlFor="expense-amount" className="block text-sm font-semibold mb-1 text-gray-400">Amount</label>
+                            <input
+                                type="number"
+                                step="0.01"
+                                id="expense-amount"
+                                placeholder="0.00"
+                                value={amount}
+                                onChange={(e) => setAmount(e.target.value)}
+                                className="w-24 bg-gray-800 text-white rounded-md p-1 border border-gray-600"
+                                required
+                            />
+                        </div>
                     </div>
                     <button type="submit" disabled={loading} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg disabled:bg-gray-500">
                         {loading ? '...' : 'Set'}

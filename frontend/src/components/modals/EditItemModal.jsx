@@ -62,62 +62,109 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                 <h2 className="text-2xl font-bold text-center mb-6 text-white">Edit Item</h2>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
-                    <input
-                        type="text"
-                        name="label"
-                        value={formData.label || ''}
-                        onChange={handleChange}
-                        placeholder="Name"
-                        required
-                        className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
-                    />
+                    <div>
+                        <label htmlFor="label" className="block text-sm text-gray-400 mb-1">Name</label>
+                        <input
+                            type="text"
+                            name="label"
+                            id="label"
+                            value={formData.label || ''}
+                            onChange={handleChange}
+                            placeholder="Name"
+                            required
+                            className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                        />
+                    </div>
 
                     {itemType === 'income' ? (
-                        <select 
-                            name="frequency" 
-                            value={formData.frequency || 'one-time'} 
-                            onChange={handleChange} 
-                            className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
-                        >
-                            <option value="one-time">One-Time</option>
-                            <option value="weekly">Weekly</option>
-                            <option value="bi-weekly">Bi-Weekly</option>
-                            <option value="monthly">Monthly</option>
-                        </select>
-                    ) : (
-                        <>
-                            <input 
-                                type="number" 
-                                name="due_date" 
-                                value={formData.due_date || ''} 
-                                onChange={handleChange} 
-                                placeholder="Due Day (e.g., 15)" 
-                                className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
-                            />
+                        <div>
+                            <label htmlFor="frequency" className="block text-sm text-gray-400 mb-1">Frequency</label>
                             <select 
-                                name="category" 
-                                value={formData.category || 'other'} 
+                                name="frequency" 
+                                id="frequency"
+                                value={formData.frequency || 'one-time'} 
                                 onChange={handleChange} 
                                 className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
                             >
-                                <option value="other">Other</option>
-                                <option value="housing">Housing</option>
-                                <option value="utilities">Utilities</option>
-                                <option value="loan">Loan</option>
-                                <option value="credit-card">Credit Card</option>
-                                <option value="insurance">Insurance</option>
-                                <option value="subscription">Subscription</option>
+                                <option value="one-time">One-Time</option>
+                                <option value="weekly">Weekly</option>
+                                <option value="bi-weekly">Bi-Weekly</option>
+                                <option value="monthly">Monthly</option>
                             </select>
+                        </div>
+                    ) : (
+                        <>
+                            <div>
+                                <label htmlFor="due_date" className="block text-sm text-gray-400 mb-1">Due Day</label>
+                                <input 
+                                    type="number" 
+                                    name="due_date" 
+                                    id="due_date"
+                                    value={formData.due_date || ''} 
+                                    onChange={handleChange} 
+                                    placeholder="Due Day (e.g., 15)" 
+                                    className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                />
+                            </div>
+                            <div>
+                                <label htmlFor="category" className="block text-sm text-gray-400 mb-1">Category</label>
+                                <select 
+                                    name="category" 
+                                    id="category"
+                                    value={formData.category || 'other'} 
+                                    onChange={handleChange} 
+                                    className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                >
+                                    <option value="other">Other</option>
+                                    <option value="housing">Housing</option>
+                                    <option value="utilities">Utilities</option>
+                                    <option value="loan">Loan</option>
+                                    <option value="credit-card">Credit Card</option>
+                                    <option value="insurance">Insurance</option>
+                                    <option value="subscription">Subscription</option>
+                                </select>
+                            </div>
 
                             {/* --- FIX: Added the conditional inputs for optional data --- */}
                             {formData.category === 'loan' && (
                                 <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                                     <h4 className="font-semibold text-gray-300">Loan Details (Optional)</h4>
-                                    <input type="number" step="0.01" name="principal_balance" value={formData.principal_balance || ''} onChange={handleChange} placeholder="Principal Balance" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"/>
-                                    <input type="number" step="0.01" name="interest_rate" value={formData.interest_rate || ''} onChange={handleChange} placeholder="Interest Rate (%)" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"/>
                                     <div>
-                                    <label className="block text-sm text-gray-400 mb-1">Maturity Date</label>
-                                    <input type="date" name="maturity_date" value={formData.maturity_date || ''} onChange={handleChange} className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"/>
+                                        <label htmlFor="principal_balance" className="block text-sm text-gray-400 mb-1">Principal Balance</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            name="principal_balance" 
+                                            id="principal_balance"
+                                            value={formData.principal_balance || ''} 
+                                            onChange={handleChange} 
+                                            placeholder="Principal Balance" 
+                                            className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="interest_rate_loan" className="block text-sm text-gray-400 mb-1">Interest Rate (%)</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            name="interest_rate" 
+                                            id="interest_rate_loan"
+                                            value={formData.interest_rate || ''} 
+                                            onChange={handleChange} 
+                                            placeholder="Interest Rate (%)" 
+                                            className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="maturity_date" className="block text-sm text-gray-400 mb-1">Maturity Date</label>
+                                        <input 
+                                            type="date" 
+                                            name="maturity_date" 
+                                            id="maturity_date"
+                                            value={formData.maturity_date || ''} 
+                                            onChange={handleChange} 
+                                            className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
+                                        />
                                     </div>
                                 </div>
                             )}
@@ -125,8 +172,32 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                             {formData.category === 'credit-card' && (
                                 <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                                     <h4 className="font-semibold text-gray-300">Credit Card Details (Optional)</h4>
-                                    <input type="number" step="0.01" name="outstanding_balance" value={formData.outstanding_balance || ''} onChange={handleChange} placeholder="Outstanding Balance" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"/>
-                                    <input type="number" step="0.01" name="interest_rate" value={formData.interest_rate || ''} onChange={handleChange} placeholder="Interest Rate (%)" className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"/>
+                                    <div>
+                                        <label htmlFor="outstanding_balance" className="block text-sm text-gray-400 mb-1">Outstanding Balance</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            name="outstanding_balance" 
+                                            id="outstanding_balance"
+                                            value={formData.outstanding_balance || ''} 
+                                            onChange={handleChange} 
+                                            placeholder="Outstanding Balance" 
+                                            className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="interest_rate_credit" className="block text-sm text-gray-400 mb-1">Interest Rate (%)</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            name="interest_rate" 
+                                            id="interest_rate_credit"
+                                            value={formData.interest_rate || ''} 
+                                            onChange={handleChange} 
+                                            placeholder="Interest Rate (%)" 
+                                            className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
+                                        />
+                                    </div>
                                 </div>
                             )}
                         </>

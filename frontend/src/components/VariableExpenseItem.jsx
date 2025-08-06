@@ -73,15 +73,19 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
                     <div className="flex items-center gap-2">
                         <form onSubmit={handleBudgetSet} className="flex items-center gap-2">
                             <span className="text-gray-400">$</span>
-                            <input
-                                type="number"
-                                step="0.01"
-                                value={budgetedAmount}
-                                onChange={(e) => setBudgetedAmount(e.target.value)}
-                                placeholder="0.00"
-                                className="bg-gray-600 w-24 text-white rounded-lg p-1 border border-gray-500 text-right focus:ring-2 focus:ring-indigo-500 focus:outline-none"
-                                required
-                            />
+                            <div>
+                                <label htmlFor="budgeted-amount" className="block text-sm font-semibold mb-1 text-gray-400">Budgeted Amount</label>
+                                <input
+                                    type="number"
+                                    step="0.01"
+                                    id="budgeted-amount"
+                                    value={budgetedAmount}
+                                    onChange={(e) => setBudgetedAmount(e.target.value)}
+                                    placeholder="0.00"
+                                    className="bg-gray-600 w-24 text-white rounded-lg p-1 border border-gray-500 text-right focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    required
+                                />
+                            </div>
                             <button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500">
                                 {loading ? '...' : 'Set'}
                             </button>
