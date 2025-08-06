@@ -30,6 +30,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->get('profile', 'UserController::getProfile');
             $routes->post('update-demographics', 'UserController::updateDemographics');
             $routes->post('update-financial-profile', 'UserController::updateFinancialProfile');
+            $routes->get('active-budget', 'UserController::getActiveBudget');
         });
 
         // Budget Routes

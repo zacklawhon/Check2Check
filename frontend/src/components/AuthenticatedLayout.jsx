@@ -1,10 +1,10 @@
 import React from 'react';
 import Header from './Header';
 
-function AuthenticatedLayout({ children, navigate }) {
+function AuthenticatedLayout({ children, activeBudget }) {
   return (
-    <div className="min-h-screen bg-gray-900 text-white">
-      <Header navigate={navigate} />
+    <div>
+      <Header activeBudget={activeBudget} />
       <main>
         {children}
       </main>

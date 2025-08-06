@@ -53,9 +53,9 @@ function FinancialToolsForm({ financialTools, onUpdate }) {
                 <div>
                     <label className="block text-gray-300 mb-2">What financial tools do you use?</label>
                     <div className="space-y-2">
-                        <label className="flex items-center gap-2"><input type="checkbox" name="has_checking_account" checked={tools.has_checking_account || false} onChange={handleCheckboxChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"/><span>Checking Account</span></label>
-                        <label className="flex items-center gap-2"><input type="checkbox" name="has_savings_account" checked={tools.has_savings_account || false} onChange={handleCheckboxChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"/><span>Savings Account</span></label>
-                        <label className="flex items-center gap-2"><input type="checkbox" name="has_credit_card" checked={tools.has_credit_card || false} onChange={handleCheckboxChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"/><span>Credit Card</span></label>
+                        <label className="flex items-center gap-2"><input type="checkbox" name="has_checking_account" checked={tools.has_checking_account || false} onChange={handleCheckboxChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"/><span className="text-gray-300">Checking Account</span></label>
+                        <label className="flex items-center gap-2"><input type="checkbox" name="has_savings_account" checked={tools.has_savings_account || false} onChange={handleCheckboxChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"/><span className="text-gray-300">Savings Account</span></label>
+                        <label className="flex items-center gap-2"><input type="checkbox" name="has_credit_card" checked={tools.has_credit_card || false} onChange={handleCheckboxChange} className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"/><span className="text-gray-300">Credit Card</span></label>
                     </div>
                 </div>
                 <div>

@@ -38,7 +38,7 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
 
         try {
             const response = await fetch(url, {
-                method: 'PUT',
+                method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify(formData)

@@ -126,4 +126,21 @@ class UserController extends BaseController
             return $this->failServerError('Could not update financial profile.');
         }
     }
+
+    public function getActiveBudget()
+{
+    $session = session();
+    $userId = $session->get('userId');
+    if (!$userId) {
+        return $this->failUnauthorized('Not logged in.');
+    }
+
+    $budgetModel = new \App\Models\BudgetCycleModel();
+    $activeBudget = $budgetModel->where('user_id', $userId)
+                                ->where('status', 'active')
+                                ->first();
+
+    // Respond with the budget data, or null if none is found
+    return $this->respond($activeBudget);
+}
 }

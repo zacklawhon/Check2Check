@@ -948,7 +948,7 @@ public function closeCycle($budgetId)
 {
     $session = session();
     $userId = $session->get('userId');
-    $budgetModel = new \App\Models\BudgetCycleModel();
+    $budgetModel = new BudgetCycleModel();
 
     $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
     if (!$budget) {
