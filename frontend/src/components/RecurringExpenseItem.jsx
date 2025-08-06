@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import ConfirmationModal from './ConfirmationModal';
-import ExpenseDetailModal from './ExpenseDetailModal';
+import ConfirmationModal from './modals/ConfirmationModal';
+import ExpenseDetailModal from './modals/ExpenseDetailModal';
 import { getDayWithOrdinal } from './utils/formatters'; // Import our new helper function
 
 function RecurringExpenseItem({ item, budgetId, onUpdate }) {

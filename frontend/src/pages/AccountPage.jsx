@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import ConfirmationModal from '../components/ConfirmationModal';
+import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditItemModal from '../components/modals/EditItemModal';
 import ProfileForm from '../components/account/ProfileForm';
 import FinancialToolsForm from '../components/account/FinancialToolsForm';
@@ -16,7 +16,7 @@ function AccountPage({ user: initialUser }) {
     const [itemToDelete, setItemToDelete] = useState(null);
 
     const fetchData = async () => {
-        if (!loading) setLoading(true); 
+        if (!loading) setLoading(true);
         try {
             const [itemsRes, userRes, toolsRes] = await Promise.all([
                 fetch('/api/account/recurring-items', { credentials: 'include' }),
@@ -25,11 +25,11 @@ function AccountPage({ user: initialUser }) {
             ]);
 
             if (!itemsRes.ok || !userRes.ok || !toolsRes.ok) throw new Error('Failed to fetch account data.');
-            
+
             const itemsData = await itemsRes.json();
             const userData = await userRes.json();
             const toolsData = await toolsRes.json();
-            
+
             setItems(itemsData);
             setUser(userData);
             setFinancialTools(toolsData);
@@ -65,7 +65,7 @@ function AccountPage({ user: initialUser }) {
             setItemToDelete(null);
         }
     };
-    
+
     const handleEditSuccess = () => {
         setEditingItem(null);
         fetchData();
@@ -79,7 +79,7 @@ function AccountPage({ user: initialUser }) {
     }, {});
 
     if (loading || !user || !financialTools) return <div className="text-center p-8 text-white">Loading...</div>;
-    
+
     return (
         <>
             <div className="container mx-auto p-4 md:p-8">
@@ -150,7 +150,7 @@ function AccountPage({ user: initialUser }) {
                 message={`Are you sure you want to deactivate "${itemToDelete?.label}"? It will no longer be suggested for new budgets.`}
             />
 
-            <EditItemModal 
+            <EditItemModal
                 isOpen={!!editingItem}
                 item={editingItem}
                 onClose={() => setEditingItem(null)}

@@ -31,26 +31,26 @@ class UserController extends BaseController
         $session = session();
         $userId = $session->get('userId');
 
-        $userModel = new \App\Models\UserModel();
+        $userModel = new UserModel();
         $user = $userModel->find($userId);
 
         if (!$user) {
             return $this->failNotFound('User not found.');
         }
-    
+
         // --- FIX: Add logic to count completed budgets ---
         $budgetModel = new \App\Models\BudgetCycleModel();
         $completedCount = $budgetModel->where('user_id', $userId)
-                                        ->where('status', 'completed')
-                                        ->countAllResults();
-    
+            ->where('status', 'completed')
+            ->countAllResults();
+
         // Add the count to the user data we send back
         $user['completed_budget_count'] = $completedCount;
         // --- End of FIX ---
 
         // Don't send the password hash to the frontend
         unset($user['password_hash']);
-    
+
         return $this->respond($user);
     }
 
@@ -71,7 +71,7 @@ class UserController extends BaseController
 
         return $this->respond(['status' => 'success', 'message' => 'Demographics updated.']);
     }
-    
+
     public function updateFinancialProfile()
     {
         $session = session();
@@ -97,14 +97,14 @@ class UserController extends BaseController
 
             $toolsModel = new UserFinancialToolsModel();
             $tools = $this->request->getVar('financial_tools') ?? [];
-            
+
             $toolsData = [
                 'user_id' => $userId,
                 'has_checking_account' => in_array('checking_account', $tools),
                 'has_savings_account' => in_array('savings_account', $tools),
                 'has_credit_card' => in_array('credit_card', $tools),
             ];
-            
+
             // Check if a record already exists
             $existingTools = $toolsModel->where('user_id', $userId)->first();
             if ($existingTools) {
@@ -116,7 +116,7 @@ class UserController extends BaseController
             $db->transComplete();
 
             if ($db->transStatus() === false) {
-                 return $this->failServerError('Database transaction failed.');
+                return $this->failServerError('Database transaction failed.');
             }
 
             return $this->respondUpdated(['message' => 'Financial profile updated successfully.']);
@@ -128,19 +128,19 @@ class UserController extends BaseController
     }
 
     public function getActiveBudget()
-{
-    $session = session();
-    $userId = $session->get('userId');
-    if (!$userId) {
-        return $this->failUnauthorized('Not logged in.');
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        if (!$userId) {
+            return $this->failUnauthorized('Not logged in.');
+        }
+
+        $budgetModel = new \App\Models\BudgetCycleModel();
+        $activeBudget = $budgetModel->where('user_id', $userId)
+            ->where('status', 'active')
+            ->first();
+
+        // Respond with the budget data, or null if none is found
+        return $this->respond($activeBudget);
     }
-
-    $budgetModel = new \App\Models\BudgetCycleModel();
-    $activeBudget = $budgetModel->where('user_id', $userId)
-                                ->where('status', 'active')
-                                ->first();
-
-    // Respond with the budget data, or null if none is found
-    return $this->respond($activeBudget);
-}
 }

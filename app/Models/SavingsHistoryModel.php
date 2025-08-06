@@ -6,13 +6,13 @@ use CodeIgniter\Model;
 
 class SavingsHistoryModel extends Model
 {
-    protected $table            = 'savings_history';
-    protected $primaryKey       = 'id';
+    protected $table = 'savings_history';
+    protected $primaryKey = 'id';
     protected $useAutoIncrement = true;
-    protected $returnType       = 'array';
-    protected $protectFields    = true;
-    
-    protected $allowedFields    = [
+    protected $returnType = 'array';
+    protected $protectFields = true;
+
+    protected $allowedFields = [
         'user_id',
         'balance',
         'logged_at'

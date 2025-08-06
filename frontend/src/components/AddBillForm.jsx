@@ -4,7 +4,7 @@ function AddBillForm({ budgetId, onSuccess }) {
     // State now includes all possible fields, plus the amount for this specific cycle
     const [formState, setFormState] = useState({
         label: '',
-        amount: '', // This is the estimated_amount for this cycle only
+        amount: '', 
         dueDate: '',
         category: 'other',
         principal_balance: '',

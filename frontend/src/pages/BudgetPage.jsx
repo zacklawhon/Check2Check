@@ -2,10 +2,9 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import VariableExpenseItem from '../components/VariableExpenseItem';
 import RecurringExpenseItem from '../components/RecurringExpenseItem';
-import AddItemModal from '../components/AddItemModal';
-// EditIncomeModal is no longer needed
-import ConfirmationModal from '../components/ConfirmationModal';
-import EditDatesModal from '../components/EditDatesModal';
+import AddItemModal from '../components/modals/AddItemModal';
+import ConfirmationModal from '../components/modals/ConfirmationModal';
+import EditDatesModal from '../components/modals/EditDatesModal';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -32,7 +31,7 @@ function BudgetPage() {
                 fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' }),
                 fetch('/api/user/profile', { credentials: 'include' })
             ]);
-            
+
             if (!budgetRes.ok || !transactionsRes.ok || !profileRes.ok) {
                 throw new Error('Could not fetch all budget data.');
             }
@@ -40,11 +39,11 @@ function BudgetPage() {
             const budgetData = await budgetRes.json();
             const transactionsData = await transactionsRes.json();
             const profileData = await profileRes.json();
-            
+
             setBudget(budgetData);
             setTransactions(transactionsData);
             setUser(profileData);
-            
+
             const recurring = budgetData.initial_expenses.filter(exp => exp.type === 'recurring');
             if (recurring.length > 0 && recurring.every(exp => exp.is_paid)) {
                 setShowSoftClose(true);
@@ -236,7 +235,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
             setError('Please answer all required questions.');
             return;
         }
-        
+
         setLoading(true);
         setError('');
         try {
@@ -256,7 +255,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 const data = await response.json();
                 throw new Error(data.message || 'Could not save your information.');
             }
-            
+
             setIsSubmitted(true);
             setTimeout(() => onSetupComplete(), 1500);
 
@@ -266,7 +265,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
             setLoading(false);
         }
     };
-    
+
     if (isSubmitted) {
         return (
             <div className="bg-green-800 border-l-4 border-green-500 text-green-100 p-4 rounded-lg mb-8 shadow-lg text-center">
@@ -280,18 +279,18 @@ function SavingsSetupPrompt({ onSetupComplete }) {
         <div className="bg-indigo-800 border-l-4 border-indigo-500 text-indigo-100 p-6 rounded-lg mb-8 shadow-lg">
             <h3 className="font-bold text-lg">Congratulations on paying your bills!</h3>
             <p className="mb-4">Let's take a moment to plan for your financial future. Please answer the questions below.</p>
-            
+
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-semibold mb-2">Do you have a savings account?</label>
                     <div className="flex gap-4">
                         {/* The radio button values remain "true" and "false" as strings */}
                         <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasSavings" value="true" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
+                            <input type="radio" name="hasSavings" value="true" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600" />
                             <span>Yes</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasSavings" value="false" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
+                            <input type="radio" name="hasSavings" value="false" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600" />
                             <span>No</span>
                         </label>
                     </div>
@@ -311,8 +310,8 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                         />
                     </div>
                 )}
-                
-                 {hasSavings === 'false' && (
+
+                {hasSavings === 'false' && (
                     <p className="text-sm p-3 bg-indigo-900/50 rounded-lg">That's okay! A great next step is to open a high-yield savings account. It's a safe place to grow your money.</p>
                 )}
 

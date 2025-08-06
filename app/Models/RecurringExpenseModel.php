@@ -6,16 +6,16 @@ class RecurringExpenseModel extends Model
 {
     protected $table = 'recurring_expenses';
     protected $primaryKey = 'id';
-    
+
     protected $allowedFields = [
-        'user_id', 
-        'label', 
-        'due_date', 
-        'category', 
-        'principal_balance', 
+        'user_id',
+        'label',
+        'due_date',
+        'category',
+        'principal_balance',
         'interest_rate',
-        'outstanding_balance', 
-        'maturity_date', 
+        'outstanding_balance',
+        'maturity_date',
         'is_active'
     ];
 

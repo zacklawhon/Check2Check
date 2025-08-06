@@ -16,29 +16,32 @@ class OnboardingController extends BaseController
 {
     use ResponseTrait;
 
-    private function getUserId() { return session()->get('userId'); }
+    private function getUserId()
+    {
+        return session()->get('userId');
+    }
 
     // In OnboardingController.php
 
-public function addIncomeSource()
-{
-    $session = session();
-    $userId = $session->get('userId');
-    $incomeModel = new \App\Models\IncomeSourceModel();
+    public function addIncomeSource()
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $incomeModel = new \App\Models\IncomeSourceModel();
 
-    $data = [
-        'label' => $this->request->getVar('label'),
-        'frequency' => $this->request->getVar('frequency')
-    ];
+        $data = [
+            'label' => $this->request->getVar('label'),
+            'frequency' => $this->request->getVar('frequency')
+        ];
 
-    $newId = $incomeModel->findOrCreate($userId, $data);
+        $newId = $incomeModel->findOrCreate($userId, $data);
 
-    if (!$newId) {
-        return $this->failServerError('Could not save income source.');
+        if (!$newId) {
+            return $this->failServerError('Could not save income source.');
+        }
+
+        return $this->respondCreated(['id' => $newId, 'message' => 'Income source saved.']);
     }
-
-    return $this->respondCreated(['id' => $newId, 'message' => 'Income source saved.']);
-}
 
     public function addRecurringExpense()
     {
@@ -48,8 +51,8 @@ public function addIncomeSource()
 
         // Basic data common to all expense types
         $data = [
-            'user_id'  => $userId,
-            'label'    => $json['label'],
+            'user_id' => $userId,
+            'label' => $json['label'],
             'due_date' => $json['dueDate'] ?? null,
             'category' => $json['category'] ?? 'other'
         ];
@@ -75,7 +78,8 @@ public function addIncomeSource()
     }
 
 
-    public function addSpendingCategory() {
+    public function addSpendingCategory()
+    {
         $data = $this->request->getJSON(true);
         $model = new LearnedSpendingCategoryModel();
         $data['user_id'] = $this->getUserId();
@@ -92,10 +96,11 @@ public function addIncomeSource()
         return $this->fail($model->errors());
     }
 
-    public function updateFinancialTools() {
+    public function updateFinancialTools()
+    {
         $data = $this->request->getJSON(true);
         $userId = $this->getUserId();
-        
+
         $toolsModel = new UserFinancialToolModel();
         $savingsModel = new SavingsHistoryModel();
 
@@ -133,7 +138,7 @@ public function addIncomeSource()
 
         return $this->respond(['status' => 'success', 'message' => 'Financial tools updated.']);
     }
-    
+
     public function getOnboardingData()
     {
         $session = session();
@@ -154,7 +159,7 @@ public function addIncomeSource()
             // BUG FIX: Fetch and return the learned_spending_categories
             'learned_spending_categories' => $spendingModel->where('user_id', $userId)->findAll(),
         ];
-        
+
         return $this->respond($data);
     }
 }

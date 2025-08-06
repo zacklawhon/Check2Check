@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
-import LogTransactionModal from './LogTransactionModal';
-import ConfirmationModal from './ConfirmationModal'; // Import the new component
+import LogTransactionModal from './modals/LogTransactionModal';
+import ConfirmationModal from './modals/ConfirmationModal'; // Import the new component
 
 function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
     const [isLogModalOpen, setIsLogModalOpen] = useState(false);

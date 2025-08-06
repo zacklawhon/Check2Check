@@ -6,18 +6,18 @@ use CodeIgniter\Model;
 
 class IncomeSourceModel extends Model
 {
-    protected $table            = 'income_sources';
-    protected $primaryKey       = 'id';
+    protected $table = 'income_sources';
+    protected $primaryKey = 'id';
     protected $useAutoIncrement = true;
-    protected $returnType       = 'array';
-    protected $useSoftDeletes   = false;
-    protected $protectFields    = true;
-    protected $useTimestamps    = false;
+    protected $returnType = 'array';
+    protected $useSoftDeletes = false;
+    protected $protectFields = true;
+    protected $useTimestamps = false;
 
-    
-    protected $allowedFields    = [
+
+    protected $allowedFields = [
         'user_id',
-        'label', 
+        'label',
         'description',
         'frequency',
         'is_active'
@@ -27,8 +27,8 @@ class IncomeSourceModel extends Model
     {
         // Check if a template with this label already exists for the user
         $exists = $this->where('user_id', $userId)
-                       ->where('label', $data['label'])
-                       ->first();
+            ->where('label', $data['label'])
+            ->first();
 
         if ($exists) {
             return $exists['id']; // Return the ID of the existing template
@@ -36,8 +36,8 @@ class IncomeSourceModel extends Model
 
         // If it doesn't exist, create it and return the new ID
         $newData = [
-            'user_id'   => $userId,
-            'label'     => $data['label'],
+            'user_id' => $userId,
+            'label' => $data['label'],
             'frequency' => $data['frequency'] ?: 'one-time',
         ];
 

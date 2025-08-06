@@ -1,7 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import BudgetList from '../components/BudgetList';
-// FIX: Add the missing import for the GuidedWizard component
 import GuidedWizard from '../components/wizard/GuidedWizard';
 
 function DashboardPage() {

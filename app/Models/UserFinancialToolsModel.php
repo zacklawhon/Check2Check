@@ -6,14 +6,14 @@ use CodeIgniter\Model;
 
 class UserFinancialToolsModel extends Model
 {
-    protected $table            = 'user_financial_tools';
-    protected $primaryKey       = 'id';
+    protected $table = 'user_financial_tools';
+    protected $primaryKey = 'id';
     protected $useAutoIncrement = true;
-    protected $returnType       = 'array';
-    protected $protectFields    = true;
-    
+    protected $returnType = 'array';
+    protected $protectFields = true;
+
     // Updated to include the new columns from your DB changes
-    protected $allowedFields    = [
+    protected $allowedFields = [
         'user_id',
         'has_checking_account',
         'has_savings_account',
@@ -24,6 +24,6 @@ class UserFinancialToolsModel extends Model
 
     // Dates
     protected $useTimestamps = false;
-    protected $dateFormat    = 'datetime';
+    protected $dateFormat = 'datetime';
 
 }

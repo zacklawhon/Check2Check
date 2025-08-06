@@ -34,14 +34,14 @@ class TransactionController extends BaseController
                 $this->request->getVar('budget_cycle_id'),
                 $this->request->getVar('type'),
                 $this->request->getVar('category_name'),
-                (float)$this->request->getVar('amount'),
+                (float) $this->request->getVar('amount'),
                 $this->request->getVar('description')
             );
 
             if ($transactionId === false) {
-                 return $this->fail($transactionModel->errors());
+                return $this->fail($transactionModel->errors());
             }
-            
+
             $data = $this->request->getJSON(true);
             $data['id'] = $transactionId;
             return $this->respondCreated($data, 'Transaction added successfully.');

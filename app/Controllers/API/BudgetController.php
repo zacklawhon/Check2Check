@@ -35,7 +35,7 @@ class BudgetController extends BaseController
 
         $rules = [
             'start_date' => 'required|valid_date[Y-m-d]',
-            'end_date'   => 'required|valid_date[Y-m-d]',
+            'end_date' => 'required|valid_date[Y-m-d]',
             'income_sources' => 'required|string',
             'recurring_expenses' => 'required|string',
             'spending_categories' => 'required|string'
@@ -87,7 +87,7 @@ class BudgetController extends BaseController
                     $budgetId,
                     'income',
                     $income['label'],
-                    (float)$income['amount'],
+                    (float) $income['amount'],
                     "Initial income from {$income['label']}"
                 );
             }
@@ -116,9 +116,9 @@ class BudgetController extends BaseController
         $budgetCycleModel = new BudgetCycleModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $id)
-                                        ->where('user_id', $userId)
-                                        ->first();
-        
+            ->where('user_id', $userId)
+            ->first();
+
 
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
@@ -144,9 +144,9 @@ class BudgetController extends BaseController
         }
 
         $transactions = $transactionModel->where('budget_cycle_id', $cycleId)
-                                         ->where('user_id', $userId)
-                                         ->findAll();
-        
+            ->where('user_id', $userId)
+            ->findAll();
+
         return $this->respond($transactions);
     }
 
@@ -222,7 +222,7 @@ class BudgetController extends BaseController
                 $cycleId,
                 'expense',
                 $paidExpense['category'],
-                (float)$paidExpense['estimated_amount'],
+                (float) $paidExpense['estimated_amount'],
                 $paidExpense['label']
             );
 
@@ -262,7 +262,7 @@ class BudgetController extends BaseController
 
         if ($this->request->getVar('save_recurring') && $newIncome['frequency'] !== 'one-time') {
             $incomeSourceModel = new IncomeSourceModel();
-            
+
             // FIX: Only save the categorical data for the new recurring source.
             $dataToSave = [
                 'user_id' => $userId,
@@ -272,8 +272,8 @@ class BudgetController extends BaseController
 
             // Check if it already exists before saving
             $exists = $incomeSourceModel->where('user_id', $userId)
-                                        ->where('label', $dataToSave['label'])
-                                        ->first();
+                ->where('label', $dataToSave['label'])
+                ->first();
             if (!$exists) {
                 $incomeSourceModel->save($dataToSave);
             }
@@ -290,7 +290,7 @@ class BudgetController extends BaseController
             $cycleId,
             'income',
             'Additional Income',
-            (float)$newIncome['amount'],
+            (float) $newIncome['amount'],
             $newIncome['label']
         );
 
@@ -299,56 +299,56 @@ class BudgetController extends BaseController
 
     public function addExpenseToCycle($cycleId)
     {
-    $session = session();
-    $userId = $session->get('userId');
-    $budgetCycleModel = new BudgetCycleModel();
-    $transactionModel = new TransactionModel();
-    $recurringExpenseModel = new recurringExpenseModel();
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetCycleModel = new BudgetCycleModel();
+        $transactionModel = new TransactionModel();
+        $recurringExpenseModel = new recurringExpenseModel();
 
-    $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
-    if (!$budgetCycle) {
-        return $this->failNotFound('Budget cycle not found.');
-    }
-
-    $rules = [
-        'label' => 'required|string',
-        'estimated_amount' => 'required|decimal',
-        'due_date' => 'permit_empty|integer',
-        'category' => 'permit_empty|string',
-        'save_recurring' => 'permit_empty|in_list[1,0,true,false]'
-    ];
-    if (!$this->validate($rules)) {
-        return $this->fail($this->validator->getErrors());
-    }
-
-    $newExpense = [
-        'label' => $this->request->getVar('label'),
-        'estimated_amount' => $this->request->getVar('estimated_amount'),
-        'due_date' => $this->request->getVar('due_date'),
-        'category' => $this->request->getVar('category') ?? 'other',
-        'type' => 'recurring',
-        'is_paid' => false
-    ];
-
-    if ($this->request->getVar('save_recurring')) {
-        $dataToSave = [
-            'user_id' => $userId,
-            'label' => $newExpense['label'],
-            'due_date' => $newExpense['due_date'],
-            'category' => $newExpense['category']
-        ];
-        // This logic correctly prevents duplicates
-        $exists = $recurringExpenseModel->where('user_id', $userId)->where('label', $dataToSave['label'])->first();
-        if (!$exists) {
-            $recurringExpenseModel->save($dataToSave);
+        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+        if (!$budgetCycle) {
+            return $this->failNotFound('Budget cycle not found.');
         }
-    }
 
-    $expenseArray = json_decode($budgetCycle['initial_expenses'], true);
-    $expenseArray[] = $newExpense;
-    $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenseArray)]);
+        $rules = [
+            'label' => 'required|string',
+            'estimated_amount' => 'required|decimal',
+            'due_date' => 'permit_empty|integer',
+            'category' => 'permit_empty|string',
+            'save_recurring' => 'permit_empty|in_list[1,0,true,false]'
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
 
-    return $this->respondUpdated(['message' => 'Recurring expense added successfully.']);
+        $newExpense = [
+            'label' => $this->request->getVar('label'),
+            'estimated_amount' => $this->request->getVar('estimated_amount'),
+            'due_date' => $this->request->getVar('due_date'),
+            'category' => $this->request->getVar('category') ?? 'other',
+            'type' => 'recurring',
+            'is_paid' => false
+        ];
+
+        if ($this->request->getVar('save_recurring')) {
+            $dataToSave = [
+                'user_id' => $userId,
+                'label' => $newExpense['label'],
+                'due_date' => $newExpense['due_date'],
+                'category' => $newExpense['category']
+            ];
+            // This logic correctly prevents duplicates
+            $exists = $recurringExpenseModel->where('user_id', $userId)->where('label', $dataToSave['label'])->first();
+            if (!$exists) {
+                $recurringExpenseModel->save($dataToSave);
+            }
+        }
+
+        $expenseArray = json_decode($budgetCycle['initial_expenses'], true);
+        $expenseArray[] = $newExpense;
+        $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenseArray)]);
+
+        return $this->respondUpdated(['message' => 'Recurring expense added successfully.']);
     }
     public function removeExpenseFromCycle($cycleId)
     {
@@ -367,7 +367,7 @@ class BudgetController extends BaseController
         }
 
         $expenses = json_decode($budgetCycle['initial_expenses'], true);
-        $expenses = array_filter($expenses, function($expense) use ($labelToRemove) {
+        $expenses = array_filter($expenses, function ($expense) use ($labelToRemove) {
             return $expense['label'] !== $labelToRemove;
         });
 
@@ -397,7 +397,7 @@ class BudgetController extends BaseController
         }
 
         $label = $this->request->getVar('label');
-        $newAmount = (float)$this->request->getVar('new_amount');
+        $newAmount = (float) $this->request->getVar('new_amount');
 
         $incomeItems = json_decode($budgetCycle['initial_income'], true);
 
@@ -405,7 +405,7 @@ class BudgetController extends BaseController
         $itemFound = false;
         foreach ($incomeItems as $item) {
             if ($item['label'] === $label) {
-                $originalAmount = (float)$item['amount'];
+                $originalAmount = (float) $item['amount'];
                 $itemFound = true;
                 break;
             }
@@ -427,7 +427,7 @@ class BudgetController extends BaseController
             "Adjustment for '{$label}' from \${$originalAmount} to \${$newAmount}"
         );
 
-        $updatedIncomeItems = array_map(function($item) use ($label, $newAmount) {
+        $updatedIncomeItems = array_map(function ($item) use ($label, $newAmount) {
             if ($item['label'] === $label) {
                 $item['amount'] = $newAmount;
             }
@@ -476,7 +476,7 @@ class BudgetController extends BaseController
             $budgetId,
             'income',
             'Removal',
-            -(float)$itemToRemove['amount'],
+            -(float) $itemToRemove['amount'],
             "Removal of income source '{$label}'"
         );
 
@@ -493,7 +493,7 @@ class BudgetController extends BaseController
 
         $rules = [
             'start_date' => 'required|valid_date[Y-m-d]',
-            'end_date'   => 'required|valid_date[Y-m-d]',
+            'end_date' => 'required|valid_date[Y-m-d]',
         ];
 
         if (!$this->validate($rules)) {
@@ -532,82 +532,82 @@ class BudgetController extends BaseController
 
     // In app/Controllers/API/BudgetController.php
 
-public function closeCycle($budgetId)
-{
-    $session = session();
-    $userId = $session->get('userId');
+    public function closeCycle($budgetId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
 
-    $budgetCycleModel = new \App\Models\BudgetCycleModel();
-    $transactionModel = new \App\Models\TransactionModel();
+        $budgetCycleModel = new \App\Models\BudgetCycleModel();
+        $transactionModel = new \App\Models\TransactionModel();
 
-    $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
-    if (!$budgetCycle) {
-        return $this->failNotFound('Budget cycle not found or access denied.');
-    }
+        $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budgetCycle) {
+            return $this->failNotFound('Budget cycle not found or access denied.');
+        }
 
-    if ($budgetCycle['status'] !== 'active') {
-        return $this->failValidationErrors('This budget cycle is not active and cannot be closed.');
-    }
+        if ($budgetCycle['status'] !== 'active') {
+            return $this->failValidationErrors('This budget cycle is not active and cannot be closed.');
+        }
 
-    $transactions = $transactionModel->where('budget_cycle_id', $budgetId)
-                                     ->where('user_id', $userId)
-                                     ->findAll();
+        $transactions = $transactionModel->where('budget_cycle_id', $budgetId)
+            ->where('user_id', $userId)
+            ->findAll();
 
-    $actualIncome = 0;
-    $actualExpenses = 0;
-    $spendingBreakdown = [];
+        $actualIncome = 0;
+        $actualExpenses = 0;
+        $spendingBreakdown = [];
 
-    foreach ($transactions as $t) {
-        if ($t['type'] === 'income') {
-            $actualIncome += (float)$t['amount'];
-        } else {
-            $actualExpenses += (float)$t['amount'];
-            $category = $t['category_name'];
-            $spendingBreakdown[$category] = ($spendingBreakdown[$category] ?? 0) + (float)$t['amount'];
+        foreach ($transactions as $t) {
+            if ($t['type'] === 'income') {
+                $actualIncome += (float) $t['amount'];
+            } else {
+                $actualExpenses += (float) $t['amount'];
+                $category = $t['category_name'];
+                $spendingBreakdown[$category] = ($spendingBreakdown[$category] ?? 0) + (float) $t['amount'];
+            }
+        }
+
+        arsort($spendingBreakdown);
+
+        $initialIncome = json_decode($budgetCycle['initial_income'], true);
+        $initialExpenses = json_decode($budgetCycle['initial_expenses'], true);
+
+        $plannedIncome = array_reduce($initialIncome, fn($sum, $item) => $sum + (float) ($item['amount'] ?? 0), 0);
+        $plannedExpenses = array_reduce($initialExpenses, fn($sum, $item) => $sum + (float) ($item['estimated_amount'] ?? 0), 0);
+
+        // --- FIX: This ensures topSpendingCategories has the exact format the frontend needs ---
+        $formattedSpending = [];
+        foreach (array_slice($spendingBreakdown, 0, 5) as $category => $amount) {
+            $formattedSpending[] = ['category' => $category, 'amount' => $amount];
+        }
+        // --- End of FIX ---
+
+        $finalSummary = [
+            'plannedSurplus' => $plannedIncome - $plannedExpenses,
+            'actualSurplus' => $actualIncome - $actualExpenses,
+            'totalIncome' => $actualIncome,
+            'totalExpenses' => $actualExpenses,
+            'topSpendingCategories' => $formattedSpending, // Use the new formatted array
+            // The rest of your summary logic is excellent and remains
+            'previous_cycles' => [], // Keeping this simple for now
+            'deficit_advice' => $actualIncome < $actualExpenses ? [ /* ... */] : null
+        ];
+
+        $updateData = [
+            'status' => 'completed',
+            'final_summary' => json_encode($finalSummary)
+        ];
+
+        try {
+            if ($budgetCycleModel->update($budgetId, $updateData) === false) {
+                return $this->fail($budgetCycleModel->errors());
+            }
+            return $this->respondUpdated(['message' => 'Budget cycle has been successfully closed.']);
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_CLOSE_BUDGET] {exception}', ['exception' => $e]);
+            return $this->failServerError('Could not close budget cycle.');
         }
     }
-
-    arsort($spendingBreakdown);
-
-    $initialIncome = json_decode($budgetCycle['initial_income'], true);
-    $initialExpenses = json_decode($budgetCycle['initial_expenses'], true);
-
-    $plannedIncome = array_reduce($initialIncome, fn($sum, $item) => $sum + (float)($item['amount'] ?? 0), 0);
-    $plannedExpenses = array_reduce($initialExpenses, fn($sum, $item) => $sum + (float)($item['estimated_amount'] ?? 0), 0);
-
-    // --- FIX: This ensures topSpendingCategories has the exact format the frontend needs ---
-    $formattedSpending = [];
-    foreach (array_slice($spendingBreakdown, 0, 5) as $category => $amount) {
-        $formattedSpending[] = ['category' => $category, 'amount' => $amount];
-    }
-    // --- End of FIX ---
-
-    $finalSummary = [
-        'plannedSurplus' => $plannedIncome - $plannedExpenses,
-        'actualSurplus' => $actualIncome - $actualExpenses,
-        'totalIncome' => $actualIncome,
-        'totalExpenses' => $actualExpenses,
-        'topSpendingCategories' => $formattedSpending, // Use the new formatted array
-        // The rest of your summary logic is excellent and remains
-        'previous_cycles' => [], // Keeping this simple for now
-        'deficit_advice' => $actualIncome < $actualExpenses ? [ /* ... */ ] : null
-    ];
-
-    $updateData = [
-        'status' => 'completed',
-        'final_summary' => json_encode($finalSummary)
-    ];
-
-    try {
-        if ($budgetCycleModel->update($budgetId, $updateData) === false) {
-            return $this->fail($budgetCycleModel->errors());
-        }
-        return $this->respondUpdated(['message' => 'Budget cycle has been successfully closed.']);
-    } catch (\Exception $e) {
-        log_message('error', '[ERROR_CLOSE_BUDGET] {exception}', ['exception' => $e]);
-        return $this->failServerError('Could not close budget cycle.');
-    }
-}
 
 
     public function getDemographics()
@@ -655,7 +655,7 @@ public function closeCycle($budgetId)
         return $this->respond(['savings_balance' => $financialTools['savingsBalance'] ?? 0]);
     }
 
-    
+
     public function initializeSavings()
     {
         // Add a try-catch block to capture any fatal error
@@ -688,13 +688,13 @@ public function closeCycle($budgetId)
             }
 
             $hasSavings = $this->request->getVar('hasSavings') === 'true';
-            $initialBalance = (float)$this->request->getVar('initialBalance') ?: 0;
-            
+            $initialBalance = (float) $this->request->getVar('initialBalance') ?: 0;
+
             $toolsData = ['has_savings_account' => $hasSavings];
 
             if ($hasSavings) {
                 $toolsData['current_savings_balance'] = $initialBalance;
-                
+
                 if ($initialBalance > 0) {
                     $historyModel->insert([
                         'user_id' => $userId,
@@ -702,7 +702,7 @@ public function closeCycle($budgetId)
                     ]);
                 }
             }
-            
+
             $toolsModel->update($toolsRecord['id'], $toolsData);
 
             return $this->respondUpdated(['message' => 'Savings profile initialized successfully.']);
@@ -710,7 +710,7 @@ public function closeCycle($budgetId)
         } catch (\Throwable $e) {
             // If any error occurs, catch it and return it as a proper JSON response
             log_message('error', '[FATAL_ERROR] ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
-            
+
             return $this->failServerError(
                 'A server error occurred: ' . $e->getMessage(),
                 500,
@@ -737,15 +737,15 @@ public function closeCycle($budgetId)
 
         $toolsModel = new UserFinancialToolsModel();
         $historyModel = new SavingsHistoryModel();
-        
+
         $toolsRecord = $toolsModel->where('user_id', $userId)->first();
 
         if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
             return $this->failValidationErrors('User does not have an active savings account setup.');
         }
 
-        $amountToAdd = (float)$this->request->getVar('amount');
-        $newBalance = (float)$toolsRecord['current_savings_balance'] + $amountToAdd;
+        $amountToAdd = (float) $this->request->getVar('amount');
+        $newBalance = (float) $toolsRecord['current_savings_balance'] + $amountToAdd;
 
         // 1. Log the new contribution
         $historyModel->insert([
@@ -761,75 +761,75 @@ public function closeCycle($budgetId)
             'newBalance' => $newBalance
         ]);
     }
-    
+
     public function getWizardSuggestions()
-{
-    $session = session();
-    $userId = $session->get('userId');
-    $incomeModel = new IncomeSourceModel();
-    $expenseModel = new RecurringExpenseModel();
-    $spendingCategoryModel = new LearnedSpendingCategoryModel();
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $incomeModel = new IncomeSourceModel();
+        $expenseModel = new RecurringExpenseModel();
+        $spendingCategoryModel = new LearnedSpendingCategoryModel();
 
-    $lastIncome = $incomeModel->where('user_id', $userId)
-                            ->where('is_active', 1)
-                            ->orderBy('created_at', 'DESC')
-                            ->first();
+        $lastIncome = $incomeModel->where('user_id', $userId)
+            ->where('is_active', 1)
+            ->orderBy('created_at', 'DESC')
+            ->first();
 
-    // --- FIX: This block now handles a new user gracefully ---
-    if (!$lastIncome) {
-        // This is a new user with no saved income. Provide default dates.
-        $proposedStartDate = date('Y-m-d');
-        $proposedEndDate = date('Y-m-d', strtotime('+2 weeks'));
+        // --- FIX: This block now handles a new user gracefully ---
+        if (!$lastIncome) {
+            // This is a new user with no saved income. Provide default dates.
+            $proposedStartDate = date('Y-m-d');
+            $proposedEndDate = date('Y-m-d', strtotime('+2 weeks'));
+
+            $data = [
+                'proposedStartDate' => $proposedStartDate,
+                'proposedEndDate' => $proposedEndDate,
+                'suggestedIncome' => [],
+                'suggestedExpenses' => [],
+                'learned_spending_categories' => []
+            ];
+
+            return $this->respond($data);
+        }
+        // --- End of FIX ---
+
+        // The rest of the function is the original logic for a returning user
+        $frequency = $lastIncome['frequency'];
+        $today = new \DateTime();
+
+        // Logic to propose dates based on income frequency
+        if ($frequency === 'weekly') {
+            $proposedStartDate = $today->modify('next Sunday')->format('Y-m-d');
+            $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+6 days')->format('Y-m-d');
+        } elseif ($frequency === 'bi-weekly') {
+            $proposedStartDate = $today->modify('next Friday')->format('Y-m-d');
+            $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+13 days')->format('Y-m-d');
+        } else { // Default for semi-monthly, monthly
+            $dayOfMonth = (int) $today->format('d');
+            if ($dayOfMonth < 15) {
+                $proposedStartDate = $today->format('Y-m-15');
+                $proposedEndDate = $today->format('Y-m-t'); // Last day of current month
+            } else {
+                $proposedStartDate = $today->format('Y-m-t');
+                $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+15 days')->format('Y-m-t');
+            }
+        }
+
+        $suggestedIncome = $incomeModel->where('user_id', $userId)->where('is_active', 1)->findAll();
+        $suggestedExpenses = $expenseModel->where('user_id', $userId)->where('is_active', 1)->findAll();
+        $learnedCategories = $spendingCategoryModel->where('user_id', $userId)->findAll();
 
         $data = [
             'proposedStartDate' => $proposedStartDate,
-            'proposedEndDate'   => $proposedEndDate,
-            'suggestedIncome'   => [],
-            'suggestedExpenses' => [],
-            'learned_spending_categories' => []
+            'proposedEndDate' => $proposedEndDate,
+            'suggestedIncome' => $suggestedIncome,
+            'suggestedExpenses' => $suggestedExpenses,
+            'learned_spending_categories' => $learnedCategories
         ];
 
         return $this->respond($data);
     }
-    // --- End of FIX ---
 
-    // The rest of the function is the original logic for a returning user
-    $frequency = $lastIncome['frequency'];
-    $today = new \DateTime();
-    
-    // Logic to propose dates based on income frequency
-    if ($frequency === 'weekly') {
-        $proposedStartDate = $today->modify('next Sunday')->format('Y-m-d');
-        $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+6 days')->format('Y-m-d');
-    } elseif ($frequency === 'bi-weekly') {
-        $proposedStartDate = $today->modify('next Friday')->format('Y-m-d');
-        $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+13 days')->format('Y-m-d');
-    } else { // Default for semi-monthly, monthly
-        $dayOfMonth = (int)$today->format('d');
-        if ($dayOfMonth < 15) {
-            $proposedStartDate = $today->format('Y-m-15');
-            $proposedEndDate = $today->format('Y-m-t'); // Last day of current month
-        } else {
-            $proposedStartDate = $today->format('Y-m-t');
-            $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+15 days')->format('Y-m-t');
-        }
-    }
-
-    $suggestedIncome = $incomeModel->where('user_id', $userId)->where('is_active', 1)->findAll();
-    $suggestedExpenses = $expenseModel->where('user_id', $userId)->where('is_active', 1)->findAll();
-    $learnedCategories = $spendingCategoryModel->where('user_id', $userId)->findAll();
-
-    $data = [
-        'proposedStartDate' => $proposedStartDate,
-        'proposedEndDate'   => $proposedEndDate,
-        'suggestedIncome'   => $suggestedIncome,
-        'suggestedExpenses' => $suggestedExpenses,
-        'learned_spending_categories' => $learnedCategories
-    ];
-
-    return $this->respond($data);
-}
-    
     public function getExpenseHistory()
     {
         $session = session();
@@ -847,14 +847,14 @@ public function closeCycle($budgetId)
         // Find all past expense transactions where the description matches the bill's label.
         // The 'markBillPaid' function saves the label to the description field.
         $history = $transactionModel->where('user_id', $userId)
-                                    ->where('type', 'expense')
-                                    ->where('description', $label)
-                                    ->orderBy('transacted_at', 'ASC')
-                                    ->findAll();
+            ->where('type', 'expense')
+            ->where('description', $label)
+            ->orderBy('transacted_at', 'ASC')
+            ->findAll();
 
         return $this->respond($history);
     }
-    
+
     public function updateExpenseDetails($expenseId)
     {
         $session = session();
@@ -869,7 +869,7 @@ public function closeCycle($budgetId)
         }
 
         $json = $this->request->getJSON(true);
-        
+
         $allowedData = [];
         $fields = ['principal_balance', 'interest_rate', 'outstanding_balance', 'maturity_date'];
         foreach ($fields as $field) {
@@ -877,7 +877,7 @@ public function closeCycle($budgetId)
                 $allowedData[$field] = $json[$field] === '' ? null : $json[$field];
             }
         }
-        
+
         if (empty($allowedData)) {
             return $this->failValidationErrors('No valid fields to update.');
         }
@@ -892,7 +892,7 @@ public function closeCycle($budgetId)
             $activeCycle = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
             if ($activeCycle) {
                 $initialExpenses = json_decode($activeCycle['initial_expenses'], true);
-                
+
                 // Find and update the matching expense within the JSON
                 foreach ($initialExpenses as &$exp) {
                     if (isset($exp['id']) && $exp['id'] == $expenseId) {
@@ -921,11 +921,15 @@ public function closeCycle($budgetId)
         $userId = $session->get('userId');
         $budgetModel = new BudgetCycleModel();
         $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) { return $this->failNotFound('Budget cycle not found.'); }
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
 
         $idToUpdate = $this->request->getVar('id');
         $newAmount = $this->request->getVar('amount');
-        if (!is_numeric($newAmount)) { return $this->failValidationErrors('Amount must be a number.'); }
+        if (!is_numeric($newAmount)) {
+            return $this->failValidationErrors('Amount must be a number.');
+        }
 
         $incomeItems = json_decode($budget['initial_income'], true);
         $updated = false;
@@ -945,46 +949,46 @@ public function closeCycle($budgetId)
     }
 
     public function addVariableExpense($budgetId)
-{
-    $session = session();
-    $userId = $session->get('userId');
-    $budgetModel = new BudgetCycleModel();
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetModel = new BudgetCycleModel();
 
-    $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-    if (!$budget) {
-        return $this->failNotFound('Budget cycle not found.');
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
+        $label = $this->request->getVar('label');
+        $amount = $this->request->getVar('amount');
+        if (!$label || !is_numeric($amount)) {
+            return $this->failValidationErrors('Label and amount are required.');
+        }
+
+        // Step 1: Create or find the reusable category in 'learned_spending_categories'
+        $spendingCategoryModel = new \App\Models\LearnedSpendingCategoryModel();
+        $category = $spendingCategoryModel->where('user_id', $userId)
+            ->where('name', $label)
+            ->first();
+        if (!$category) {
+            $spendingCategoryModel->insert([
+                'user_id' => $userId,
+                'name' => $label,
+            ]);
+        }
+
+        // Step 2: Add this item to the current budget's 'initial_expenses' JSON
+        $expenseItems = json_decode($budget['initial_expenses'], true);
+        $newExpense = [
+            'label' => $label,
+            'estimated_amount' => $amount,
+            'type' => 'variable'
+        ];
+        $expenseItems[] = $newExpense;
+        $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenseItems)]);
+
+        return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
     }
-
-    $label = $this->request->getVar('label');
-    $amount = $this->request->getVar('amount');
-    if (!$label || !is_numeric($amount)) {
-        return $this->failValidationErrors('Label and amount are required.');
-    }
-
-    // Step 1: Create or find the reusable category in 'learned_spending_categories'
-    $spendingCategoryModel = new \App\Models\LearnedSpendingCategoryModel();
-    $category = $spendingCategoryModel->where('user_id', $userId)
-                                      ->where('name', $label)
-                                      ->first();
-    if (!$category) {
-        $spendingCategoryModel->insert([
-            'user_id' => $userId,
-            'name' => $label,
-        ]);
-    }
-
-    // Step 2: Add this item to the current budget's 'initial_expenses' JSON
-    $expenseItems = json_decode($budget['initial_expenses'], true);
-    $newExpense = [
-        'label' => $label,
-        'estimated_amount' => $amount,
-        'type' => 'variable'
-    ];
-    $expenseItems[] = $newExpense;
-    $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenseItems)]);
-
-    return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
-}
 
 
 }

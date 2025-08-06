@@ -24,22 +24,22 @@ class AuthController extends BaseController
         try {
             $userModel = new UserModel();
             $user = $userModel->where('email', $emailAddress)->first();
-            
+
             $budgetCycleModel = new BudgetCycleModel();
             $hasBudgets = $user ? $budgetCycleModel->where('user_id', $user['id'])->countAllResults() > 0 : false;
-            
+
             if (!$user) {
                 $userId = $userModel->insert([
                     'email' => $emailAddress,
                     'status' => 'active'
-                    ]);
+                ]);
             } else {
                 $userId = $user['id'];
                 if ($user['status'] !== 'active') {
                     return $this->failForbidden('This account has been deactivated.');
                 }
             }
-            
+
             $authTokenModel = new AuthTokenModel();
             $token = bin2hex(random_bytes(32));
             $expiresAt = date('Y-m-d H:i:s', time() + (15 * 60));
@@ -53,13 +53,13 @@ class AuthController extends BaseController
                 $this->sendReturningUserEmail($emailService, $emailAddress, $token, $userId);
             }
 
-            return $this->respond(['status'  => 'success', 'message' => 'Login link sent successfully. Please check your email.']);
+            return $this->respond(['status' => 'success', 'message' => 'Login link sent successfully. Please check your email.']);
         } catch (\Throwable $e) {
             log_message('error', '[AUTH] ' . $e->getMessage() . ' IN ' . $e->getFile() . ' ON LINE ' . $e->getLine());
             return $this->failServerError('Could not send login email. Please try again later.');
         }
     }
-    
+
     private function sendWelcomeEmail($email, string $recipientEmail, string $token)
     {
         // FIX: Use site_url() to generate a dynamic link
@@ -93,7 +93,7 @@ class AuthController extends BaseController
             $transactions = $transactionModel->where('budget_cycle_id', $activeBudget['id'])->findAll();
             $income = array_sum(array_column(array_filter($transactions, fn($t) => $t['type'] === 'income'), 'amount'));
             $expenses = array_sum(array_column(array_filter($transactions, fn($t) => $t['type'] === 'expense'), 'amount'));
-            
+
             $snapshotData = [
                 'title' => 'Active Budget Snapshot',
                 'message' => 'Your current cash balance is $' . number_format($income - $expenses, 2) . '. Keep up the great work!'
@@ -112,7 +112,7 @@ class AuthController extends BaseController
 
         $emailData = ['magicLink' => $magicLink, 'snapshotData' => $snapshotData];
         $message = view('emails/login_email', $emailData);
-        
+
         $email->setTo($recipientEmail);
         $email->setSubject('Your Check2Check.org Login Link');
         $email->setMessage($message);
@@ -124,7 +124,7 @@ class AuthController extends BaseController
         }
         $email->clear();
     }
-    
+
     public function verifyLink()
     {
         $token = $this->request->getVar('token');
@@ -136,14 +136,15 @@ class AuthController extends BaseController
         $tokenData = $authTokenModel->where('token', $token)->first();
 
         if (!$tokenData || strtotime($tokenData['expires_at']) < time()) {
-            if($tokenData) $authTokenModel->delete($tokenData['id']);
+            if ($tokenData)
+                $authTokenModel->delete($tokenData['id']);
             return $this->failUnauthorized('This login link is invalid or has expired.');
         }
-        
+
         $session = Services::session();
         $session->set([
             'isLoggedIn' => true,
-            'userId'     => $tokenData['user_id']
+            'userId' => $tokenData['user_id']
         ]);
 
         $authTokenModel->delete($tokenData['id']);
