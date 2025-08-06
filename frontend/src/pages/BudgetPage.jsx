@@ -3,6 +3,7 @@ import { useNavigate, useParams } from 'react-router-dom';
 import VariableExpenseItem from '../components/VariableExpenseItem';
 import RecurringExpenseItem from '../components/RecurringExpenseItem';
 import AddItemModal from '../components/modals/AddItemModal';
+import EditIncomeModal from '../components/modals/EditIncomeModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditDatesModal from '../components/modals/EditDatesModal';
 
@@ -16,11 +17,11 @@ function BudgetPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalType, setModalType] = useState(null);
-    // These state variables for editing/removing income are no longer needed
-    // const [itemToEdit, setItemToEdit] = useState(null);
-    // const [itemToRemove, setItemToRemove] = useState(null);
+    const [itemToEdit, setItemToEdit] = useState(null);
+    const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [showSoftClose, setShowSoftClose] = useState(false);
+    const [isClosing, setIsClosing] = useState(false);
 
     const fetchBudgetData = async (isRefresh = false) => {
         if (!budgetId) return;
@@ -31,7 +32,7 @@ function BudgetPage() {
                 fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' }),
                 fetch('/api/user/profile', { credentials: 'include' })
             ]);
-
+            
             if (!budgetRes.ok || !transactionsRes.ok || !profileRes.ok) {
                 throw new Error('Could not fetch all budget data.');
             }
@@ -39,11 +40,11 @@ function BudgetPage() {
             const budgetData = await budgetRes.json();
             const transactionsData = await transactionsRes.json();
             const profileData = await profileRes.json();
-
+            
             setBudget(budgetData);
             setTransactions(transactionsData);
             setUser(profileData);
-
+            
             const recurring = budgetData.initial_expenses.filter(exp => exp.type === 'recurring');
             if (recurring.length > 0 && recurring.every(exp => exp.is_paid)) {
                 setShowSoftClose(true);
@@ -64,7 +65,48 @@ function BudgetPage() {
     const refreshBudget = () => { fetchBudgetData(true); };
     const handleSuccess = () => { setModalType(null); refreshBudget(); };
 
-    // The handleRemoveIncome function is no longer needed as there's no UI for it.
+    const handleRemoveIncome = async () => {
+        if (!itemToRemove) return;
+        try {
+            const response = await fetch(`/api/budget/remove-income/${budgetId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ label: itemToRemove.label })
+            });
+            if (!response.ok) throw new Error('Failed to remove income.');
+            setItemToRemove(null);
+            refreshBudget();
+        } catch (err) {
+            setError(err.message);
+        }
+    };
+
+    const handleCloseBudget = async () => {
+        setIsClosing(true);
+        try {
+            const response = await fetch(`/api/budget/close/${budgetId}`, {
+                method: 'POST',
+                credentials: 'include'
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to close budget.');
+            }
+            navigate(`/review/${budgetId}`);
+        } catch (err) {
+            setError(err.message);
+            setIsClosing(false);
+        }
+    };
+
+    const isPastEndDate = (dateString) => {
+        if (!dateString) return false;
+        const endDate = new Date(`${dateString}T00:00:00`);
+        const today = new Date();
+        today.setHours(0, 0, 0, 0); 
+        return endDate < today;
+    };
 
     if (loading) return <div className="text-white p-8 text-center">Loading your budget...</div>;
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
@@ -86,6 +128,8 @@ function BudgetPage() {
         acc[category].push(expense);
         return acc;
     }, {});
+
+    const isClosable = budget.status === 'active' && isPastEndDate(budget.end_date);
 
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
@@ -128,6 +172,17 @@ function BudgetPage() {
                             </span>
                         </div>
                     </div>
+                    {isClosable && (
+                        <div className="mt-6">
+                            <button
+                                onClick={handleCloseBudget}
+                                disabled={isClosing}
+                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500"
+                            >
+                                {isClosing ? 'Closing...' : 'Close & Review Budget'}
+                            </button>
+                        </div>
+                    )}
                 </div>
 
                 <div className="md:col-span-2 bg-gray-800 p-6 rounded-lg shadow-xl">
@@ -137,7 +192,7 @@ function BudgetPage() {
                             <button onClick={() => setModalType('income')} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg">+ Add</button>
                         </div>
                         <ul className="space-y-2">
-                            {transactions.filter(t => t.type === 'income').map((t, index) => (
+                             {transactions.filter(t => t.type === 'income').map((t, index) => (
                                 <li key={`trans-inc-${index}`} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-md">
                                     <span>{t.description}</span>
                                     <span className="font-semibold text-green-400">+ ${parseFloat(t.amount).toFixed(2)}</span>
@@ -204,7 +259,17 @@ function BudgetPage() {
                     onSuccess={handleSuccess}
                 />
             )}
-
+            {itemToEdit && (
+                <EditIncomeModal
+                    item={itemToEdit}
+                    budgetId={budgetId}
+                    onClose={() => setItemToEdit(null)}
+                    onSuccess={() => {
+                        setItemToEdit(null);
+                        refreshBudget();
+                    }}
+                />
+            )}
             {isEditDatesModalOpen && (
                 <EditDatesModal
                     budget={budget}
@@ -215,13 +280,18 @@ function BudgetPage() {
                     }}
                 />
             )}
+            <ConfirmationModal
+                isOpen={!!itemToRemove}
+                onClose={() => setItemToRemove(null)}
+                onConfirm={handleRemoveIncome}
+                title="Confirm Removal"
+                message={`Are you sure you want to remove the income source "${itemToRemove?.label}"? This will create a negative transaction to balance your budget.`}
+            />
         </div>
     );
 }
 
-// The SavingsSetupPrompt component is unchanged and remains here.
 function SavingsSetupPrompt({ onSetupComplete }) {
-    // The state can still be a string, that's fine.
     const [hasSavings, setHasSavings] = useState(null);
     const [zipCode, setZipCode] = useState('');
     const [initialBalance, setInitialBalance] = useState('');
@@ -235,7 +305,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
             setError('Please answer all required questions.');
             return;
         }
-
+        
         setLoading(true);
         setError('');
         try {
@@ -244,8 +314,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    // FIX: This now sends a 1 or 0, which matches the backend validation.
-                    hasSavings: hasSavings === 'true' ? 1 : 0,
+                    hasSavings: hasSavings === 'true',
                     zipCode: zipCode,
                     initialBalance: initialBalance
                 })
@@ -255,7 +324,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 const data = await response.json();
                 throw new Error(data.message || 'Could not save your information.');
             }
-
+            
             setIsSubmitted(true);
             setTimeout(() => onSetupComplete(), 1500);
 
@@ -265,7 +334,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
             setLoading(false);
         }
     };
-
+    
     if (isSubmitted) {
         return (
             <div className="bg-green-800 border-l-4 border-green-500 text-green-100 p-4 rounded-lg mb-8 shadow-lg text-center">
@@ -279,18 +348,17 @@ function SavingsSetupPrompt({ onSetupComplete }) {
         <div className="bg-indigo-800 border-l-4 border-indigo-500 text-indigo-100 p-6 rounded-lg mb-8 shadow-lg">
             <h3 className="font-bold text-lg">Congratulations on paying your bills!</h3>
             <p className="mb-4">Let's take a moment to plan for your financial future. Please answer the questions below.</p>
-
+            
             <form onSubmit={handleSubmit} className="space-y-4">
                 <div>
                     <label className="block text-sm font-semibold mb-2">Do you have a savings account?</label>
                     <div className="flex gap-4">
-                        {/* The radio button values remain "true" and "false" as strings */}
                         <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasSavings" value="true" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600" />
+                            <input type="radio" name="hasSavings" value="true" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
                             <span>Yes</span>
                         </label>
                         <label className="flex items-center gap-2 cursor-pointer">
-                            <input type="radio" name="hasSavings" value="false" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600" />
+                            <input type="radio" name="hasSavings" value="false" onChange={(e) => setHasSavings(e.target.value)} className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"/>
                             <span>No</span>
                         </label>
                     </div>
@@ -306,12 +374,12 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                             value={initialBalance}
                             onChange={(e) => setInitialBalance(e.target.value)}
                             placeholder="e.g., 150.00"
-                            className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700"
+                            className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
                         />
                     </div>
                 )}
-
-                {hasSavings === 'false' && (
+                
+                 {hasSavings === 'false' && (
                     <p className="text-sm p-3 bg-indigo-900/50 rounded-lg">That's okay! A great next step is to open a high-yield savings account. It's a safe place to grow your money.</p>
                 )}
 
@@ -324,7 +392,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                         onChange={(e) => setZipCode(e.target.value)}
                         placeholder="e.g., 90210"
                         required
-                        className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700"
+                        className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
                     />
                 </div>
 
@@ -339,5 +407,4 @@ function SavingsSetupPrompt({ onSetupComplete }) {
         </div>
     );
 }
-
 export default BudgetPage;
