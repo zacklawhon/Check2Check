@@ -49,7 +49,6 @@ function App() {
           }
         } else {
           // If the profile fetch fails, we know the user is not logged in.
-          setUser(null);
           setActiveBudget(null);
         }
       } catch (err) {
@@ -78,7 +77,7 @@ function App() {
             <Route path="/review/:budgetId" element={<BudgetReviewPage />} />
             <Route path="/account" element={<AccountPage user={user} />} />
           </Route>
-          
+
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>

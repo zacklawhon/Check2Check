@@ -128,19 +128,25 @@ class UserController extends BaseController
     }
 
     public function getActiveBudget()
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        if (!$userId) {
-            return $this->failUnauthorized('Not logged in.');
-        }
-
-        $budgetModel = new \App\Models\BudgetCycleModel();
-        $activeBudget = $budgetModel->where('user_id', $userId)
-            ->where('status', 'active')
-            ->first();
-
-        // Respond with the budget data, or null if none is found
-        return $this->respond($activeBudget);
+{
+    $session = session();
+    $userId = $session->get('userId');
+    if (!$userId) {
+        return $this->failUnauthorized('Not logged in.');
     }
+
+    $budgetModel = new \App\Models\BudgetCycleModel();
+    $activeBudget = $budgetModel->where('user_id', $userId)
+        ->where('status', 'active')
+        ->first();
+
+    // --- FIX: Check if a budget was found ---
+    if (!$activeBudget) {
+        // If no budget is found, send a 404 Not Found response.
+        return $this->failNotFound('No active budget found.');
+    }
+
+    // If a budget IS found, respond with the budget data.
+    return $this->respond($activeBudget);
+}
 }

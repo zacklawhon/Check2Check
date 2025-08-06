@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 
+// The 'user' prop is no longer needed
 function BudgetList({ budgetCycles, onRefresh }) {
     const navigate = useNavigate();
     const [loadingId, setLoadingId] = useState(null);
@@ -12,7 +13,7 @@ function BudgetList({ budgetCycles, onRefresh }) {
                 method: 'POST', credentials: 'include'
             });
             if (!response.ok) throw new Error('Failed to close budget.');
-            navigate(`/review/${budgetId}`);
+            window.location.href = `/review/${budgetId}`;
         } catch (err) {
             console.error(err);
         } finally {
@@ -58,36 +59,9 @@ function BudgetList({ budgetCycles, onRefresh }) {
                             <p className="font-bold">{new Date(`${cycle.start_date}T00:00:00`).toLocaleDateString()} - {new Date(`${cycle.end_date}T00:00:00`).toLocaleDateString()}</p>
                             <p className={`text-sm capitalize font-semibold ${cycle.status === 'active' ? 'text-green-500' : 'text-gray-400'}`}>{cycle.status}</p>
                         </div>
-                        
-                        <div className="flex items-center gap-2">
-                            {cycle.status === 'active' && !isClosable && (
-                                <button onClick={() => navigate(`/budget/${cycle.id}`)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">
-                                    View
-                                </button>
-                            )}
-
-                            {isClosable && (
-                                <>
-                                    {/* --- FIX: Added a "View" button here --- */}
-                                    <button onClick={() => navigate(`/budget/${cycle.id}`)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">
-                                        View
-                                    </button>
-                                    <button 
-                                        onClick={() => handleCloseBudget(cycle.id)} 
-                                        disabled={loadingId === cycle.id}
-                                        className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500"
-                                    >
-                                        {loadingId === cycle.id ? 'Closing...' : 'Close & Review'}
-                                    </button>
-                                </>
-                            )}
-                            
-                            {cycle.status === 'completed' && (
-                                <button onClick={() => navigate(`/review/${cycle.id}`)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">
-                                    Review
-                                </button>
-                            )}
-                        </div>
+                        {cycle.status === 'active' && !isClosable && (<button onClick={() => navigate(`/budget/${cycle.id}`)} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg">View</button>)}
+                        {isClosable && (<button onClick={() => handleCloseBudget(cycle.id)} disabled={loadingId === cycle.id} className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-2 px-4 rounded-lg disabled:bg-gray-500">{loadingId === cycle.id ? 'Closing...' : 'Close & Review'}</button>)}
+                        {cycle.status === 'completed' && (<button onClick={() => navigate(`/review/${cycle.id}`)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-4 rounded-lg">Review</button>)}
                     </div>
                 );
             })}

@@ -93,7 +93,7 @@ function BudgetPage() {
                 const data = await response.json();
                 throw new Error(data.message || 'Failed to close budget.');
             }
-            navigate(`/review/${budgetId}`);
+            window.location.href = `/review/${budgetId}`;
         } catch (err) {
             setError(err.message);
             setIsClosing(false);
