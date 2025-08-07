@@ -6,6 +6,7 @@ use App\Models\UserModel;
 use App\Models\AuthTokenModel;
 use App\Models\BudgetCycleModel;
 use App\Models\TransactionModel;
+use App\Models\InvitationModel;
 use CodeIgniter\API\ResponseTrait;
 use Exception;
 use Config\Services;
@@ -16,10 +17,17 @@ class AuthController extends BaseController
 
     public function requestLink()
     {
-        $emailAddress = $this->request->getVar('email');
-        if (empty($emailAddress) || !filter_var($emailAddress, FILTER_VALIDATE_EMAIL)) {
-            return $this->failValidationErrors('A valid email address is required.');
+        // --- NEW: Accept an invite_token along with the email ---
+        $rules = [
+            'email' => 'required|valid_email',
+            'invite_token' => 'permit_empty|string'
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
         }
+
+        $emailAddress = $this->validator->getValidated()['email'];
+        $inviteToken = $this->validator->getValidated()['invite_token'] ?? null;
 
         try {
             $userModel = new UserModel();
@@ -29,10 +37,33 @@ class AuthController extends BaseController
             $hasBudgets = $user ? $budgetCycleModel->where('user_id', $user['id'])->countAllResults() > 0 : false;
 
             if (!$user) {
+                // --- NEW: Logic to validate the invitation for new users ---
+                if (!$inviteToken) {
+                    // For a closed beta, an invitation is required.
+                    return $this->fail('An invitation is required to create a new account.', 403);
+                }
+
+                $invitationModel = new InvitationModel();
+                $invitation = $invitationModel->where('invite_token', $inviteToken)->first();
+
+                if (!$invitation || $invitation['status'] !== 'sent') {
+                    return $this->fail('This invitation is invalid or has already been claimed.', 403);
+                }
+                // --- End of new invitation logic ---
+
                 $userId = $userModel->insert([
                     'email' => $emailAddress,
                     'status' => 'active'
                 ]);
+
+                // --- NEW: Mark the invitation as claimed after user is created ---
+                $invitationModel->update($invitation['id'], [
+                    'status' => 'claimed',
+                    'claimed_by_user_id' => $userId,
+                    'claimed_at' => date('Y-m-d H:i:s')
+                ]);
+                // --- End of claim logic ---
+
             } else {
                 $userId = $user['id'];
                 if ($user['status'] !== 'active') {

@@ -24,6 +24,15 @@ class TransactionModel extends Model
 
     protected $useTimestamps = false;
 
+    protected $validationRules = [
+        'user_id' => 'required|integer',
+        'budget_cycle_id' => 'required|integer',
+        'type' => 'required|in_list[income,expense,savings]',
+        'category_name' => 'required|string|max_length[255]',
+        'amount' => 'required|decimal',
+        'description' => 'permit_empty|string',
+    ];
+
     /**
      * NEW: Centralized function to log a transaction securely.
      */

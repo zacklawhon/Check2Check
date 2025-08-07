@@ -658,24 +658,25 @@ class BudgetController extends BaseController
 
     public function initializeSavings()
     {
-        // Add a try-catch block to capture any fatal error
         try {
             $session = session();
             $userId = $session->get('userId');
 
+            // Validation rules remain the same
             $rules = [
                 'hasSavings' => 'required|in_list[1,0, true, false]',
                 'zipCode' => 'required|string|max_length[10]',
                 'initialBalance' => 'permit_empty|decimal'
             ];
-
             if (!$this->validate($rules)) {
                 return $this->fail($this->validator->getErrors());
             }
 
             $userModel = new UserModel();
             $toolsModel = new UserFinancialToolsModel();
-            $historyModel = new SavingsHistoryModel();
+            // The SavingsHistoryModel is no longer needed here
+            $transactionModel = new TransactionModel(); // Use TransactionModel instead
+            $budgetCycleModel = new BudgetCycleModel(); // Needed to find the active budget
 
             // 1. Update User's Zip Code
             $userModel->update($userId, ['demographic_zip_code' => $this->request->getVar('zipCode')]);
@@ -687,20 +688,31 @@ class BudgetController extends BaseController
                 $toolsRecord = $toolsModel->where('user_id', $userId)->first();
             }
 
-            $hasSavings = $this->request->getVar('hasSavings') === 'true';
+            // Use a boolean directly
+            $hasSavings = filter_var($this->request->getVar('hasSavings'), FILTER_VALIDATE_BOOLEAN);
             $initialBalance = (float) $this->request->getVar('initialBalance') ?: 0;
 
             $toolsData = ['has_savings_account' => $hasSavings];
 
-            if ($hasSavings) {
+            if ($hasSavings && $initialBalance > 0) {
                 $toolsData['current_savings_balance'] = $initialBalance;
 
-                if ($initialBalance > 0) {
-                    $historyModel->insert([
-                        'user_id' => $userId,
-                        'balance' => $initialBalance
-                    ]);
+                // --- REPLACEMENT LOGIC ---
+                // Find the active budget to associate the transaction with
+                $activeBudget = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
+
+                if ($activeBudget) {
+                    // Log the initial balance as a "savings" transaction
+                    $transactionModel->logTransaction(
+                        $userId,
+                        $activeBudget['id'],
+                        'savings', // A new type to distinguish it from income/expense
+                        'Savings', // A general category
+                        $initialBalance,
+                        'Initial savings balance'
+                    );
                 }
+                // --- END REPLACEMENT ---
             }
 
             $toolsModel->update($toolsRecord['id'], $toolsData);
@@ -708,15 +720,8 @@ class BudgetController extends BaseController
             return $this->respondUpdated(['message' => 'Savings profile initialized successfully.']);
 
         } catch (\Throwable $e) {
-            // If any error occurs, catch it and return it as a proper JSON response
             log_message('error', '[FATAL_ERROR] ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
-
-            return $this->failServerError(
-                'A server error occurred: ' . $e->getMessage(),
-                500,
-                'Error',
-                ['file' => $e->getFile(), 'line' => $e->getLine()]
-            );
+            return $this->failServerError('A server error occurred: ' . $e->getMessage());
         }
     }
 
@@ -989,6 +994,125 @@ class BudgetController extends BaseController
 
         return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
     }
+
+    public function addSavings($budgetId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+
+        $rules = ['amount' => 'required|decimal|greater_than[0]'];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        try {
+            $amount = (float) $this->request->getVar('amount');
+
+            $toolsModel = new UserFinancialToolsModel();
+            $transactionModel = new TransactionModel();
+
+            // Find the user's financial tools record
+            $toolsRecord = $toolsModel->where('user_id', $userId)->first();
+            if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
+                return $this->failValidationErrors('User does not have an active savings account.');
+            }
+
+            // 1. Update the savings balance
+            $newBalance = (float) $toolsRecord['current_savings_balance'] + $amount;
+            $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
+
+            // 2. Log the transaction
+            $transactionModel->logTransaction(
+                $userId,
+                $budgetId,
+                'savings',
+                'Savings Deposit',
+                $amount,
+                'Contribution to savings'
+            );
+
+            return $this->respondUpdated([
+                'message' => 'Savings added successfully.',
+                'newBalance' => $newBalance
+            ]);
+
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_ADD_SAVINGS] {exception}', ['exception' => $e]);
+            return $this->failServerError('Could not add to savings.');
+        }
+    }
+
+    /**
+     * Withdraws money from savings, logging it as an 'expense' transaction.
+     */
+    public function withdrawSavings($budgetId)
+{
+    $session = session();
+    $userId = $session->get('userId');
+
+    // --- UPDATED: Add withdrawal_type to the validation rules ---
+    $rules = [
+        'amount' => 'required|decimal|greater_than[0]',
+        'withdrawal_type' => 'required|in_list[income,external]'
+    ];
+    if (!$this->validate($rules)) {
+        return $this->fail($this->validator->getErrors());
+    }
+    
+    try {
+        $amount = (float) $this->request->getVar('amount');
+        $withdrawalType = $this->request->getVar('withdrawal_type');
+
+        $toolsModel = new UserFinancialToolsModel();
+        $transactionModel = new TransactionModel();
+        
+        $toolsRecord = $toolsModel->where('user_id', $userId)->first();
+        if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
+            return $this->failValidationErrors('User does not have an active savings account.');
+        }
+
+        $currentBalance = (float) $toolsRecord['current_savings_balance'];
+        if ($amount > $currentBalance) {
+            return $this->failValidationErrors('Withdrawal amount cannot exceed the current balance.');
+        }
+
+        // 1. Update the savings balance (this happens for both types)
+        $newBalance = $currentBalance - $amount;
+        $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
+
+        // 2. --- NEW: Conditionally log the transaction based on user's choice ---
+        if ($withdrawalType === 'income') {
+            // Log as 'income' to add cash to the budget
+            $transactionModel->logTransaction(
+                $userId,
+                $budgetId,
+                'income',
+                'Savings Transfer',
+                $amount,
+                'Transfer from savings'
+            );
+        } else { // 'external'
+            // Log as a negative 'savings' transaction to keep it out of budget totals
+            $transactionModel->logTransaction(
+                $userId,
+                $budgetId,
+                'savings',
+                'Savings Withdrawal',
+                -$amount,
+                'External withdrawal from savings'
+            );
+        }
+
+        return $this->respondUpdated([
+            'message' => 'Withdrawal from savings successful.',
+            'newBalance' => $newBalance
+        ]);
+
+    } catch (\Exception $e) {
+        log_message('error', '[ERROR_WITHDRAW_SAVINGS] {exception}', ['exception' => $e]);
+        return $this->failServerError('Could not withdraw from savings.');
+    }
+}
 
 
 }

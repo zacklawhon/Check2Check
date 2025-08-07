@@ -61,7 +61,8 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
     return (
         <>
             <li className="bg-gray-700 p-3 rounded-md">
-                <div className="flex justify-between items-center gap-4">
+                {/* 1. This is the main container. We make it a column on mobile and a row on desktop. */}
+                <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
                     <div className="flex-grow">
                         <span className="font-semibold">{item.label}</span>
                         <div className="text-xs text-gray-400">
@@ -70,19 +71,22 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
                             <span>Remaining: ${remainingBudget.toFixed(2)}</span>
                         </div>
                     </div>
-                    <div className="flex items-center gap-2">
+                    {/* 2. This container for the buttons now takes up the full width and stacks its content on mobile. */}
+                    <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
                         <form onSubmit={handleBudgetSet} className="flex items-center gap-2">
                             <span className="text-gray-400">$</span>
-                            <div>
-                                <label htmlFor="budgeted-amount" className="block text-sm font-semibold mb-1 text-gray-400">Budgeted Amount</label>
+                            <div className="flex-grow">
+                                {/* The label is hidden visually but available for screen readers. */}
+                                <label htmlFor={`budget-amount-${item.label}`} className="sr-only">Budgeted Amount</label>
+                                {/* 3. The input now grows to fill the space and has responsive width. */}
                                 <input
                                     type="number"
                                     step="0.01"
-                                    id="budgeted-amount"
+                                    id={`budget-amount-${item.label}`}
                                     value={budgetedAmount}
                                     onChange={(e) => setBudgetedAmount(e.target.value)}
-                                    placeholder="0.00"
-                                    className="bg-gray-600 w-24 text-white rounded-lg p-1 border border-gray-500 text-right focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                                    placeholder="Budget"
+                                    className="bg-gray-600 w-full sm:w-24 text-white rounded-lg p-1 border border-gray-500 text-right focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                                     required
                                 />
                             </div>
@@ -91,7 +95,7 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
                             </button>
                         </form>
                         <button onClick={() => setIsLogModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Log</button>
-                        <button onClick={() => setIsConfirmModalOpen(true)} className="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+                        <button onClick={() => setIsConfirmModalOpen(true)} className="absolute top-2 right-2 md:static text-gray-400 hover:text-white font-bold text-lg">&times;</button>
                     </div>
                 </div>
                 {error && <p className="text-red-500 text-xs mt-1 text-right">{error}</p>}

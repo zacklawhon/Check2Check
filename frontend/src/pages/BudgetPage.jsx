@@ -6,6 +6,7 @@ import AddItemModal from '../components/modals/AddItemModal';
 import EditIncomeModal from '../components/modals/EditIncomeModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditDatesModal from '../components/modals/EditDatesModal';
+import SavingsCard from '../components/SavingsCard';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -22,15 +23,17 @@ function BudgetPage() {
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [showSoftClose, setShowSoftClose] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
+    const [financialTools, setFinancialTools] = useState(null);
 
     const fetchBudgetData = async (isRefresh = false) => {
         if (!budgetId) return;
         if (!isRefresh) setLoading(true);
         try {
-            const [budgetRes, transactionsRes, profileRes] = await Promise.all([
+            const [budgetRes, transactionsRes, profileRes, toolsRes] = await Promise.all([
                 fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
                 fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' }),
-                fetch('/api/user/profile', { credentials: 'include' })
+                fetch('/api/user/profile', { credentials: 'include' }),
+                fetch('/api/account/financial-tools', { credentials: 'include' })
             ]);
             
             if (!budgetRes.ok || !transactionsRes.ok || !profileRes.ok) {
@@ -40,10 +43,12 @@ function BudgetPage() {
             const budgetData = await budgetRes.json();
             const transactionsData = await transactionsRes.json();
             const profileData = await profileRes.json();
+            const toolsData = await toolsRes.json();
             
             setBudget(budgetData);
             setTransactions(transactionsData);
             setUser(profileData);
+            setFinancialTools(toolsData);
             
             const recurring = budgetData.initial_expenses.filter(exp => exp.type === 'recurring');
             if (recurring.length > 0 && recurring.every(exp => exp.is_paid)) {
@@ -150,40 +155,58 @@ function BudgetPage() {
             )}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                <div className="md:col-span-1 bg-gray-800 p-6 rounded-lg shadow-xl self-start">
-                    <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Summary</h2>
-                    <div className="space-y-3">
-                        <div className="flex justify-between">
-                            <span className="text-gray-400">Total Income:</span>
-                            <span className="font-semibold text-green-500">${totalIncome.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-400">Planned Expenses:</span>
-                            <span className="font-semibold text-red-400">${totalExpectedExpenses.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between">
-                            <span className="text-gray-400">Expenses Paid:</span>
-                            <span className="font-semibold text-red-500">${totalExpensesPaid.toFixed(2)}</span>
-                        </div>
-                        <div className="flex justify-between pt-4 border-t border-gray-600">
-                            <span className="text-gray-300 font-bold">Current Cash:</span>
-                            <span className={`font-bold text-lg ${currentCash >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                ${currentCash.toFixed(2)}
-                            </span>
-                        </div>
-                    </div>
-                    {isClosable && (
-                        <div className="mt-6">
-                            <button
-                                onClick={handleCloseBudget}
-                                disabled={isClosing}
-                                className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500"
-                            >
-                                {isClosing ? 'Closing...' : 'Close & Review Budget'}
-                            </button>
-                        </div>
-                    )}
+                {/* --- 1. Left Column Wrapper --- */}
+    {/* This new div will hold both the summary and savings cards. */}
+    <div className="md:col-span-1 flex flex-col gap-8">
+
+        {/* --- 2. Original Summary Card --- */}
+        {/* Your existing summary card code goes here. */}
+        <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+            <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Summary</h2>
+            <div className="space-y-3">
+                <div className="flex justify-between">
+                    <span className="text-gray-400">Total Income:</span>
+                    <span className="font-semibold text-green-500">${totalIncome.toFixed(2)}</span>
                 </div>
+                <div className="flex justify-between">
+                    <span className="text-gray-400">Planned Expenses:</span>
+                    <span className="font-semibold text-red-400">${totalExpectedExpenses.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between">
+                    <span className="text-gray-400">Expenses Paid:</span>
+                    <span className="font-semibold text-red-500">${totalExpensesPaid.toFixed(2)}</span>
+                </div>
+                <div className="flex justify-between pt-4 border-t border-gray-600">
+                    <span className="text-gray-300 font-bold">Current Cash:</span>
+                    <span className={`font-bold text-lg ${currentCash >= 0 ? 'text-green-400' : 'text-red-400'}`}>
+                        ${currentCash.toFixed(2)}
+                    </span>
+                </div>
+            </div>
+            {isClosable && (
+                <div className="mt-6">
+                    <button
+                        onClick={handleCloseBudget}
+                        disabled={isClosing}
+                        className="w-full bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500"
+                    >
+                        {isClosing ? 'Closing...' : 'Close & Review Budget'}
+                    </button>
+                </div>
+            )}
+        </div>
+
+        {/* --- 3. New Savings Card --- */}
+        {/* Paste your savings card code block here. */}
+        {financialTools?.has_savings_account && (
+            <SavingsCard 
+                balance={financialTools.current_savings_balance}
+                budgetId={budgetId}
+                onUpdate={refreshBudget}
+            />
+        )}
+    </div>
+                
 
                 <div className="md:col-span-2 bg-gray-800 p-6 rounded-lg shadow-xl">
                     <div className="mb-8">

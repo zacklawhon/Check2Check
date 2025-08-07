@@ -1,9 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import HelpFeedbackModal from './modals/HelpFeedbackModal';
 
 function Header({ activeBudget }) {
   const navigate = useNavigate();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
+  const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { 
@@ -39,6 +41,7 @@ function Header({ activeBudget }) {
           )}
           <button onClick={() => handleNavClick('/dashboard')} className="text-gray-300 hover:text-white">Dashboard</button>
           <button onClick={() => handleNavClick('/account')} className="text-gray-300 hover:text-white">Account</button>
+          <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
           <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Logout</button>
         </nav>
 
@@ -70,10 +73,12 @@ function Header({ activeBudget }) {
             )}
             <button onClick={() => handleNavClick('/dashboard')} className="text-left text-gray-300 hover:text-white py-2">Dashboard</button>
             <button onClick={() => handleNavClick('/account')} className="text-left text-gray-300 hover:text-white py-2">Account</button>
+            <button onClick={() => { setIsHelpModalOpen(true); setIsMenuOpen(false); }} className="text-left text-gray-300 hover:text-white py-2">Help & Feedback</button>
             <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm py-2 px-3 mt-2">Logout</button>
           </nav>
         </div>
       )}
+      <HelpFeedbackModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
     </header>
   );
 }

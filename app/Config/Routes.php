@@ -58,8 +58,10 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('initialize-savings', 'BudgetController::initializeSavings');
             $routes->post('log-savings', 'BudgetController::logSavings');
             $routes->post('update-income-amount/(:num)', 'BudgetController::updateInitialIncomeAmount/$1');
+            $routes->post('savings/add/(:num)', 'BudgetController::addSavings/$1');
+            $routes->post('savings/withdraw/(:num)', 'BudgetController::withdrawSavings/$1');
         });
-        
+
         $routes->group('expenses', static function ($routes) {
             $routes->post('update-details/(:num)', 'BudgetController::updateExpenseDetails/$1');
         });
@@ -68,7 +70,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         $routes->group('transaction', static function ($routes) {
             $routes->post('add', 'TransactionController::addTransaction');
         });
-        
+
         $routes->group('account', static function ($routes) {
             $routes->get('recurring-items', 'AccountController::getRecurringItems');
             $routes->delete('income-sources/(:num)', 'AccountController::deleteIncomeSource/$1');
@@ -82,6 +84,16 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->get('verify-email-change/(:segment)', 'AccountController::verifyEmailChange/$1');
             $routes->delete('delete', 'AccountController::deleteAccount');
         });
+
+        $routes->group('feedback', static function ($routes) {
+            $routes->post('submit', 'FeedbackController::submit');
+        });
+
+        $routes->group('invitations', static function ($routes) {
+            $routes->post('send', 'InvitationController::sendInvite');
+            $routes->get('', 'InvitationController::getUserInvitations');
+        });
+
     });
 });
 

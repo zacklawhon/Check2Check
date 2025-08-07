@@ -11,6 +11,7 @@ import BudgetPage from './pages/BudgetPage';
 import BudgetReviewPage from './pages/BudgetReviewPage';
 import GuidedWizard from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
+import RegisterPage from './pages/RegisterPage';
 
 function ProtectedRoute({ user, loadingUser, activeBudget }) {
   if (loadingUser) {
@@ -67,6 +68,8 @@ function App() {
         <Toaster position="top-center" toastOptions={{ style: { background: '#374151', color: '#fff' } }} />
         <Routes>
           <Route path="/" element={<LandingPage />} />
+          <Route path="/" element={<LandingPage />} />
+          <Route path="/register" element={<RegisterPage />} /> 
           <Route path="/verify-login" element={<VerificationPage />} />
           <Route path="/verify-email-change/:token" element={<EmailChangeVerificationPage />} />
 
