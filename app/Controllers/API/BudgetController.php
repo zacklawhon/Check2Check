@@ -664,7 +664,7 @@ class BudgetController extends BaseController
             $userId = $session->get('userId');
 
             $rules = [
-                'hasSavings' => 'required|in_list[1,0]',
+                'hasSavings' => 'required|in_list[1,0, true, false]',
                 'zipCode' => 'required|string|max_length[10]',
                 'initialBalance' => 'permit_empty|decimal'
             ];

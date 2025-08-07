@@ -314,7 +314,7 @@ function SavingsSetupPrompt({ onSetupComplete }) {
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
                 body: JSON.stringify({
-                    hasSavings: hasSavings === 'true',
+                    hasSavings: hasSavings === 'true' ? 1 : 0,
                     zipCode: zipCode,
                     initialBalance: initialBalance
                 })

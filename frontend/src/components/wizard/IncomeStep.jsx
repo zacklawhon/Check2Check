@@ -1,4 +1,4 @@
-import React, {useState, useEffect, useRef } from 'react'; // 1. Import useRef
+import React, {useState, useEffect, useRef } from 'react';
 
 function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] }) {
     const [sourceName, setSourceName] = useState('');
@@ -8,16 +8,23 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
     const [loading, setLoading] = useState(false);
     const [selectedIncome, setSelectedIncome] = useState([]);
     
-    // 2. Create a ref to hold our input elements
+    // Add state to track all income sources (similar to allExpenses in ExpenseStep)
+    const [allIncomeSources, setAllIncomeSources] = useState([]);
+    
     const inputRefs = useRef([]);
 
     useEffect(() => {
+        // Initialize allIncomeSources with suggestions (ensuring amount field exists)
+        const initialSuggestions = suggestions.map(s => ({ ...s, amount: s.amount || '' }));
+        setAllIncomeSources(initialSuggestions);
+        
+        // Initialize selectedIncome with existingIncome (ensuring amount field exists)
         const preparedIncome = existingIncome.map(item => ({
             ...item,
             amount: item.amount || ''
         }));
         setSelectedIncome(preparedIncome);
-    }, [existingIncome]);
+    }, [suggestions, existingIncome]);
 
     const handleSelectionChange = (source, isChecked) => {
         if (isChecked) {
@@ -28,8 +35,16 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
     };
 
     const handleAmountChange = (sourceId, newAmount) => {
+        // Update selectedIncome
         setSelectedIncome(prev => 
             prev.map(item => 
+                item.id === sourceId ? { ...item, amount: newAmount } : item
+            )
+        );
+        
+        // Also update allIncomeSources to keep them in sync
+        setAllIncomeSources(prev =>
+            prev.map(item =>
                 item.id === sourceId ? { ...item, amount: newAmount } : item
             )
         );
@@ -53,10 +68,19 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to add income source.');
+
+            const newIncomeSource = { 
+                id: data.id, 
+                label: sourceName, 
+                amount, 
+                frequency 
+            };
             
-            const newIncomeSource = { id: data.id, label: sourceName, amount, frequency };
+            // Add to both allIncomeSources and selectedIncome (similar to ExpenseStep)
+            setAllIncomeSources(prev => [...prev, newIncomeSource]);
             setSelectedIncome(prev => [...prev, newIncomeSource]);
             
+            // Reset form
             setSourceName('');
             setAmount('');
             setFrequency('weekly');
@@ -71,11 +95,9 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         onComplete(selectedIncome);
     };
     
-    // 3. Add keydown handler for tab navigation
     const handleKeyDown = (e, index) => {
-        // On Tab (but not Shift+Tab)
         if (e.key === 'Tab' && !e.shiftKey) {
-            const nextEnabledInputIndex = suggestions.findIndex((source, i) => 
+            const nextEnabledInputIndex = allIncomeSources.findIndex((source, i) => 
                 i > index && selectedIncome.some(item => item.id === source.id)
             );
 
@@ -92,14 +114,14 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 2: Confirm Your Income</h2>
             
-            {suggestions.length > 0 && (
+            {allIncomeSources.length > 0 && (
                 <div className="mb-6">
                     <h3 className="font-semibold mb-2">Suggested Income Sources</h3>
                     <p className="text-sm text-gray-400 mb-2">Check the box for each income source you expect this period and confirm the amount.</p>
                     <div className="space-y-3 bg-gray-700 p-4 rounded-lg">
-                        {suggestions.map((source, index) => { // 4. Get the index
+                        {allIncomeSources.map((source, index) => {
                             const isSelected = selectedIncome.some(item => item.id === source.id);
-                            const selectedItem = selectedIncome.find(item => item.id === source.id);
+                            const selectedItem = selectedIncome.find(item => item.id === source.id) || source;
 
                             return (
                                 <div key={source.id} className="grid grid-cols-12 gap-2 items-center">
@@ -118,14 +140,12 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
                                     <div className="col-span-4 flex items-center">
                                         <span className="mr-1 text-gray-400">$</span>
                                         <input
-                                            // 5. Assign the ref to the input element
                                             ref={el => inputRefs.current[index] = el}
-                                            // 6. Add the keydown handler
                                             onKeyDown={(e) => handleKeyDown(e, index)}
                                             type="number"
                                             step="0.01"
                                             placeholder="0.00"
-                                            value={isSelected ? selectedItem.amount : ''}
+                                            value={selectedItem.amount}
                                             onChange={(e) => handleAmountChange(source.id, e.target.value)}
                                             disabled={!isSelected}
                                             className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-700 disabled:opacity-50"
@@ -138,7 +158,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
                 </div>
             )}
             
-            <p className="text-gray-400 mb-4">Add any new or one-time income for this budget period.</p>
+            <p className="text-gray-400 mb-4">Add any new income.</p>
             <form onSubmit={handleSubmit} className="space-y-4 mb-6">
                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
                     <input type="text" value={sourceName} onChange={(e) => setSourceName(e.target.value)} placeholder="e.g., Side Job" className="col-span-1 md:col-span-2 bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"/>

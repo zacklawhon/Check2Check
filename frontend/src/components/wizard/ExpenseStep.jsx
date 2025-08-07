@@ -62,44 +62,69 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formState.label || !formState.amount || parseFloat(formState.amount) <= 0) {
-            setError('Please provide a valid name and amount.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            const recurringData = { ...formState };
-            delete recurringData.amount;
-            const response = await fetch('/api/onboarding/add-expense', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(recurringData) 
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
-            
-            const newExpense = {
-                ...recurringData,
-                id: data.id,
-                due_date: recurringData.dueDate,
-                estimated_amount: formState.amount
-            };
-            setAllExpenses(prev => [...prev, newExpense]);
-            setSelectedExpenses(prev => [...prev, newExpense]);
+    e.preventDefault();
+    if (!formState.label || !formState.amount || parseFloat(formState.amount) <= 0) {
+        setError('Please provide a valid name and amount.');
+        return;
+    }
+    setLoading(true);
+    setError('');
+    
+    try {
+        // Store critical values before any state changes
+        const amountValue = formState.amount;
+        const labelValue = formState.label;
+        const dueDateValue = formState.dueDate;
+        const categoryValue = formState.category;
+        
+        const recurringData = { ...formState };
+        delete recurringData.amount;
+        
+        const response = await fetch('/api/onboarding/add-expense', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(recurringData) 
+        });
+        
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
+        
+        // Reset form state FIRST, before updating lists
+        setFormState({
+            label: '', 
+            amount: '', 
+            dueDate: '', 
+            category: 'other', 
+            principal_balance: '',
+            interest_rate: '', 
+            maturity_date: '', 
+            outstanding_balance: ''
+        });
+        
+        // Create new expense object using stored values
+        const newExpense = {
+            id: data.id,
+            label: labelValue,
+            due_date: dueDateValue,
+            category: categoryValue,
+            estimated_amount: amountValue,
+            principal_balance: formState.principal_balance || '',
+            interest_rate: formState.interest_rate || '',
+            maturity_date: formState.maturity_date || '',
+            outstanding_balance: formState.outstanding_balance || ''
+        };
+        
+        // Update both state arrays after form is reset
+        setAllExpenses(prev => [...prev, newExpense]);
+        setSelectedExpenses(prev => [...prev, newExpense]);
 
-            setFormState({
-                label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
-                interest_rate: '', maturity_date: '', outstanding_balance: ''
-            });
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
+};
     
     const handleKeyDown = (e, index) => {
         if (e.key === 'Tab' && !e.shiftKey) {
