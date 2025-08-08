@@ -10,6 +10,20 @@ class TransactionController extends BaseController
 {
     use ResponseTrait;
 
+    /**
+     * Adds a new transaction for the authenticated user.
+     *
+     * Validates input (budget cycle ID, type, category, amount, description) and logs the transaction
+     * using TransactionModel::logTransaction. Returns the transaction data with the new ID. Shares
+     * logTransaction with BudgetController methods (e.g., createCycle, markBillPaid, addSavings),
+     * but serves a distinct purpose: manual transaction entry vs. automated logging for budget actions.
+     * The centralized logTransaction method avoids duplication of core logic. No redundancy within
+     * the controller or with other controllers.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response with the transaction data if saved,
+     * a 404 if the budget cycle is not found or access is denied, a validation error for invalid input,
+     * or a 500 error if insertion fails.
+     */
     public function addTransaction()
     {
         $session = session();

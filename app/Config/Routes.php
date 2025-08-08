@@ -39,8 +39,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->get('wizard-suggestions', 'BudgetController::getWizardSuggestions');
             $routes->post('create', 'BudgetController::createCycle');
             $routes->post('add-transaction', 'BudgetController::addTransaction');
-            $routes->post('add-income-adjustment', 'BudgetController::addIncomeAdjustment');
-            $routes->post('add-expense-adjustment', 'BudgetController::addExpenseAdjustment');
+            //$routes->post('add-income-adjustment', 'BudgetController::addIncomeAdjustment');
+            //$routes->post('add-expense-adjustment', 'BudgetController::addExpenseAdjustment');
             $routes->get('cycles', 'BudgetController::getCycles');
             $routes->get('(:num)', 'BudgetController::getCycleDetails/$1');
             $routes->get('transactions/(:num)', 'BudgetController::getTransactionsForCycle/$1');
@@ -50,7 +50,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('add-income/(:num)', 'BudgetController::addIncomeToCycle/$1');
             $routes->post('add-variable-expense/(:num)', 'BudgetController::addVariableExpense/$1');
             $routes->post('remove-expense/(:num)', 'BudgetController::removeExpenseFromCycle/$1');
-            $routes->post('adjust-income/(:num)', 'BudgetController::adjustIncomeInCycle/$1');
+            //$routes->post('adjust-income/(:num)', 'BudgetController::adjustIncomeInCycle/$1');
             $routes->post('remove-income/(:num)', 'BudgetController::removeIncomeFromCycle/$1');
             $routes->post('update-dates/(:num)', 'BudgetController::updateBudgetDates/$1');
             $routes->post('force-close/(:num)', 'BudgetController::forceCloseCycle/$1');

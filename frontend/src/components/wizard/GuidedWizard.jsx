@@ -124,6 +124,26 @@ function GuidedWizard({ user }) {
     if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
     if (!wizardData.suggestions) return null;
 
+    const updateIncomeSuggestions = (newSource) => {
+        setWizardData(prev => ({
+            ...prev,
+            suggestions: {
+                ...prev.suggestions,
+                suggestedIncome: [...prev.suggestions.suggestedIncome, newSource]
+            }
+        }));
+    };
+
+    const updateExpenseSuggestions = (newExpense) => {
+        setWizardData(prev => ({
+            ...prev,
+            suggestions: {
+                ...prev.suggestions,
+                suggestedExpenses: [...prev.suggestions.suggestedExpenses, newExpense]
+            }
+        }));
+    };
+
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
             <h1 className="text-3xl font-bold mb-6 text-center">Guided Setup</h1>
@@ -137,11 +157,12 @@ function GuidedWizard({ user }) {
                 )}
                 {step === 2 && (
                     <IncomeStep
-                        // The back button is only shown if they are on a step after the first one.
                         onBack={prevStep}
                         onComplete={handleIncomeConfirmed}
                         suggestions={wizardData.suggestions.suggestedIncome}
                         existingIncome={wizardData.confirmedIncome}
+                        // --- 2. PASS THE NEW FUNCTION AS A PROP ---
+                        onNewSourceAdded={updateIncomeSuggestions}
                     />
                 )}
                  {step === 3 && (
@@ -151,6 +172,8 @@ function GuidedWizard({ user }) {
                         suggestions={wizardData.suggestions.suggestedExpenses}
                         existingExpenses={wizardData.confirmedExpenses}
                         confirmedDates={wizardData.confirmedDates}
+                        // --- 2. PASS THE NEW FUNCTION AS A PROP ---
+                        onNewExpenseAdded={updateExpenseSuggestions}
                     />
                 )}
                 {step === 4 && (

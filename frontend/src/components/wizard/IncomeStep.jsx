@@ -1,6 +1,6 @@
 import React, {useState, useEffect, useRef } from 'react';
 
-function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] }) {
+function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [], onNewSourceAdded }) {
     const [sourceName, setSourceName] = useState('');
     const [amount, setAmount] = useState('');
     const [frequency, setFrequency] = useState('weekly');
@@ -8,17 +8,14 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
     const [loading, setLoading] = useState(false);
     const [selectedIncome, setSelectedIncome] = useState([]);
     
-    // Add state to track all income sources (similar to allExpenses in ExpenseStep)
     const [allIncomeSources, setAllIncomeSources] = useState([]);
     
     const inputRefs = useRef([]);
 
     useEffect(() => {
-        // Initialize allIncomeSources with suggestions (ensuring amount field exists)
         const initialSuggestions = suggestions.map(s => ({ ...s, amount: s.amount || '' }));
         setAllIncomeSources(initialSuggestions);
         
-        // Initialize selectedIncome with existingIncome (ensuring amount field exists)
         const preparedIncome = existingIncome.map(item => ({
             ...item,
             amount: item.amount || ''
@@ -35,14 +32,12 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
     };
 
     const handleAmountChange = (sourceId, newAmount) => {
-        // Update selectedIncome
         setSelectedIncome(prev => 
             prev.map(item => 
                 item.id === sourceId ? { ...item, amount: newAmount } : item
             )
         );
         
-        // Also update allIncomeSources to keep them in sync
         setAllIncomeSources(prev =>
             prev.map(item =>
                 item.id === sourceId ? { ...item, amount: newAmount } : item
@@ -76,11 +71,12 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
                 frequency 
             };
             
-            // Add to both allIncomeSources and selectedIncome (similar to ExpenseStep)
-            setAllIncomeSources(prev => [...prev, newIncomeSource]);
+            if (onNewSourceAdded) {
+                onNewSourceAdded(newIncomeSource);
+            }
+            
             setSelectedIncome(prev => [...prev, newIncomeSource]);
             
-            // Reset form
             setSourceName('');
             setAmount('');
             setFrequency('weekly');
@@ -91,8 +87,39 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         }
     };
 
-    const handleNext = () => {
-        onComplete(selectedIncome);
+    const handleNext = async () => {
+        let finalIncomeList = [...selectedIncome];
+
+        if (sourceName && amount && parseFloat(amount) > 0) {
+            setLoading(true);
+            setError('');
+            try {
+                const response = await fetch('/api/onboarding/add-income', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify({ label: sourceName, frequency })
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Failed to add final income source.');
+
+                const newIncomeSource = {
+                    id: data.id,
+                    label: sourceName,
+                    amount,
+                    frequency
+                };
+                
+                finalIncomeList.push(newIncomeSource);
+
+            } catch (err) {
+                setError(err.message);
+                setLoading(false);
+                return;
+            }
+        }
+
+        onComplete(finalIncomeList);
     };
     
     const handleKeyDown = (e, index) => {
@@ -108,7 +135,9 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
         }
     };
 
-    const isNextDisabled = selectedIncome.length === 0 || selectedIncome.some(item => !item.amount || parseFloat(item.amount) <= 0);
+    const isFormValid = sourceName && amount && parseFloat(amount) > 0;
+    const isListValid = selectedIncome.length > 0 && !selectedIncome.some(item => !item.amount || parseFloat(item.amount) <= 0);
+    const isNextDisabled = !isListValid && !isFormValid;
     
     return (
         <div>
@@ -181,8 +210,8 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [] 
             
             <div className="flex justify-between mt-8">
                 {onBack && <button onClick={onBack} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Back</button>}
-                <button onClick={handleNext} disabled={isNextDisabled} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed ml-auto">
-                    Next: Expenses
+                <button onClick={handleNext} disabled={isNextDisabled || loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed ml-auto">
+                    {loading ? 'Saving...' : 'Next: Expenses'}
                 </button>
             </div>
         </div>

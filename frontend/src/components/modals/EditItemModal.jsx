@@ -59,7 +59,9 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md relative">
                 <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-white text-2xl">&times;</button>
-                <h2 className="text-2xl font-bold text-center mb-6 text-white">Edit Item</h2>
+                <h2 className="text-2xl font-bold text-center mb-6 text-white">
+                    Edit: <span className="text-indigo-400">{item?.label}</span>
+                </h2>
                 
                 <form onSubmit={handleSubmit} className="space-y-4">
                     <div>
@@ -88,6 +90,7 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                             >
                                 <option value="one-time">One-Time</option>
                                 <option value="weekly">Weekly</option>
+                                <option value="semi-monthly">Twice a Month</option>
                                 <option value="bi-weekly">Bi-Weekly</option>
                                 <option value="monthly">Monthly</option>
                             </select>

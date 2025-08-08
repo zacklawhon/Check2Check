@@ -12,6 +12,19 @@ class InvitationController extends BaseController
 {
     use ResponseTrait;
 
+    /**
+     * Sends an invitation email to a recipient for joining Check2Check.
+     *
+     * Validates the recipient’s email, checks if the inviter exists, prevents self-invitations and
+     * inviting existing users, enforces a daily invitation limit (5 per day), generates a unique
+     * invitation token, and sends an email with a registration link. No redundancy within the
+     * controller, but the email-sending logic is similar to AuthController’s sendWelcomeEmail and
+     * sendReturningUserEmail. A shared sendEmail helper could reduce duplication across controllers.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if the invitation is sent,
+     * a 404 if the inviter is not found, a validation error for invalid input or existing users,
+     * a 429 for exceeding the daily limit, or a 500 error if email sending fails.
+     */
     public function sendInvite()
     {
         $rules = ['recipient_email' => 'required|valid_email'];
@@ -61,6 +74,14 @@ class InvitationController extends BaseController
         return $this->respond(['message' => 'Invitation sent successfully!']);
     }
 
+    /**
+     * Retrieves all invitations sent by the authenticated user.
+     *
+     * Fetches all invitations from the InvitationModel for the current user, ordered by creation date.
+     * No redundancy with other methods or controllers, as invitation retrieval is a unique feature.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with an array of invitations.
+     */
     public function getUserInvitations()
     {
         $inviterId = session()->get('userId');
@@ -71,6 +92,19 @@ class InvitationController extends BaseController
         return $this->respond($invitations);
     }
     
+    /**
+     * Sends an invitation email to the recipient with a registration link.
+     *
+     * Prepares email data (inviter email, pitch message, registration link) and sends the email using
+     * the email service. Logs and throws an exception if sending fails. Note: Shares email-sending
+     * logic with AuthController’s sendWelcomeEmail and sendReturningUserEmail. A shared sendEmail
+     * helper in BaseController or a utility class could reduce duplication across controllers.
+     *
+     * @param string $recipientEmail The email address of the recipient.
+     * @param string $inviterEmail The email address of the inviting user.
+     * @param string $token The unique invitation token.
+     * @throws \Exception If the email fails to send.
+     */
     private function sendInvitationEmail(string $recipientEmail, string $inviterEmail, string $token)
     {
         $email = Services::email();

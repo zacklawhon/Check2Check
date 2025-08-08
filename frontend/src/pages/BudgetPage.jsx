@@ -198,7 +198,7 @@ function BudgetPage() {
 
         {/* --- 3. New Savings Card --- */}
         {/* Paste your savings card code block here. */}
-        {financialTools?.has_savings_account && (
+        {financialTools?.has_savings_account == 1 && (
             <SavingsCard 
                 balance={financialTools.current_savings_balance}
                 budgetId={budgetId}

@@ -44,7 +44,7 @@ function DashboardPage() {
   
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
-            {financialTools?.has_savings_account && (
+            {financialTools?.has_savings_account == 1 && (
                 <div className="max-w-2xl mx-auto mb-12">
                     <SavingsCard
                         balance={financialTools.current_savings_balance}

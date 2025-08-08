@@ -13,7 +13,6 @@ use App\Models\LearnedSpendingCategoryModel;
 use App\Models\TransactionModel;
 use App\Models\UserModel;
 use App\Models\UserFinancialToolsModel;
-use App\Models\SavingsHistoryModel;
 use CodeIgniter\API\ResponseTrait;
 use DateTime;
 use Exception;
@@ -22,6 +21,16 @@ class BudgetController extends BaseController
 {
     use ResponseTrait;
 
+    /**
+     * Creates a new budget cycle for the authenticated user.
+     *
+     * Validates input data (start/end dates, income sources, expenses, categories) and ensures no active budget exists.
+     * Processes JSON inputs for income sources, recurring expenses, and spending categories, then creates a budget cycle
+     * and logs initial income transactions. No redundancy with other methods due to its unique creation logic.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response with the new budget ID if successful, a 409 if an active budget exists,
+     * a validation error for invalid input, or a 500 error on failure.
+     */
     public function createCycle()
     {
         $session = session();
@@ -99,6 +108,14 @@ class BudgetController extends BaseController
         }
     }
 
+    /**
+     * Retrieves all budget cycles for the authenticated user.
+     *
+     * Fetches all budget cycles associated with the user from the BudgetCycleModel.
+     * No redundancy with other methods due to its unique retrieval purpose.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with an array of budget cycles.
+     */
     public function getCycles()
     {
         $session = session();
@@ -108,9 +125,17 @@ class BudgetController extends BaseController
         return $this->respond($cycles);
     }
 
+    /**
+     * Retrieves details of a specific budget cycle for the authenticated user.
+     *
+     * Fetches a budget cycle by ID, verifies user ownership, and decodes JSON fields (initial_income, initial_expenses, final_summary).
+     * No redundancy with other methods due to its specific retrieval logic.
+     *
+     * @param int $id The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the budget cycle details or a 404 if not found.
+     */
     public function getCycleDetails($id)
     {
-
         $session = session();
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
@@ -118,7 +143,6 @@ class BudgetController extends BaseController
         $budgetCycle = $budgetCycleModel->where('id', $id)
             ->where('user_id', $userId)
             ->first();
-
 
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
@@ -131,9 +155,17 @@ class BudgetController extends BaseController
         return $this->respond($budgetCycle);
     }
 
+    /**
+     * Retrieves all transactions for a specific budget cycle.
+     *
+     * Verifies the budget cycle exists and belongs to the user, then fetches all associated transactions.
+     * No redundancy with other methods due to its specific transaction retrieval logic.
+     *
+     * @param int $cycleId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the transactions or a 404 if the cycle is not found.
+     */
     public function getTransactionsForCycle($cycleId)
     {
-
         $session = session();
         $userId = $session->get('userId');
         $transactionModel = new TransactionModel();
@@ -150,6 +182,17 @@ class BudgetController extends BaseController
         return $this->respond($transactions);
     }
 
+    /**
+     * Updates the estimated amount of a variable expense in a budget cycle.
+     *
+     * Verifies the budget cycle exists and belongs to the user, updates the specified variable expense’s amount
+     * in the initial_expenses JSON field. Note: Shares fetch-decode-update pattern with other expense-related methods
+     * (e.g., markBillPaid, addExpenseToCycle). A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $cycleId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the cycle or expense is not found,
+     * or a validation error if the amount is invalid.
+     */
     public function updateVariableExpenseAmount($cycleId)
     {
         $session = session();
@@ -186,6 +229,17 @@ class BudgetController extends BaseController
         return $this->fail('Expense not found in this budget.');
     }
 
+    /**
+     * Marks a recurring expense as paid in a budget cycle and logs a transaction.
+     *
+     * Verifies the budget cycle and expense exist, marks the expense as paid in the initial_expenses JSON field,
+     * and logs a transaction. Note: Shares fetch-decode-update pattern with other expense-related methods.
+     * A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $cycleId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the cycle or expense is not found,
+     * or a failure response if the expense is already paid.
+     */
     public function markBillPaid($cycleId)
     {
         $session = session();
@@ -233,6 +287,17 @@ class BudgetController extends BaseController
         return $this->fail('Bill not found in this budget.');
     }
 
+    /**
+     * Adds a new income to a budget cycle, optionally saving it as recurring.
+     *
+     * Validates input, adds the income to the initial_income JSON field, logs a transaction, and optionally
+     * saves to IncomeSourceModel. Note: Shares fetch-decode-update pattern with other income-related methods
+     * (e.g., adjustIncomeInCycle, updateInitialIncomeAmount). A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $cycleId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if added, a 404 if the cycle is not found,
+     * or a validation error for invalid input.
+     */
     public function addIncomeToCycle($cycleId)
     {
         $session = session();
@@ -297,13 +362,24 @@ class BudgetController extends BaseController
         return $this->respondUpdated(['message' => 'Income added and transaction logged.']);
     }
 
+    /**
+     * Adds a new recurring expense to a budget cycle, optionally saving it as recurring.
+     *
+     * Validates input, adds the expense to the initial_expenses JSON field, and optionally saves to
+     * RecurringExpenseModel. Note: Shares fetch-decode-update pattern with other expense-related methods.
+     * A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $cycleId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if added, a 404 if the cycle is not found,
+     * or a validation error for invalid input.
+     */
     public function addExpenseToCycle($cycleId)
     {
         $session = session();
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
         $transactionModel = new TransactionModel();
-        $recurringExpenseModel = new recurringExpenseModel();
+        $recurringExpenseModel = new RecurringExpenseModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
         if (!$budgetCycle) {
@@ -350,6 +426,18 @@ class BudgetController extends BaseController
 
         return $this->respondUpdated(['message' => 'Recurring expense added successfully.']);
     }
+
+    /**
+     * Removes an expense from a budget cycle.
+     *
+     * Verifies the budget cycle exists, removes the specified expense from the initial_expenses JSON field.
+     * Note: Shares fetch-decode-update pattern with other expense-related methods. A helper method for JSON
+     * manipulation could reduce duplication.
+     *
+     * @param int $cycleId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if removed, a 404 if the cycle is not found,
+     * or a validation error if the label is missing.
+     */
     public function removeExpenseFromCycle($cycleId)
     {
         $session = session();
@@ -375,6 +463,17 @@ class BudgetController extends BaseController
         return $this->respondDeleted(['message' => 'Expense removed successfully.']);
     }
 
+    /**
+     * Adjusts the amount of an existing income in a budget cycle.
+     *
+     * Validates input, adjusts the specified income’s amount in the initial_income JSON field, and logs a transaction
+     * for the difference. Note: Shares fetch-decode-update pattern with other income-related methods. Similar to
+     * updateInitialIncomeAmount but includes transaction logging. Consider consolidating with a parameter to toggle logging.
+     *
+     * @param int $budgetId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if adjusted, a 404 if the cycle or income is not found,
+     * or a validation error for invalid input.
+     */
     public function adjustIncomeInCycle($budgetId)
     {
         $session = session();
@@ -439,6 +538,17 @@ class BudgetController extends BaseController
         return $this->respondUpdated(['message' => 'Income adjusted successfully.']);
     }
 
+    /**
+     * Removes an income from a budget cycle.
+     *
+     * Verifies the budget cycle exists, removes the specified income from the initial_income JSON field,
+     * and logs a negative transaction. Note: Shares fetch-decode-update pattern with other income-related methods.
+     * A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $budgetId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if removed, a 404 if the cycle or income is not found,
+     * or a validation error if the label is missing.
+     */
     public function removeIncomeFromCycle($budgetId)
     {
         $session = session();
@@ -483,290 +593,89 @@ class BudgetController extends BaseController
         $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['label'] !== $label);
         $budgetCycleModel->update($budgetId, ['initial_income' => json_encode(array_values($updatedIncomeItems))]);
 
-        return $this->respondDeleted(['message' => 'Income source removed successfully.']);
-    }
-
-    public function updateBudgetDates($budgetId)
-    {
-        $session = session();
-        $userId = $session->get('userId');
-
-        $rules = [
-            'start_date' => 'required|valid_date[Y-m-d]',
-            'end_date' => 'required|valid_date[Y-m-d]',
-        ];
-
-        if (!$this->validate($rules)) {
-            return $this->fail($this->validator->getErrors());
-        }
-
-        $budgetCycleModel = new BudgetCycleModel();
-        $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
-
-        if (!$budgetCycle) {
-            return $this->failNotFound('Budget cycle not found or access denied.');
-        }
-
-        $startDate = $this->request->getVar('start_date');
-        $endDate = $this->request->getVar('end_date');
-
-        if (new DateTime($endDate) < new DateTime($startDate)) {
-            return $this->failValidationErrors('End date must be after the start date.');
-        }
-
-        $data = [
-            'start_date' => $startDate,
-            'end_date' => $endDate,
-        ];
-
-        try {
-            if ($budgetCycleModel->update($budgetId, $data) === false) {
-                return $this->fail($budgetCycleModel->errors());
-            }
-            return $this->respondUpdated(['message' => 'Budget dates updated successfully.']);
-        } catch (\Exception $e) {
-            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
-            return $this->failServerError('Could not update budget dates.');
-        }
-    }
-
-    // In app/Controllers/API/BudgetController.php
-
-    public function closeCycle($budgetId)
-    {
-        $session = session();
-        $userId = $session->get('userId');
-
-        $budgetCycleModel = new \App\Models\BudgetCycleModel();
-        $transactionModel = new \App\Models\TransactionModel();
-
-        $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budgetCycle) {
-            return $this->failNotFound('Budget cycle not found or access denied.');
-        }
-
-        if ($budgetCycle['status'] !== 'active') {
-            return $this->failValidationErrors('This budget cycle is not active and cannot be closed.');
-        }
-
-        $transactions = $transactionModel->where('budget_cycle_id', $budgetId)
-            ->where('user_id', $userId)
-            ->findAll();
-
-        $actualIncome = 0;
-        $actualExpenses = 0;
-        $spendingBreakdown = [];
-
-        foreach ($transactions as $t) {
-            if ($t['type'] === 'income') {
-                $actualIncome += (float) $t['amount'];
-            } else {
-                $actualExpenses += (float) $t['amount'];
-                $category = $t['category_name'];
-                $spendingBreakdown[$category] = ($spendingBreakdown[$category] ?? 0) + (float) $t['amount'];
-            }
-        }
-
-        arsort($spendingBreakdown);
-
-        $initialIncome = json_decode($budgetCycle['initial_income'], true);
-        $initialExpenses = json_decode($budgetCycle['initial_expenses'], true);
-
-        $plannedIncome = array_reduce($initialIncome, fn($sum, $item) => $sum + (float) ($item['amount'] ?? 0), 0);
-        $plannedExpenses = array_reduce($initialExpenses, fn($sum, $item) => $sum + (float) ($item['estimated_amount'] ?? 0), 0);
-
-        // --- FIX: This ensures topSpendingCategories has the exact format the frontend needs ---
-        $formattedSpending = [];
-        foreach (array_slice($spendingBreakdown, 0, 5) as $category => $amount) {
-            $formattedSpending[] = ['category' => $category, 'amount' => $amount];
-        }
-        // --- End of FIX ---
-
-        $finalSummary = [
-            'plannedSurplus' => $plannedIncome - $plannedExpenses,
-            'actualSurplus' => $actualIncome - $actualExpenses,
-            'totalIncome' => $actualIncome,
-            'totalExpenses' => $actualExpenses,
-            'topSpendingCategories' => $formattedSpending, // Use the new formatted array
-            // The rest of your summary logic is excellent and remains
-            'previous_cycles' => [], // Keeping this simple for now
-            'deficit_advice' => $actualIncome < $actualExpenses ? [ /* ... */] : null
-        ];
-
-        $updateData = [
-            'status' => 'completed',
-            'final_summary' => json_encode($finalSummary)
-        ];
-
-        try {
-            if ($budgetCycleModel->update($budgetId, $updateData) === false) {
-                return $this->fail($budgetCycleModel->errors());
-            }
-            return $this->respondUpdated(['message' => 'Budget cycle has been successfully closed.']);
-        } catch (\Exception $e) {
-            log_message('error', '[ERROR_CLOSE_BUDGET] {exception}', ['exception' => $e]);
-            return $this->failServerError('Could not close budget cycle.');
-        }
-    }
-
-
-    public function getDemographics()
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        $userModel = new UserModel();
-
-        $user = $userModel->find($userId);
-        if (!$user) {
-            return $this->failNotFound('User not found.');
-        }
-
-        $demographics = json_decode($user['demographics'], true) ?? [];
-        return $this->respond($demographics);
-    }
-
-    public function getExperienceMode()
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        $userModel = new UserModel();
-
-        $user = $userModel->find($userId);
-        if (!$user) {
-            return $this->failNotFound('User not found.');
-        }
-
-        return $this->respond(['mode' => $user['experience_mode'] ?? 'simple']);
-    }
-
-
-    public function getSavingsBalance()
-    {
-        $session = session();
-        $userId = $session->get('userId');
-        $userModel = new UserModel();
-
-        $user = $userModel->find($userId);
-        if (!$user) {
-            return $this->failNotFound('User not found.');
-        }
-
-        $financialTools = json_decode($user['financial_tools'], true) ?? [];
-        return $this->respond(['savings_balance' => $financialTools['savingsBalance'] ?? 0]);
-    }
-
-
-    public function initializeSavings()
-    {
-        try {
-            $session = session();
-            $userId = $session->get('userId');
-
-            // Validation rules remain the same
-            $rules = [
-                'hasSavings' => 'required|in_list[1,0, true, false]',
-                'zipCode' => 'required|string|max_length[10]',
-                'initialBalance' => 'permit_empty|decimal'
-            ];
-            if (!$this->validate($rules)) {
-                return $this->fail($this->validator->getErrors());
-            }
-
-            $userModel = new UserModel();
-            $toolsModel = new UserFinancialToolsModel();
-            // The SavingsHistoryModel is no longer needed here
-            $transactionModel = new TransactionModel(); // Use TransactionModel instead
-            $budgetCycleModel = new BudgetCycleModel(); // Needed to find the active budget
-
-            // 1. Update User's Zip Code
-            $userModel->update($userId, ['demographic_zip_code' => $this->request->getVar('zipCode')]);
-
-            // 2. Find or create the financial tools record
-            $toolsRecord = $toolsModel->where('user_id', $userId)->first();
-            if (!$toolsRecord) {
-                $toolsModel->insert(['user_id' => $userId]);
-                $toolsRecord = $toolsModel->where('user_id', $userId)->first();
-            }
-
-            // Use a boolean directly
-            $hasSavings = filter_var($this->request->getVar('hasSavings'), FILTER_VALIDATE_BOOLEAN);
-            $initialBalance = (float) $this->request->getVar('initialBalance') ?: 0;
-
-            $toolsData = ['has_savings_account' => $hasSavings];
-
-            if ($hasSavings && $initialBalance > 0) {
-                $toolsData['current_savings_balance'] = $initialBalance;
-
-                // --- REPLACEMENT LOGIC ---
-                // Find the active budget to associate the transaction with
-                $activeBudget = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
-
-                if ($activeBudget) {
-                    // Log the initial balance as a "savings" transaction
-                    $transactionModel->logTransaction(
-                        $userId,
-                        $activeBudget['id'],
-                        'savings', // A new type to distinguish it from income/expense
-                        'Savings', // A general category
-                        $initialBalance,
-                        'Initial savings balance'
-                    );
-                }
-                // --- END REPLACEMENT ---
-            }
-
-            $toolsModel->update($toolsRecord['id'], $toolsData);
-
-            return $this->respondUpdated(['message' => 'Savings profile initialized successfully.']);
-
-        } catch (\Throwable $e) {
-            log_message('error', '[FATAL_ERROR] ' . $e->getMessage() . ' in ' . $e->getFile() . ' on line ' . $e->getLine());
-            return $this->failServerError('A server error occurred: ' . $e->getMessage());
-        }
+        return $this->respondDeleted(['message' => 'Income removed successfully.']);
     }
 
     /**
-     * Logs a new contribution to the user's savings.
+     * Initializes the user’s savings profile with zip code and optional initial balance.
+     *
+     * Updates the user’s demographic zip code, creates or updates a financial tools record, and logs an initial
+     * savings balance as a transaction if provided. No redundancy with other methods due to its unique setup logic.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if initialized, a validation error for invalid input,
+     * or a 500 error on failure.
      */
-    public function logSavings()
+    public function initializeSavingsProfile()
     {
         $session = session();
         $userId = $session->get('userId');
 
         $rules = [
-            'amount' => 'required|decimal|greater_than[0]'
+            'hasSavings' => 'required|in_list[1,0,true,false]',
+            'zipCode' => 'required|string|max_length[10]',
+            'initialBalance' => 'permit_empty|decimal'
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
         }
 
+        $userModel = new UserModel();
         $toolsModel = new UserFinancialToolsModel();
-        $historyModel = new SavingsHistoryModel();
+        // The SavingsHistoryModel is no longer needed here
+        $transactionModel = new TransactionModel(); // Use TransactionModel instead
+        $budgetCycleModel = new BudgetCycleModel(); // Needed to find the active budget
 
+        // 1. Update User's Zip Code
+        $userModel->update($userId, ['demographic_zip_code' => $this->request->getVar('zipCode')]);
+
+        // 2. Find or create the financial tools record
         $toolsRecord = $toolsModel->where('user_id', $userId)->first();
-
-        if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
-            return $this->failValidationErrors('User does not have an active savings account setup.');
+        if (!$toolsRecord) {
+            $toolsModel->insert(['user_id' => $userId]);
+            $toolsRecord = $toolsModel->where('user_id', $userId)->first();
         }
 
-        $amountToAdd = (float) $this->request->getVar('amount');
-        $newBalance = (float) $toolsRecord['current_savings_balance'] + $amountToAdd;
+        // Use a boolean directly
+        $hasSavings = filter_var($this->request->getVar('hasSavings'), FILTER_VALIDATE_BOOLEAN);
+        $initialBalance = (float) $this->request->getVar('initialBalance') ?: 0;
 
-        // 1. Log the new contribution
-        $historyModel->insert([
-            'user_id' => $userId,
-            'balance' => $amountToAdd
-        ]);
+        $toolsData = ['has_savings_account' => $hasSavings];
 
-        // 2. Update the current balance
-        $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
+        if ($hasSavings && $initialBalance > 0) {
+            $toolsData['current_savings_balance'] = $initialBalance;
 
-        return $this->respondUpdated([
-            'message' => 'Savings logged successfully.',
-            'newBalance' => $newBalance
-        ]);
+            // --- REPLACEMENT LOGIC ---
+            // Find the active budget to associate the transaction with
+            $activeBudget = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
+
+            if ($activeBudget) {
+                // Log the initial balance as a "savings" transaction
+                $transactionModel->logTransaction(
+                    $userId,
+                    $activeBudget['id'],
+                    'savings', // A new type to distinguish it from income/expense
+                    'Savings', // A general category
+                    $initialBalance,
+                    'Initial savings balance'
+                );
+            }
+            // --- END REPLACEMENT ---
+        }
+
+        $toolsModel->update($toolsRecord['id'], $toolsData);
+
+        return $this->respondUpdated(['message' => 'Savings profile initialized successfully.']);
     }
 
+    /**
+     * Provides budget wizard suggestions based on user history.
+     *
+     * For new users, returns default dates and empty suggestions. For returning users, proposes budget dates based
+     * on income frequency and fetches active income sources, expenses, and learned categories. No redundancy with other
+     * methods due to its unique suggestion logic.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with proposed dates and suggested budget data.
+     */
     public function getWizardSuggestions()
     {
         $session = session();
@@ -835,6 +744,14 @@ class BudgetController extends BaseController
         return $this->respond($data);
     }
 
+    /**
+     * Retrieves transaction history for a specific expense label.
+     *
+     * Fetches all expense transactions matching the provided label for the authenticated user.
+     * No redundancy with other methods due to its specific history retrieval logic.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the transaction history or a validation error if the label is missing.
+     */
     public function getExpenseHistory()
     {
         $session = session();
@@ -860,6 +777,17 @@ class BudgetController extends BaseController
         return $this->respond($history);
     }
 
+    /**
+     * Updates financial details of a recurring expense and syncs with the active budget cycle.
+     *
+     * Updates fields like principal_balance, interest_rate, etc., in RecurringExpenseModel and the active budget cycle’s
+     * initial_expenses JSON field. Note: Shares fetch-decode-update pattern with other expense-related methods.
+     * A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $expenseId The ID of the recurring expense.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the expense is not found,
+     * a validation error for invalid input, or a 500 error on failure.
+     */
     public function updateExpenseDetails($expenseId)
     {
         $session = session();
@@ -911,15 +839,23 @@ class BudgetController extends BaseController
             }
 
             return $this->respondUpdated(['message' => 'Expense details updated successfully.']);
-
         } catch (\Exception $e) {
             log_message('error', '[ERROR] {exception}', ['exception' => $e]);
             return $this->failServerError('Could not update expense details.');
         }
     }
 
-
-    // --- NEW: Method to update a planned income amount ---
+    /**
+     * Updates the amount of a specific income in a budget cycle.
+     *
+     * Updates the amount of an income identified by ID in the initial_income JSON field. Note: Similar to
+     * adjustIncomeInCycle but lacks transaction logging. Consider consolidating with a parameter to toggle logging.
+     * Shares fetch-decode-update pattern with other income-related methods.
+     *
+     * @param int $budgetId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the cycle or income is not found,
+     * or a validation error if the amount is invalid.
+     */
     public function updateInitialIncomeAmount($budgetId)
     {
         $session = session();
@@ -953,6 +889,17 @@ class BudgetController extends BaseController
         return $this->fail('Income item not found in this budget.');
     }
 
+    /**
+     * Adds a variable expense to a budget cycle and optionally saves it as a learned category.
+     *
+     * Adds a variable expense to the initial_expenses JSON field and saves the category to LearnedSpendingCategoryModel
+     * if it doesn’t exist. Note: Shares fetch-decode-update pattern with other expense-related methods.
+     * A helper method for JSON manipulation could reduce duplication.
+     *
+     * @param int $budgetId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response if added, a 404 if the cycle is not found,
+     * or a validation error for invalid input.
+     */
     public function addVariableExpense($budgetId)
     {
         $session = session();
@@ -995,6 +942,17 @@ class BudgetController extends BaseController
         return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
     }
 
+    /**
+     * Adds a savings contribution to a budget cycle and updates the balance.
+     *
+     * Validates the amount, updates the savings balance in UserFinancialToolsModel, and logs a transaction.
+     * Note: Similar to logSavings but uses TransactionModel and requires a budget cycle. Consider consolidating
+     * with logSavings, using a parameter to toggle the logging model, or deprecating if SavingsHistoryModel is redundant.
+     *
+     * @param int $budgetId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response with the new balance, a 404 if the cycle is not found,
+     * a validation error if the savings account is not set up or the amount is invalid, or a 500 error on failure.
+     */
     public function addSavings($budgetId)
     {
         $session = session();
@@ -1043,76 +1001,82 @@ class BudgetController extends BaseController
     }
 
     /**
-     * Withdraws money from savings, logging it as an 'expense' transaction.
+     * Withdraws money from savings, logging it as an income or external transaction.
+     *
+     * Validates the amount and withdrawal type, updates the savings balance, and logs a transaction based on the
+     * withdrawal type (income to add to budget or external to exclude). No redundancy with other methods due to its
+     * unique withdrawal logic, but shares balance update pattern with addSavings and logSavings.
+     *
+     * @param int $budgetId The ID of the budget cycle.
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response with the new balance, a 404 if the cycle is not found,
+     * a validation error if the savings account is not set up or the amount exceeds the balance, or a 500 error on failure.
      */
     public function withdrawSavings($budgetId)
-{
-    $session = session();
-    $userId = $session->get('userId');
+    {
+        $session = session();
+        $userId = $session->get('userId');
 
-    // --- UPDATED: Add withdrawal_type to the validation rules ---
-    $rules = [
-        'amount' => 'required|decimal|greater_than[0]',
-        'withdrawal_type' => 'required|in_list[income,external]'
-    ];
-    if (!$this->validate($rules)) {
-        return $this->fail($this->validator->getErrors());
+        // --- UPDATED: Add withdrawal_type to the validation rules ---
+        $rules = [
+            'amount' => 'required|decimal|greater_than[0]',
+            'withdrawal_type' => 'required|in_list[income,external]'
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        try {
+            $amount = (float) $this->request->getVar('amount');
+            $withdrawalType = $this->request->getVar('withdrawal_type');
+
+            $toolsModel = new UserFinancialToolsModel();
+            $transactionModel = new TransactionModel();
+
+            $toolsRecord = $toolsModel->where('user_id', $userId)->first();
+            if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
+                return $this->failValidationErrors('User does not have an active savings account.');
+            }
+
+            $currentBalance = (float) $toolsRecord['current_savings_balance'];
+            if ($amount > $currentBalance) {
+                return $this->failValidationErrors('Withdrawal amount cannot exceed the current balance.');
+            }
+
+            // 1. Update the savings balance (this happens for both types)
+            $newBalance = $currentBalance - $amount;
+            $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
+
+            // 2. --- NEW: Conditionally log the transaction based on user's choice ---
+            if ($withdrawalType === 'income') {
+                // Log as 'income' to add cash to the budget
+                $transactionModel->logTransaction(
+                    $userId,
+                    $budgetId,
+                    'income',
+                    'Savings Transfer',
+                    $amount,
+                    'Transfer from savings'
+                );
+            } else { // 'external'
+                // Log as a negative 'savings' transaction to keep it out of budget totals
+                $transactionModel->logTransaction(
+                    $userId,
+                    $budgetId,
+                    'savings',
+                    'Savings Withdrawal',
+                    -$amount,
+                    'External withdrawal from savings'
+                );
+            }
+
+            return $this->respondUpdated([
+                'message' => 'Withdrawal from savings successful.',
+                'newBalance' => $newBalance
+            ]);
+
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_WITHDRAW_SAVINGS] {exception}', ['exception' => $e]);
+            return $this->failServerError('Could not withdraw from savings.');
+        }
     }
-    
-    try {
-        $amount = (float) $this->request->getVar('amount');
-        $withdrawalType = $this->request->getVar('withdrawal_type');
-
-        $toolsModel = new UserFinancialToolsModel();
-        $transactionModel = new TransactionModel();
-        
-        $toolsRecord = $toolsModel->where('user_id', $userId)->first();
-        if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
-            return $this->failValidationErrors('User does not have an active savings account.');
-        }
-
-        $currentBalance = (float) $toolsRecord['current_savings_balance'];
-        if ($amount > $currentBalance) {
-            return $this->failValidationErrors('Withdrawal amount cannot exceed the current balance.');
-        }
-
-        // 1. Update the savings balance (this happens for both types)
-        $newBalance = $currentBalance - $amount;
-        $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
-
-        // 2. --- NEW: Conditionally log the transaction based on user's choice ---
-        if ($withdrawalType === 'income') {
-            // Log as 'income' to add cash to the budget
-            $transactionModel->logTransaction(
-                $userId,
-                $budgetId,
-                'income',
-                'Savings Transfer',
-                $amount,
-                'Transfer from savings'
-            );
-        } else { // 'external'
-            // Log as a negative 'savings' transaction to keep it out of budget totals
-            $transactionModel->logTransaction(
-                $userId,
-                $budgetId,
-                'savings',
-                'Savings Withdrawal',
-                -$amount,
-                'External withdrawal from savings'
-            );
-        }
-
-        return $this->respondUpdated([
-            'message' => 'Withdrawal from savings successful.',
-            'newBalance' => $newBalance
-        ]);
-
-    } catch (\Exception $e) {
-        log_message('error', '[ERROR_WITHDRAW_SAVINGS] {exception}', ['exception' => $e]);
-        return $this->failServerError('Could not withdraw from savings.');
-    }
-}
-
-
 }

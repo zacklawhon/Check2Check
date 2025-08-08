@@ -14,19 +14,45 @@ class UserController extends BaseController
 {
     use ResponseTrait;
 
+    /**
+     * @var \CodeIgniter\Session\Session The session instance for accessing user data.
+     */
     protected $session;
 
+    /**
+     * Initializes the controller with a session instance.
+     *
+     * Sets up the session for use in retrieving the authenticated user’s ID. No redundancy,
+     * as it’s a standard constructor for session-based controllers.
+     */
     public function __construct()
     {
         $this->session = session();
     }
 
+    /**
+     * Retrieves the authenticated user’s ID from the session.
+     *
+     * A helper method to centralize session access for user ID retrieval, used by updateDemographics.
+     * Similar to OnboardingController::getUserId but too simple to be redundant.
+     *
+     * @return int|null The user’s ID or null if not authenticated.
+     */
     private function getUserId()
     {
         return $this->session->get('userId');
     }
 
-    // This method gets the logged-in user's profile data
+    /**
+     * Retrieves the logged-in user’s profile data.
+     *
+     * Fetches user details from UserModel, counts completed budgets from BudgetCycleModel, and
+     * excludes sensitive data (password hash). No redundancy within the controller or with other
+     * controllers, as profile retrieval with budget stats is unique.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with user data and completed
+     * budget count, or a 404 error if the user is not found.
+     */
     public function getProfile()
     {
         $session = session();
@@ -55,6 +81,16 @@ class UserController extends BaseController
         return $this->respond($user);
     }
 
+    /**
+     * Updates the user’s demographic data.
+     *
+     * Updates allowed demographic fields (zip code, age range, sex, household size) in UserModel.
+     * Shares demographic_zip_code update with updateFinancialProfile and BudgetController::initializeSavingsProfile,
+     * but distinct purpose (general demographics vs. financial/savings setup) prevents redundancy.
+     * A shared helper for UserModel updates could streamline minor overlap.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated.
+     */
     public function updateDemographics()
     {
         $userId = $this->getUserId();
@@ -73,6 +109,19 @@ class UserController extends BaseController
         return $this->respond(['status' => 'success', 'message' => 'Demographics updated.']);
     }
 
+    /**
+     * Updates the user’s financial profile, including zip code and financial tools.
+     *
+     * Validates input, updates demographic_zip_code in UserModel, and updates or creates a
+     * UserFinancialToolsModel record for checking, savings, and credit card accounts using a transaction.
+     * Similar to OnboardingController::updateFinancialTools and BudgetController::initializeSavingsProfile,
+     * which also update UserFinancialToolsModel and zip code (for the latter). Distinct context
+     * (profile management vs. onboarding/savings setup) and input format justify separation. A shared
+     * helper for UserFinancialToolsModel updates could reduce duplication across controllers.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a validation error
+     * for invalid input, or a 500 error if the transaction fails.
+     */
     public function updateFinancialProfile()
     {
         $session = session();
@@ -128,6 +177,17 @@ class UserController extends BaseController
         }
     }
 
+    /**
+     * Retrieves the user’s active budget cycle.
+     *
+     * Fetches the active budget from BudgetCycleModel, returning null if none exists. Similar to
+     * BudgetController::getCycles, which retrieves all budgets, but optimized for fetching a single
+     * active budget, making it complementary rather than redundant. No internal redundancy within
+     * the controller.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the active budget or null,
+     * or a 401 error if the user is not logged in.
+     */
     public function getActiveBudget()
     {
         $session = session();

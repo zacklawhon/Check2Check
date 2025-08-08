@@ -18,7 +18,7 @@ function DateConfirmationStep({ proposedStartDate, proposedEndDate, onComplete, 
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 1: Confirm Your Budget Dates</h2>
             <p className="text-gray-400 mb-6">
-                Welcome back! Based on your income, we've proposed the following dates for your next budget. You can adjust them if needed.
+                Welcome! Our system attempted to intelligently guess the following dates for your next budget. You can adjust them if needed.
             </p>
 
             <div className="space-y-4 mb-6">

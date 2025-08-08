@@ -15,6 +15,16 @@ class AuthController extends BaseController
 {
     use ResponseTrait;
 
+    /**
+     * Requests a magic login link for a user, creating a new account if necessary.
+     *
+     * Validates the provided email and optional invite token. For new users, requires a valid invitation
+     * during a closed beta, creates a user account, and marks the invitation as claimed. Generates a
+     * temporary authentication token and sends a welcome or returning user email based on budget existence.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if the email is sent, a 403 for
+     * invalid invitations or deactivated accounts, a validation error for invalid input, or a 500 error on failure.
+     */
     public function requestLink()
     {
         // --- NEW: Accept an invite_token along with the email ---
@@ -91,6 +101,18 @@ class AuthController extends BaseController
         }
     }
 
+    /**
+     * Sends a welcome email to new users or those without budgets.
+     *
+     * Generates a magic login link using site_url() and sends a welcome email with the link.
+     * Logs and throws an exception if the email fails to send. Note: The email-sending logic is similar
+     * to sendReturningUserEmail. Consider refactoring into a generic sendEmail method to reduce duplication.
+     *
+     * @param \CodeIgniter\Email\Email $email The email service instance.
+     * @param string $recipientEmail The recipient's email address.
+     * @param string $token The authentication token for the magic link.
+     * @throws Exception If the email fails to send.
+     */
     private function sendWelcomeEmail($email, string $recipientEmail, string $token)
     {
         // FIX: Use site_url() to generate a dynamic link
@@ -110,6 +132,20 @@ class AuthController extends BaseController
         $email->clear();
     }
 
+    /**
+     * Sends a login email to returning users, including a budget snapshot if available.
+     *
+     * Generates a magic login link and includes a snapshot of the user's active or last completed budget,
+     * calculating income and expenses for active budgets or using the final surplus for completed ones.
+     * Logs and throws an exception if the email fails to send. Note: The email-sending logic is similar to
+     * sendWelcomeEmail. Consider refactoring into a generic sendEmail method to reduce duplication.
+     *
+     * @param \CodeIgniter\Email\Email $email The email service instance.
+     * @param string $recipientEmail The recipient's email address.
+     * @param string $token The authentication token for the magic link.
+     * @param int $userId The ID of the user.
+     * @throws Exception If the email fails to send.
+     */
     private function sendReturningUserEmail($email, string $recipientEmail, string $token, int $userId)
     {
         // FIX: Use site_url() to generate a dynamic link
@@ -156,6 +192,16 @@ class AuthController extends BaseController
         $email->clear();
     }
 
+    /**
+     * Verifies a magic login link and authenticates the user.
+     *
+     * Validates the provided token against the AuthTokenModel, checks its expiration, and sets session
+     * data for authentication if valid. Deletes the token after use to prevent reuse. No redundancy with
+     * other methods due to its unique token verification and session management logic.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response if authenticated, a validation error
+     * if the token is missing, or a 401 error if the token is invalid or expired.
+     */
     public function verifyLink()
     {
         $token = $this->request->getVar('token');
@@ -182,6 +228,14 @@ class AuthController extends BaseController
         return $this->respond(['status' => 'success', 'message' => 'Login successful.']);
     }
 
+    /**
+     * Logs out the authenticated user by destroying their session.
+     *
+     * Clears all session data to end the user's session. No redundancy with other methods due to its
+     * unique session destruction logic.
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a success response indicating logout.
+     */
     public function logout()
     {
         $session = session();

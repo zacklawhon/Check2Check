@@ -10,6 +10,17 @@ class FeedbackController extends BaseController
 {
     use ResponseTrait;
 
+    /**
+     * Submits user feedback to the system.
+     *
+     * Validates the feedback type, subject, message, page URL, and user agent, then saves the feedback
+     * to the FeedbackModel along with the authenticated user’s ID. Returns a success response if saved,
+     * or an error response for invalid input or server issues. No redundancy with other controllers as
+     * feedback submission is a unique feature. Follows standard CodeIgniter API pattern (validate, process, respond).
+     *
+     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response if feedback is saved, a validation error
+     * for invalid input, or a 500 error if insertion fails.
+     */
     public function submit()
     {
         $rules = [

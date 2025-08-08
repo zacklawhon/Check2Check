@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
-import { getDayWithOrdinal } from '../utils/formatters'; // Import our new helper
+import { getDayWithOrdinal } from '../utils/formatters';
 
-function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {} }) {
+function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {}, onNewExpenseAdded }) {
     const [formState, setFormState] = useState({
         label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
         interest_rate: '', maturity_date: '', outstanding_balance: ''
@@ -12,7 +12,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     const [allExpenses, setAllExpenses] = useState([]);
     const [selectedExpenses, setSelectedExpenses] = useState([]);
     
-    const inputRefs = useRef([]); // Ref for tab order
+    const inputRefs = useRef([]);
 
     useEffect(() => {
         const initialSuggestions = suggestions.map(s => ({ ...s, estimated_amount: s.estimated_amount || '' }));
@@ -25,7 +25,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
         const start = new Date(`${confirmedDates.startDate}T00:00:00`);
         const end = new Date(`${confirmedDates.endDate}T00:00:00`);
         return allExpenses.filter(exp => {
-            if (!exp.due_date) return false;
+            if (!exp.due_date) return true; // Always include expenses with no due date
             const dueDateDay = parseInt(exp.due_date, 10);
             let current = new Date(start);
             while (current <= end) {
@@ -45,10 +45,11 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     };
     
     const handleAmountChange = (expenseId, newAmount) => {
-        const updatedSelected = selectedExpenses.map(item => 
-            item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
+        setSelectedExpenses(prev => 
+            prev.map(item => 
+                item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
+            )
         );
-        setSelectedExpenses(updatedSelected);
          setAllExpenses(prev =>
             prev.map(item =>
                 item.id === expenseId ? { ...item, estimated_amount: newAmount } : item
@@ -62,69 +63,57 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     };
 
     const handleSubmit = async (e) => {
-    e.preventDefault();
-    if (!formState.label || !formState.amount || parseFloat(formState.amount) <= 0) {
-        setError('Please provide a valid name and amount.');
-        return;
-    }
-    setLoading(true);
-    setError('');
-    
-    try {
-        // Store critical values before any state changes
-        const amountValue = formState.amount;
-        const labelValue = formState.label;
-        const dueDateValue = formState.dueDate;
-        const categoryValue = formState.category;
+        e.preventDefault();
+        if (!formState.label || !formState.amount || parseFloat(formState.amount) <= 0) {
+            setError('Please provide a valid name and amount.');
+            return;
+        }
+        setLoading(true);
+        setError('');
         
-        const recurringData = { ...formState };
-        delete recurringData.amount;
-        
-        const response = await fetch('/api/onboarding/add-expense', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(recurringData) 
-        });
-        
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
-        
-        // Reset form state FIRST, before updating lists
-        setFormState({
-            label: '', 
-            amount: '', 
-            dueDate: '', 
-            category: 'other', 
-            principal_balance: '',
-            interest_rate: '', 
-            maturity_date: '', 
-            outstanding_balance: ''
-        });
-        
-        // Create new expense object using stored values
-        const newExpense = {
-            id: data.id,
-            label: labelValue,
-            due_date: dueDateValue,
-            category: categoryValue,
-            estimated_amount: amountValue,
-            principal_balance: formState.principal_balance || '',
-            interest_rate: formState.interest_rate || '',
-            maturity_date: formState.maturity_date || '',
-            outstanding_balance: formState.outstanding_balance || ''
-        };
-        
-        // Update both state arrays after form is reset
-        setAllExpenses(prev => [...prev, newExpense]);
-        setSelectedExpenses(prev => [...prev, newExpense]);
+        try {
+            const recurringData = { ...formState };
+            delete recurringData.amount;
+            
+            const response = await fetch('/api/onboarding/add-expense', {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify(recurringData) 
+            });
+            
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
+            
+            const newExpense = {
+                id: data.id,
+                label: formState.label,
+                due_date: formState.dueDate,
+                category: formState.category,
+                estimated_amount: formState.amount,
+                principal_balance: formState.principal_balance,
+                interest_rate: formState.interest_rate,
+                maturity_date: formState.maturity_date,
+                outstanding_balance: formState.outstanding_balance
+            };
+            
+            if (onNewExpenseAdded) {
+                onNewExpenseAdded(newExpense);
+            }
+            
+            setSelectedExpenses(prev => [...prev, newExpense]);
 
-    } catch (err) {
-        setError(err.message);
-    } finally {
-        setLoading(false);
-    }
-};
+            setFormState({
+                label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
+                interest_rate: '', maturity_date: '', outstanding_balance: ''
+            });
+
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
     
     const handleKeyDown = (e, index) => {
         if (e.key === 'Tab' && !e.shiftKey) {
@@ -139,9 +128,51 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
         }
     };
 
-    const handleNext = () => { onComplete(selectedExpenses); };
+    const handleNext = async () => {
+        let finalExpenseList = [...selectedExpenses];
+
+        if (formState.label && formState.amount && parseFloat(formState.amount) > 0) {
+            setLoading(true);
+            setError('');
+            try {
+                const recurringData = { ...formState };
+                delete recurringData.amount;
+                
+                const response = await fetch('/api/onboarding/add-expense', {
+                    method: 'POST',
+                    headers: { 'Content-Type': 'application/json' },
+                    credentials: 'include',
+                    body: JSON.stringify(recurringData)
+                });
+                const data = await response.json();
+                if (!response.ok) throw new Error(data.message || 'Failed to add final expense.');
+                
+                const newExpense = {
+                    id: data.id,
+                    label: formState.label,
+                    due_date: formState.dueDate,
+                    category: formState.category,
+                    estimated_amount: formState.amount,
+                    principal_balance: formState.principal_balance,
+                    interest_rate: formState.interest_rate,
+                    maturity_date: formState.maturity_date,
+                    outstanding_balance: formState.outstanding_balance
+                };
+                
+                finalExpenseList.push(newExpense);
+
+            } catch (err) {
+                setError(err.message);
+                setLoading(false);
+                return;
+            }
+        }
+        onComplete(finalExpenseList);
+    };
     
-    const isNextDisabled = selectedExpenses.length > 0 && selectedExpenses.some(item => !item.estimated_amount || parseFloat(item.estimated_amount) <= 0);
+    const isFormValid = formState.label && formState.amount && parseFloat(formState.amount) > 0;
+    const isListValid = selectedExpenses.length > 0 && !selectedExpenses.some(item => !item.estimated_amount || parseFloat(item.estimated_amount) <= 0);
+    const isNextDisabled = !isListValid && !isFormValid;
 
     return (
         <div>
@@ -235,7 +266,9 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
 
             <div className="flex justify-between mt-8">
                  <button onClick={onBack} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Back</button>
-                 <button onClick={handleNext} disabled={isNextDisabled} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">Next: Spending</button>
+                 <button onClick={handleNext} disabled={isNextDisabled || loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">
+                    {loading ? 'Saving...' : 'Next: Spending'}
+                </button>
             </div>
         </div>
     );
