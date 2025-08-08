@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
+// We'll move the data fetching logic into this component
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import AccountPage from './pages/AccountPage';
 import LandingPage from './pages/LandingPage';
@@ -13,72 +14,95 @@ import GuidedWizard from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
 import RegisterPage from './pages/RegisterPage';
 
-function ProtectedRoute({ user, loadingUser, activeBudget }) {
+// In src/App.jsx
+
+// In src/App.jsx
+
+// In src/App.jsx
+
+function ProtectedRoute() {
+  const [user, setUser] = useState(null);
+  const [loadingUser, setLoadingUser] = useState(true);
+  const [activeBudget, setActiveBudget] = useState(null);
+  const [financialTools, setFinancialTools] = useState(null);
+
+  // --- 1. Define the function in the component's main scope ---
+  const fetchInitialData = async () => {
+    try {
+      const [profileRes, activeBudgetRes, toolsRes] = await Promise.all([
+        fetch('/api/user/profile', { credentials: 'include' }),
+        fetch('/api/user/active-budget', { credentials: 'include' }),
+        fetch('/api/account/financial-tools', { credentials: 'include' })
+      ]);
+      
+      if (!profileRes.ok || !toolsRes.ok) {
+        throw new Error('Authentication check failed.');
+      }
+
+      setUser(await profileRes.json());
+      setFinancialTools(await toolsRes.json());
+
+      if (activeBudgetRes.ok) {
+        const budgetData = await activeBudgetRes.json();
+        if (budgetData) {
+          setActiveBudget(budgetData);
+        }
+      }
+      
+    } catch (err) {
+      console.error("Failed to fetch initial data:", err);
+      setUser(null);
+    } finally {
+      setLoadingUser(false);
+    }
+  };
+
+  // --- 2. The useEffect hook now simply CALLS the function ---
+  useEffect(() => {
+    fetchInitialData();
+  }, []);
+
+
   if (loadingUser) {
     return <div className="text-center p-8 text-white">Loading...</div>;
   }
+
   if (!user) {
     return <Navigate to="/" replace />;
   }
+
+  // --- 3. Now the function can be correctly passed in the context ---
+  const contextData = { user, activeBudget, financialTools, refreshData: fetchInitialData };
+
   return (
     <AuthenticatedLayout activeBudget={activeBudget}>
-      <Outlet />
+      <Outlet context={contextData} />
     </AuthenticatedLayout>
   );
 }
 
 function App() {
-  const [user, setUser] = useState(null);
-  const [loadingUser, setLoadingUser] = useState(true);
-  const [activeBudget, setActiveBudget] = useState(null);
-
-  useEffect(() => {
-    const fetchInitialData = async () => {
-      setLoadingUser(true);
-      try {
-        // Step 1: First, just try to get the user profile.
-        const profileRes = await fetch('/api/user/profile', { credentials: 'include' });
-
-        if (profileRes.ok) {
-          const userData = await profileRes.json();
-          setUser(userData);
-
-          // Step 2: If we successfully get a user, THEN we fetch their active budget.
-          const activeBudgetRes = await fetch('/api/user/active-budget', { credentials: 'include' });
-          if (activeBudgetRes.ok) {
-            setActiveBudget(await activeBudgetRes.json());
-          }
-        } else {
-          // If the profile fetch fails, we know the user is not logged in.
-          setActiveBudget(null);
-        }
-      } catch (err) {
-        setUser(null);
-        setActiveBudget(null);
-      } finally {
-        setLoadingUser(false);
-      }
-    };
-    fetchInitialData();
-  }, []);
-
+  // App.jsx no longer holds any state. It's just a router.
   return (
     <div className="bg-gray-900 min-h-screen">
       <BrowserRouter>
         <Toaster position="top-center" toastOptions={{ style: { background: '#374151', color: '#fff' } }} />
         <Routes>
+          {/* Public Routes */}
           <Route path="/" element={<LandingPage />} />
-          <Route path="/" element={<LandingPage />} />
-          <Route path="/register" element={<RegisterPage />} /> 
+          <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-login" element={<VerificationPage />} />
           <Route path="/verify-email-change/:token" element={<EmailChangeVerificationPage />} />
 
-          <Route element={<ProtectedRoute user={user} loadingUser={loadingUser} activeBudget={activeBudget} />}>
+          {/* Protected Routes */}
+          {/* The ProtectedRoute component now handles everything internally */}
+          <Route element={<ProtectedRoute />}>
             <Route path="/dashboard" element={<DashboardPage />} />
-            <Route path="/wizard" element={<GuidedWizard user={user} />} />
+            {/* The 'user' prop is no longer needed here as it will be handled internally */}
+            <Route path="/wizard" element={<GuidedWizard />} />
             <Route path="/budget/:budgetId" element={<BudgetPage />} />
             <Route path="/review/:budgetId" element={<BudgetReviewPage />} />
-            <Route path="/account" element={<AccountPage user={user} />} />
+            <Route path="/account" element={<AccountPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

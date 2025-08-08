@@ -7,6 +7,7 @@ namespace App\Controllers\API;
 use App\Controllers\BaseController;
 use App\Models\UserModel;
 use App\Models\UserFinancialToolsModel;
+use App\Models\BudgetCycleModel;
 use CodeIgniter\API\ResponseTrait;
 
 class UserController extends BaseController
@@ -39,7 +40,7 @@ class UserController extends BaseController
         }
 
         // --- FIX: Add logic to count completed budgets ---
-        $budgetModel = new \App\Models\BudgetCycleModel();
+        $budgetModel = new BudgetCycleModel();
         $completedCount = $budgetModel->where('user_id', $userId)
             ->where('status', 'completed')
             ->countAllResults();
@@ -128,25 +129,20 @@ class UserController extends BaseController
     }
 
     public function getActiveBudget()
-{
-    $session = session();
-    $userId = $session->get('userId');
-    if (!$userId) {
-        return $this->failUnauthorized('Not logged in.');
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        if (!$userId) {
+            return $this->failUnauthorized('Not logged in.');
+        }
+
+        $budgetModel = new BudgetCycleModel();
+        $activeBudget = $budgetModel->where('user_id', $userId)
+            ->where('status', 'active')
+            ->first();
+
+        // This returns the budget data if found, or 'null' if not found,
+        // both with a 200 OK status, which prevents the console error.
+        return $this->respond($activeBudget);
     }
-
-    $budgetModel = new \App\Models\BudgetCycleModel();
-    $activeBudget = $budgetModel->where('user_id', $userId)
-        ->where('status', 'active')
-        ->first();
-
-    // --- FIX: Check if a budget was found ---
-    if (!$activeBudget) {
-        // If no budget is found, send a 404 Not Found response.
-        return $this->failNotFound('No active budget found.');
-    }
-
-    // If a budget IS found, respond with the budget data.
-    return $this->respond($activeBudget);
-}
 }
