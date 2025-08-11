@@ -60,8 +60,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('initialize-savings', 'BudgetController::initializeSavings');
             $routes->post('log-savings', 'BudgetController::logSavings');
             $routes->post('update-income-amount/(:num)', 'BudgetController::updateInitialIncomeAmount/$1');
-            $routes->post('savings/add/(:num)', 'BudgetController::addSavings/$1');
-            $routes->post('savings/withdraw/(:num)', 'BudgetController::withdrawSavings/$1');
+            $routes->post('(:num)/transfer-to-account', 'BudgetController::transferToAccount/$1');
+            $routes->post('(:num)/transfer-from-account', 'BudgetController::transferFromAccount/$1');
         });
 
         $routes->group('expenses', static function ($routes) {
@@ -72,6 +72,13 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         $routes->group('transaction', static function ($routes) {
             $routes->post('add', 'TransactionController::addTransaction');
         });
+
+        $routes->resource('user-accounts', [
+            'controller' => 'UserAccountController',
+            'only' => ['index', 'create', 'update', 'delete']
+        ]);
+
+        $routes->post('user-accounts/update-balance/(:num)', 'UserAccountController::updateBalance/$1');
 
         $routes->group('account', static function ($routes) {
             $routes->get('recurring-items', 'AccountController::getRecurringItems');

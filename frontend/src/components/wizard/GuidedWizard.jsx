@@ -172,7 +172,7 @@ function GuidedWizard({ user }) {
                         suggestions={wizardData.suggestions.suggestedExpenses}
                         existingExpenses={wizardData.confirmedExpenses}
                         confirmedDates={wizardData.confirmedDates}
-                        // --- 2. PASS THE NEW FUNCTION AS A PROP ---
+                        accounts={accounts}
                         onNewExpenseAdded={updateExpenseSuggestions}
                     />
                 )}

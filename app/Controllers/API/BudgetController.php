@@ -12,6 +12,7 @@ use App\Models\RecurringExpenseModel;
 use App\Models\LearnedSpendingCategoryModel;
 use App\Models\TransactionModel;
 use App\Models\UserModel;
+use App\Models\UserAccountModel;
 use App\Models\UserFinancialToolsModel;
 use CodeIgniter\API\ResponseTrait;
 use DateTime;
@@ -246,7 +247,7 @@ class BudgetController extends BaseController
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
 
-        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', '=>' . $userId)->first();
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
         }
@@ -258,9 +259,8 @@ class BudgetController extends BaseController
 
         foreach ($expenses as &$expense) {
             if ($expense['label'] === $labelToPay && $expense['type'] === 'recurring') {
-                if ($expense['is_paid'] === true) {
+                if ($expense['is_paid'] === true)
                     return $this->fail('This bill has already been marked as paid.');
-                }
                 $expense['is_paid'] = true;
                 $updated = true;
                 $paidExpense = $expense;
@@ -269,19 +269,46 @@ class BudgetController extends BaseController
         }
 
         if ($updated) {
-            // FIX: Use the centralized transaction model method
-            $transactionModel = new TransactionModel();
-            $transactionModel->logTransaction(
-                $userId,
-                $cycleId,
-                'expense',
-                $paidExpense['category'],
-                (float) $paidExpense['estimated_amount'],
-                $paidExpense['label']
-            );
+            $db = \Config\Database::connect();
+            $db->transStart();
+            try {
+                // --- THIS IS THE NEW LOGIC ---
+                // Check if this is a transfer to a user account
+                if (isset($paidExpense['transfer_to_account_id']) && !empty($paidExpense['transfer_to_account_id'])) {
+                    $accountId = $paidExpense['transfer_to_account_id'];
+                    $amount = (float) $paidExpense['estimated_amount'];
 
-            $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenses)]);
-            return $this->respondUpdated(['message' => 'Bill marked as paid and transaction logged.']);
+                    // Update the account balance
+                    $accountModel = new UserAccountModel();
+                    $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
+                    if ($account) {
+                        $newBalance = (float) $account['current_balance'] + $amount;
+                        $accountModel->update($accountId, ['current_balance' => $newBalance]);
+                    }
+                    // Log a neutral 'savings' transaction for this transfer
+                    $transactionModel = new TransactionModel();
+                    $transactionModel->logTransaction($userId, $cycleId, 'savings', $paidExpense['category'], $amount, $paidExpense['label']);
+
+                } else {
+                    // This is the original logic for a normal expense
+                    $transactionModel = new TransactionModel();
+                    $transactionModel->logTransaction($userId, $cycleId, 'expense', $paidExpense['category'], (float) $paidExpense['estimated_amount'], $paidExpense['label']);
+                }
+
+                // Save the updated expenses list
+                $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenses)]);
+
+                $db->transComplete();
+                if ($db->transStatus() === false)
+                    throw new \Exception('Database transaction failed.');
+
+                return $this->respondUpdated(['message' => 'Bill marked as paid and transaction logged.']);
+
+            } catch (\Exception $e) {
+                $db->transRollback();
+                log_message('error', '[ERROR_MARK_PAID] {exception}', ['exception' => $e]);
+                return $this->failServerError('Could not mark bill as paid.');
+            }
         }
 
         return $this->fail('Bill not found in this budget.');
@@ -958,52 +985,45 @@ class BudgetController extends BaseController
      * @return \CodeIgniter\API\ResponseTrait Returns a success response with the new balance, a 404 if the cycle is not found,
      * a validation error if the savings account is not set up or the amount is invalid, or a 500 error on failure.
      */
-    public function addSavings($budgetId)
+    public function transferToAccount($budgetId)
     {
         $session = session();
         $userId = $session->get('userId');
-
-        $rules = ['amount' => 'required|decimal|greater_than[0]'];
+        $rules = [
+            'account_id' => 'required|integer',
+            'amount' => 'required|decimal|greater_than[0]'
+        ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
         }
 
-        try {
-            $amount = (float) $this->request->getVar('amount');
+        $accountId = $this->request->getVar('account_id');
+        $amount = (float) $this->request->getVar('amount');
 
-            $toolsModel = new UserFinancialToolsModel();
-            $transactionModel = new TransactionModel();
-
-            // Find the user's financial tools record
-            $toolsRecord = $toolsModel->where('user_id', $userId)->first();
-            if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
-                return $this->failValidationErrors('User does not have an active savings account.');
-            }
-
-            // 1. Update the savings balance
-            $newBalance = (float) $toolsRecord['current_savings_balance'] + $amount;
-            $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
-
-            // 2. Log the transaction
-            $transactionModel->logTransaction(
-                $userId,
-                $budgetId,
-                'savings',
-                'Savings Deposit',
-                $amount,
-                'Contribution to savings'
-            );
-
-            return $this->respondUpdated([
-                'message' => 'Savings added successfully.',
-                'newBalance' => $newBalance
-            ]);
-
-        } catch (\Exception $e) {
-            log_message('error', '[ERROR_ADD_SAVINGS] {exception}', ['exception' => $e]);
-            return $this->failServerError('Could not add to savings.');
+        $accountModel = new UserAccountModel();
+        $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
+        if (!$account) {
+            return $this->failNotFound('Account not found.');
         }
+
+        // Add funds to the account
+        $newBalance = (float) $account['current_balance'] + $amount;
+        $accountModel->update($accountId, ['current_balance' => $newBalance]);
+
+        // Log an expense, as money is leaving the budget's cash flow
+        $transactionModel = new TransactionModel();
+        $transactionModel->logTransaction(
+            $userId,
+            $budgetId,
+            'savings', // <-- Change this from 'expense' to 'savings'
+            'Transfer',
+            $amount,
+            'Transfer to ' . $account['account_name']
+        );
+
+        return $this->respondUpdated(['message' => 'Transfer successful.']);
     }
+
 
     /**
      * Withdraws money from savings, logging it as an income or external transaction.
@@ -1016,73 +1036,66 @@ class BudgetController extends BaseController
      * @return \CodeIgniter\API\ResponseTrait Returns a success response with the new balance, a 404 if the cycle is not found,
      * a validation error if the savings account is not set up or the amount exceeds the balance, or a 500 error on failure.
      */
-    public function withdrawSavings($budgetId)
+    public function transferFromAccount($budgetId)
     {
         $session = session();
         $userId = $session->get('userId');
-
-        // --- UPDATED: Add withdrawal_type to the validation rules ---
         $rules = [
+            'account_id' => 'required|integer',
             'amount' => 'required|decimal|greater_than[0]',
-            'withdrawal_type' => 'required|in_list[income,external]'
+            'transfer_type' => 'required|in_list[income,external]'
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
         }
 
-        try {
-            $amount = (float) $this->request->getVar('amount');
-            $withdrawalType = $this->request->getVar('withdrawal_type');
+        $accountId = $this->request->getVar('account_id');
+        $amount = (float) $this->request->getVar('amount');
+        $transferType = $this->request->getVar('transfer_type');
 
-            $toolsModel = new UserFinancialToolsModel();
-            $transactionModel = new TransactionModel();
-
-            $toolsRecord = $toolsModel->where('user_id', $userId)->first();
-            if (!$toolsRecord || !$toolsRecord['has_savings_account']) {
-                return $this->failValidationErrors('User does not have an active savings account.');
-            }
-
-            $currentBalance = (float) $toolsRecord['current_savings_balance'];
-            if ($amount > $currentBalance) {
-                return $this->failValidationErrors('Withdrawal amount cannot exceed the current balance.');
-            }
-
-            // 1. Update the savings balance (this happens for both types)
-            $newBalance = $currentBalance - $amount;
-            $toolsModel->update($toolsRecord['id'], ['current_savings_balance' => $newBalance]);
-
-            // 2. --- NEW: Conditionally log the transaction based on user's choice ---
-            if ($withdrawalType === 'income') {
-                // Log as 'income' to add cash to the budget
-                $transactionModel->logTransaction(
-                    $userId,
-                    $budgetId,
-                    'income',
-                    'Savings Transfer',
-                    $amount,
-                    'Transfer from savings'
-                );
-            } else { // 'external'
-                // Log as a negative 'savings' transaction to keep it out of budget totals
-                $transactionModel->logTransaction(
-                    $userId,
-                    $budgetId,
-                    'savings',
-                    'Savings Withdrawal',
-                    -$amount,
-                    'External withdrawal from savings'
-                );
-            }
-
-            return $this->respondUpdated([
-                'message' => 'Withdrawal from savings successful.',
-                'newBalance' => $newBalance
-            ]);
-
-        } catch (\Exception $e) {
-            log_message('error', '[ERROR_WITHDRAW_SAVINGS] {exception}', ['exception' => $e]);
-            return $this->failServerError('Could not withdraw from savings.');
+        $accountModel = new \App\Models\UserAccountModel();
+        $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
+        if (!$account) {
+            return $this->failNotFound('Account not found.');
         }
+
+        if ($amount > (float) $account['current_balance']) {
+            return $this->failValidationErrors('Transfer amount cannot exceed the account balance.');
+        }
+
+        // This logic remains the same
+        $newBalance = (float) $account['current_balance'] - $amount;
+        $accountModel->update($accountId, ['current_balance' => $newBalance]);
+
+        if ($transferType === 'income') {
+            $transactionModel = new TransactionModel();
+            $transactionModel->logTransaction(
+                $userId,
+                $budgetId,
+                'income',
+                'Transfer',
+                $amount,
+                'Transfer from ' . $account['account_name']
+            );
+
+            // --- THIS IS THE FIX ---
+            // We now also add a new "Planned Income" item to the budget's data.
+            $budgetCycleModel = new BudgetCycleModel();
+            $budgetCycle = $budgetCycleModel->find($budgetId);
+            $incomeItems = json_decode($budgetCycle['initial_income'], true);
+
+            $newIncomeItem = [
+                'label' => 'Transfer from ' . $account['account_name'],
+                'amount' => $amount,
+                'frequency' => 'one-time'
+            ];
+
+            $incomeItems[] = $newIncomeItem;
+            $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
+            // --- END OF FIX ---
+        }
+
+        return $this->respondUpdated(['message' => 'Transfer successful.']);
     }
 
     public function closeCycle($id)
@@ -1289,5 +1302,43 @@ class BudgetController extends BaseController
         // Save the updated income array
         $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
         return $this->respondUpdated(['message' => 'Income item updated successfully.']);
+    }
+
+    public function updateBudgetDates($budgetId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetModel = new BudgetCycleModel();
+
+        // 1. Find the budget and verify ownership
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found or access denied.');
+        }
+
+        // 2. Validate the incoming dates
+        $rules = [
+            'start_date' => 'required|valid_date[Y-m-d]',
+            'end_date' => 'required|valid_date[Y-m-d]',
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $data = [
+            'start_date' => $this->request->getVar('start_date'),
+            'end_date' => $this->request->getVar('end_date'),
+        ];
+
+        // 3. Update the database
+        try {
+            if ($budgetModel->update($budgetId, $data)) {
+                return $this->respondUpdated(['message' => 'Budget dates updated successfully.']);
+            }
+            return $this->fail($budgetModel->errors());
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_UPDATE_DATES] {exception}', ['exception' => $e]);
+            return $this->failServerError('Could not update budget dates.');
+        }
     }
 }

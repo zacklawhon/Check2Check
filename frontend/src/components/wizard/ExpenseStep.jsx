@@ -4,7 +4,7 @@ import { getDayWithOrdinal } from '../utils/formatters';
 function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {}, onNewExpenseAdded }) {
     const [formState, setFormState] = useState({
         label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
-        interest_rate: '', maturity_date: '', outstanding_balance: ''
+        interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -237,8 +237,20 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                     <option value="credit-card">Credit Card</option>
                     <option value="insurance">Insurance</option>
                     <option value="subscription">Subscription</option>
+                    <option value="transfer">Transfer to Account</option>
                 </select>
-
+                
+                {formState.category === 'transfer' && (
+                    <div>
+                        <label className="block text-sm text-gray-400 mb-1">Destination Account</label>
+                        <select name="transfer_to_account_id" value={formState.transfer_to_account_id} onChange={handleFormChange} className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700">
+                            <option value="">Select an account...</option>
+                            {accounts.map(acc => (
+                                <option key={acc.id} value={acc.id}>{acc.account_name}</option>
+                            ))}
+                        </select>
+                    </div>
+                )}    
                 {formState.category === 'loan' && (
                     <div className="space-y-4 p-4 border border-gray-600 rounded-lg">
                         <h4 className="font-semibold text-gray-300">Loan Details (Optional)</h4>

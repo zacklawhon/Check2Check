@@ -1,61 +1,42 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate, useParams } from 'react-router-dom';
+import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
 import VariableExpenseItem from '../components/VariableExpenseItem';
 import RecurringExpenseItem from '../components/RecurringExpenseItem';
 import AddItemModal from '../components/modals/AddItemModal';
 import EditIncomeModal from '../components/modals/EditIncomeModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditDatesModal from '../components/modals/EditDatesModal';
-import SavingsCard from '../components/SavingsCard';
+import AccountsCard from '../components/AccountsCard';
 
 function BudgetPage() {
     const { budgetId } = useParams();
     const navigate = useNavigate();
+    const { user, accounts, refreshData } = useOutletContext(); 
 
     const [budget, setBudget] = useState(null);
     const [transactions, setTransactions] = useState([]);
-    const [user, setUser] = useState(null);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalType, setModalType] = useState(null);
     const [itemToEdit, setItemToEdit] = useState(null);
     const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
-    const [showSoftClose, setShowSoftClose] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
-    const [financialTools, setFinancialTools] = useState(null);
 
     const fetchBudgetData = async (isRefresh = false) => {
         if (!budgetId) return;
         if (!isRefresh) setLoading(true);
         try {
-            const [budgetRes, transactionsRes, profileRes, toolsRes] = await Promise.all([
+            const [budgetRes, transactionsRes] = await Promise.all([
                 fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
-                fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' }),
-                fetch('/api/user/profile', { credentials: 'include' }),
-                fetch('/api/account/financial-tools', { credentials: 'include' })
+                fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' })
             ]);
 
-            if (!budgetRes.ok || !transactionsRes.ok || !profileRes.ok) {
-                throw new Error('Could not fetch all budget data.');
+            if (!budgetRes.ok || !transactionsRes.ok) {
+                throw new Error('Could not fetch budget data.');
             }
-
-            const budgetData = await budgetRes.json();
-            const transactionsData = await transactionsRes.json();
-            const profileData = await profileRes.json();
-            const toolsData = await toolsRes.json();
-
-            setBudget(budgetData);
-            setTransactions(transactionsData);
-            setUser(profileData);
-            setFinancialTools(toolsData);
-
-            const recurring = budgetData.initial_expenses.filter(exp => exp.type === 'recurring');
-            if (recurring.length > 0 && recurring.every(exp => exp.is_paid)) {
-                setShowSoftClose(true);
-            } else {
-                setShowSoftClose(false);
-            }
+            setBudget(await budgetRes.json());
+            setTransactions(await transactionsRes.json());
         } catch (err) {
             setError(err.message);
         } finally {
@@ -67,8 +48,8 @@ function BudgetPage() {
         fetchBudgetData();
     }, [budgetId]);
 
-    const refreshBudget = () => { fetchBudgetData(true); };
-    const handleSuccess = () => { setModalType(null); refreshBudget(); };
+    const handleSuccess = () => { setModalType(null); refreshData(); };
+    const handleEditSuccess = () => { setItemToEdit(null); refreshData(); };
 
     const handleRemoveIncome = async () => {
         if (!itemToRemove) return;
@@ -81,7 +62,7 @@ function BudgetPage() {
             });
             if (!response.ok) throw new Error('Failed to remove income.');
             setItemToRemove(null);
-            refreshBudget();
+            refreshData();
         } catch (err) {
             setError(err.message);
         }
@@ -117,19 +98,31 @@ function BudgetPage() {
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
     if (!budget || !user) return <div className="text-white p-8 text-center">Budget or user data not found.</div>;
 
+    const totalExpectedIncome = budget.initial_income.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
+    const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
+    const expectedSurplus = totalExpectedIncome - totalExpectedExpenses;
+
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalExpensesPaid = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const currentCash = totalIncome - totalExpensesPaid;
-    const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
+
+    let surplusLabel = 'Expected Surplus';
+    let surplusColor = 'text-white';
+    if (expectedSurplus > 0) {
+        surplusLabel = 'Expected Surplus';
+        surplusColor = 'text-green-400';
+    } else if (expectedSurplus < 0) {
+        surplusLabel = 'Expected Deficit';
+        surplusColor = 'text-red-400';
+    }
+    const displaySurplusAmount = Math.abs(expectedSurplus);
 
     const recurringExpenses = budget.initial_expenses.filter(exp => exp.type === 'recurring');
     const variableExpenses = budget.initial_expenses.filter(exp => exp.type === 'variable');
 
     const groupedRecurringExpenses = recurringExpenses.reduce((acc, expense) => {
         const category = expense.category || 'other';
-        if (!acc[category]) {
-            acc[category] = [];
-        }
+        if (!acc[category]) acc[category] = [];
         acc[category].push(expense);
         return acc;
     }, {});
@@ -150,17 +143,8 @@ function BudgetPage() {
                 </button>
             </header>
 
-            {showSoftClose && !user.demographic_zip_code && (
-                <SavingsSetupPrompt onSetupComplete={refreshBudget} />
-            )}
-
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
-                {/* --- 1. Left Column Wrapper --- */}
-                {/* This new div will hold both the summary and savings cards. */}
                 <div className="md:col-span-1 flex flex-col gap-8">
-
-                    {/* --- 2. Original Summary Card --- */}
-                    {/* Your existing summary card code goes here. */}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
                         <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Summary</h2>
                         <div className="space-y-3">
@@ -173,14 +157,16 @@ function BudgetPage() {
                                 <span className="font-semibold text-red-400">${totalExpectedExpenses.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
+                                <span className="text-gray-400">{surplusLabel}:</span>
+                                <span className={`font-semibold ${surplusColor}`}>${displaySurplusAmount.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
                                 <span className="text-gray-400">Expenses Paid:</span>
                                 <span className="font-semibold text-red-500">${totalExpensesPaid.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between pt-4 border-t border-gray-600">
                                 <span className="text-gray-300 font-bold">Current Cash:</span>
-                                <span className={`font-bold text-lg ${currentCash >= 0 ? 'text-green-400' : 'text-red-400'}`}>
-                                    ${currentCash.toFixed(2)}
-                                </span>
+                                <span className={`font-bold text-lg ${currentCash >= 0 ? 'text-green-400' : 'text-red-400'}`}>${currentCash.toFixed(2)}</span>
                             </div>
                         </div>
                         {isClosable && (
@@ -196,34 +182,39 @@ function BudgetPage() {
                         )}
                     </div>
 
-                    {/* --- 3. New Savings Card --- */}
-                    {/* Paste your savings card code block here. */}
-                    {financialTools?.has_savings_account == 1 && (
-                        <SavingsCard
-                            balance={financialTools.current_savings_balance}
+                    {accounts && accounts.length > 0 && (
+                        <AccountsCard
+                            accounts={accounts}
                             budgetId={budgetId}
-                            onUpdate={refreshBudget}
+                            onUpdate={refreshData}
                         />
                     )}
                 </div>
 
-
                 <div className="md:col-span-2 bg-gray-800 p-6 rounded-lg shadow-xl">
                     <div className="mb-8">
                         <div className="flex justify-between items-center mb-3">
-                            <h3 className="text-xl font-bold text-green-400">Income</h3>
+                            <h3 className="text-xl font-bold text-green-400">Planned Income</h3>
                             <button onClick={() => setModalType('income')} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg">+ Add</button>
                         </div>
                         <ul className="space-y-2">
-                            {transactions.filter(t => t.type === 'income').map((t, index) => (
-                                <li key={`trans-inc-${index}`} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-md">
-                                    <span>{t.description}</span>
-                                    <span className="font-semibold text-green-400">+ ${parseFloat(t.amount).toFixed(2)}</span>
+                            {budget.initial_income.map((incomeItem, index) => (
+                                <li key={`income-${incomeItem.id || incomeItem.label}-${index}`} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-md">
+                                    <div>
+                                        <p>{incomeItem.label}</p>
+                                        <p className="text-xs text-gray-400 capitalize">{incomeItem.frequency}</p>
+                                    </div>
+                                    <div className="flex items-center gap-3">
+                                        <span className="font-semibold text-green-400">+ ${parseFloat(incomeItem.amount).toFixed(2)}</span>
+                                        <button onClick={() => setItemToEdit(incomeItem)} title="Edit" className="text-gray-400 hover:text-white">
+                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
+                                        </button>
+                                        <button onClick={() => setItemToRemove(incomeItem)} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+                                    </div>
                                 </li>
                             ))}
                         </ul>
                     </div>
-
                     <div>
                         <h3 className="text-xl font-bold mb-3 text-red-400">Expenses</h3>
                         <div className="mb-6">
@@ -241,7 +232,7 @@ function BudgetPage() {
                                                     key={`rec-exp-${item.id || index}`}
                                                     item={item}
                                                     budgetId={budgetId}
-                                                    onUpdate={refreshBudget}
+                                                    onUpdate={refreshData}
                                                 />
                                             ))}
                                         </ul>
@@ -256,23 +247,14 @@ function BudgetPage() {
                                 <button onClick={() => setModalType('variable')} className="text-sm bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 rounded-lg">+ Add</button>
                             </div>
                             <ul className="space-y-2">
-                                {/* --- CHANGE IS HERE: We now map over initial_income --- */}
-                                {budget.initial_income.map((incomeItem, index) => (
-                                    <li key={`income-${index}`} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-md">
-                                        <div>
-                                            <p>{incomeItem.label}</p>
-                                            <p className="text-xs text-gray-400 capitalize">{incomeItem.frequency}</p>
-                                        </div>
-                                        <div className="flex items-center gap-3">
-                                            <span className="font-semibold text-green-400">+ ${parseFloat(incomeItem.amount).toFixed(2)}</span>
-                                            {/* --- ADDED EDIT AND REMOVE BUTTONS --- */}
-                                            <button onClick={() => setItemToEdit(incomeItem)} title="Edit" className="text-gray-400 hover:text-white">
-                                                {/* A simple pencil icon */}
-                                                <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
-                                            </button>
-                                            <button onClick={() => setItemToRemove(incomeItem)} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
-                                        </div>
-                                    </li>
+                                {variableExpenses.map((item, index) => (
+                                    <VariableExpenseItem
+                                        key={`var-exp-${item.label}-${index}`}
+                                        item={item}
+                                        budgetId={budgetId}
+                                        onUpdate={refreshData}
+                                        transactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}
+                                    />
                                 ))}
                             </ul>
                         </div>
@@ -281,33 +263,18 @@ function BudgetPage() {
             </div>
 
             {modalType && (
-                <AddItemModal
-                    type={modalType}
-                    budgetId={budgetId}
-                    onClose={() => setModalType(null)}
-                    onSuccess={handleSuccess}
-                />
+                <AddItemModal type={modalType} budgetId={budgetId} accounts={accounts} onClose={() => setModalType(null)} onSuccess={handleSuccess} />
             )}
             {itemToEdit && (
                 <EditIncomeModal
                     item={itemToEdit}
                     budgetId={budgetId}
                     onClose={() => setItemToEdit(null)}
-                    onSuccess={() => {
-                        setItemToEdit(null);
-                        refreshBudget();
-                    }}
+                    onSuccess={handleEditSuccess}
                 />
             )}
             {isEditDatesModalOpen && (
-                <EditDatesModal
-                    budget={budget}
-                    onClose={() => setIsEditDatesModalOpen(false)}
-                    onSuccess={() => {
-                        setIsEditDatesModalOpen(false);
-                        refreshBudget();
-                    }}
-                />
+                <EditDatesModal budget={budget} onClose={() => setIsEditDatesModalOpen(false)} onSuccess={refreshData} />
             )}
             <ConfirmationModal
                 isOpen={!!itemToRemove}
@@ -320,134 +287,4 @@ function BudgetPage() {
     );
 }
 
-function SavingsSetupPrompt({ onSetupComplete }) {
-    const [hasSavings, setHasSavings] = useState(null);
-    const [zipCode, setZipCode] = useState('');
-    const [initialBalance, setInitialBalance] = useState('');
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [isSubmitted, setIsSubmitted] = useState(false);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (hasSavings === null || !zipCode) {
-            setError('Please answer all required questions.');
-            return;
-        }
-
-        setLoading(true);
-        setError('');
-        try {
-            const response = await fetch('/api/budget/initialize-savings', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    hasSavings: hasSavings === 'true' ? 1 : 0,
-                    zipCode: zipCode,
-                    initialBalance: initialBalance
-                })
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Could not save your information.');
-            }
-
-            setIsSubmitted(true);
-            setTimeout(() => onSetupComplete(), 1500);
-
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
-
-    if (isSubmitted) {
-        return (
-            <div className="bg-green-800 border-l-4 border-green-500 text-green-100 p-4 rounded-lg mb-8 shadow-lg text-center">
-                <h3 className="font-bold text-lg">Thank You!</h3>
-                <p>Your information has been saved. Keep up the great work!</p>
-            </div>
-        )
-    }
-
-    return (
-        <div className="bg-indigo-800 border-l-4 border-indigo-500 text-indigo-100 p-6 rounded-lg mb-8 shadow-lg">
-            <h3 className="font-bold text-lg">Congratulations on paying your bills!</h3>
-            <p className="mb-4">Let's take a moment to plan for your financial future. Please answer the questions below.</p>
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label className="block text-sm font-semibold mb-2">Do you have a savings account?</label>
-                    <div className="flex gap-4">
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="hasSavings"
-                                id="hasSavingsYes"
-                                value="true"
-                                onChange={(e) => setHasSavings(e.target.value)}
-                                className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"
-                            />
-                            <span>Yes</span>
-                        </label>
-                        <label className="flex items-center gap-2 cursor-pointer">
-                            <input
-                                type="radio"
-                                name="hasSavings"
-                                id="hasSavingsNo"
-                                value="false"
-                                onChange={(e) => setHasSavings(e.target.value)}
-                                className="form-radio h-4 w-4 text-indigo-400 bg-gray-700 border-gray-600"
-                            />
-                            <span>No</span>
-                        </label>
-                    </div>
-                </div>
-
-                {hasSavings === 'true' && (
-                    <div>
-                        <label htmlFor="initial-balance" className="block text-sm font-semibold mb-1">What is your current savings balance? (Optional)</label>
-                        <input
-                            id="initial-balance"
-                            type="number"
-                            step="0.01"
-                            value={initialBalance}
-                            onChange={(e) => setInitialBalance(e.target.value)}
-                            placeholder="e.g., 150.00"
-                            className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-                        />
-                    </div>
-                )}
-
-                {hasSavings === 'false' && (
-                    <p className="text-sm p-3 bg-indigo-900/50 rounded-lg">That's okay! A great next step is to open a high-yield savings account. It's a safe place to grow your money.</p>
-                )}
-
-                <div>
-                    <label htmlFor="zip-code" className="block text-sm font-semibold mb-1">What is your Zip Code?</label>
-                    <input
-                        id="zip-code"
-                        type="text"
-                        value={zipCode}
-                        onChange={(e) => setZipCode(e.target.value)}
-                        placeholder="e.g., 90210"
-                        required
-                        className="w-full bg-indigo-900/50 text-white rounded-lg p-2 border border-indigo-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
-                    />
-                </div>
-
-                {error && <p className="text-red-300 text-sm">{error}</p>}
-
-                <div className="text-right">
-                    <button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500">
-                        {loading ? 'Saving...' : 'Save & Continue'}
-                    </button>
-                </div>
-            </form>
-        </div>
-    );
-}
 export default BudgetPage;

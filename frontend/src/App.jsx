@@ -14,39 +14,43 @@ import GuidedWizard from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
 import RegisterPage from './pages/RegisterPage';
 
-// In src/App.jsx
-
-// In src/App.jsx
-
-// In src/App.jsx
 
 function ProtectedRoute() {
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [activeBudget, setActiveBudget] = useState(null);
-  const [financialTools, setFinancialTools] = useState(null);
+  // --- 1. This state is now for 'accounts' instead of 'financialTools' ---
+  const [accounts, setAccounts] = useState([]);
+  const [isNewUser, setIsNewUser] = useState(false);
 
-  // --- 1. Define the function in the component's main scope ---
   const fetchInitialData = async () => {
     try {
-      const [profileRes, activeBudgetRes, toolsRes] = await Promise.all([
+      const [profileRes, cyclesRes, accountsRes, activeBudgetRes] = await Promise.all([
         fetch('/api/user/profile', { credentials: 'include' }),
-        fetch('/api/user/active-budget', { credentials: 'include' }),
-        fetch('/api/account/financial-tools', { credentials: 'include' })
+        fetch('/api/budget/cycles', { credentials: 'include' }),
+        // --- 2. Fetch from the new user-accounts endpoint ---
+        fetch('/api/user-accounts', { credentials: 'include' }),
+        fetch('/api/user/active-budget', { credentials: 'include' })
       ]);
       
-      if (!profileRes.ok || !toolsRes.ok) {
+      if (!profileRes.ok || !cyclesRes.ok || !accountsRes.ok) {
         throw new Error('Authentication check failed.');
       }
 
-      setUser(await profileRes.json());
-      setFinancialTools(await toolsRes.json());
-
+      const userData = await profileRes.json();
+      const cyclesData = await cyclesRes.json();
+      
+      setUser(userData);
+      // --- 3. Set the accounts data ---
+      setAccounts(await accountsRes.json());
+      
+      if (cyclesData.length === 0) {
+        setIsNewUser(true);
+      }
+      
       if (activeBudgetRes.ok) {
         const budgetData = await activeBudgetRes.json();
-        if (budgetData) {
-          setActiveBudget(budgetData);
-        }
+        if (budgetData) setActiveBudget(budgetData);
       }
       
     } catch (err) {
@@ -57,11 +61,7 @@ function ProtectedRoute() {
     }
   };
 
-  // --- 2. The useEffect hook now simply CALLS the function ---
-  useEffect(() => {
-    fetchInitialData();
-  }, []);
-
+  useEffect(() => { fetchInitialData(); }, []);
 
   if (loadingUser) {
     return <div className="text-center p-8 text-white">Loading...</div>;
@@ -70,10 +70,13 @@ function ProtectedRoute() {
   if (!user) {
     return <Navigate to="/" replace />;
   }
+  
+  if (isNewUser) {
+      return <Navigate to="/wizard" replace />;
+  }
 
-  // --- 3. Now the function can be correctly passed in the context ---
-  const contextData = { user, activeBudget, financialTools, refreshData: fetchInitialData };
-
+  // --- 4. Pass the 'accounts' list down to the child pages ---
+  const contextData = { user, activeBudget, accounts, refreshData: fetchInitialData };
   return (
     <AuthenticatedLayout activeBudget={activeBudget}>
       <Outlet context={contextData} />
