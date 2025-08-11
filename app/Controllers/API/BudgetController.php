@@ -378,9 +378,11 @@ class BudgetController extends BaseController
         $session = session();
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
-        $transactionModel = new TransactionModel();
         $recurringExpenseModel = new RecurringExpenseModel();
 
+        // --- THIS IS THE FIX ---
+        // The query was incorrectly written as 'id', '=>' . $cycleId
+        // It is now corrected to 'id', $cycleId
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
@@ -413,10 +415,13 @@ class BudgetController extends BaseController
                 'due_date' => $newExpense['due_date'],
                 'category' => $newExpense['category']
             ];
-            // This logic correctly prevents duplicates
+
             $exists = $recurringExpenseModel->where('user_id', $userId)->where('label', $dataToSave['label'])->first();
             if (!$exists) {
                 $recurringExpenseModel->save($dataToSave);
+                $newExpense['id'] = $recurringExpenseModel->getInsertID();
+            } else {
+                $newExpense['id'] = $exists['id'];
             }
         }
 
@@ -605,7 +610,7 @@ class BudgetController extends BaseController
      * @return \CodeIgniter\API\ResponseTrait Returns a success response if initialized, a validation error for invalid input,
      * or a 500 error on failure.
      */
-    public function initializeSavingsProfile()
+    public function initializeSavings()
     {
         $session = session();
         $userId = $session->get('userId');
@@ -1077,6 +1082,83 @@ class BudgetController extends BaseController
         } catch (\Exception $e) {
             log_message('error', '[ERROR_WITHDRAW_SAVINGS] {exception}', ['exception' => $e]);
             return $this->failServerError('Could not withdraw from savings.');
+        }
+    }
+
+    public function closeCycle($id)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetCycleModel = new BudgetCycleModel();
+        $transactionModel = new TransactionModel();
+
+        $budget = $budgetCycleModel->where('id', $id)
+            ->where('user_id', $userId)
+            ->where('status', 'active')
+            ->first();
+
+        if (!$budget) {
+            return $this->failNotFound('Active budget cycle not found or access denied.');
+        }
+
+        $transactions = $transactionModel->where('budget_cycle_id', $id)->findAll();
+        $initialExpenses = json_decode($budget['initial_expenses'], true);
+        $initialIncome = json_decode($budget['initial_income'], true);
+
+        $actualIncome = 0;
+        $actualExpenses = 0;
+        $expenseBreakdown = [];
+
+        foreach ($transactions as $t) {
+            if ($t['type'] === 'income') {
+                $actualIncome += (float) $t['amount'];
+            }
+            if ($t['type'] === 'expense') {
+                $actualExpenses += (float) $t['amount'];
+                $category = $t['category_name'] ?? 'Uncategorized';
+                if (!isset($expenseBreakdown[$category])) {
+                    $expenseBreakdown[$category] = 0;
+                }
+                $expenseBreakdown[$category] += (float) $t['amount'];
+            }
+        }
+
+        // --- THIS IS THE NEW AND IMPROVED LOGIC ---
+        // Sort the spending breakdown by amount, from highest to lowest.
+        arsort($expenseBreakdown);
+
+        // Take just the top 5 categories.
+        $topSpending = array_slice($expenseBreakdown, 0, 5, true);
+
+        // Format the array into the structure the frontend expects.
+        $topSpendingCategories = [];
+        foreach ($topSpending as $category => $amount) {
+            $topSpendingCategories[] = ['category' => $category, 'amount' => $amount];
+        }
+        // --- END OF NEW LOGIC ---
+
+        $plannedIncome = array_sum(array_column($initialIncome, 'amount'));
+        $plannedExpenses = array_sum(array_column($initialExpenses, 'estimated_amount'));
+
+        $finalSummary = [
+            'plannedIncome' => $plannedIncome,
+            'actualIncome' => $actualIncome,
+            'plannedExpenses' => $plannedExpenses,
+            'actualExpenses' => $actualExpenses,
+            'plannedSurplus' => $plannedIncome - $plannedExpenses,
+            'actualSurplus' => $actualIncome - $actualExpenses,
+            'topSpendingCategories' => $topSpendingCategories, // Use the new, correct key
+        ];
+
+        try {
+            $budgetCycleModel->update($id, [
+                'status' => 'completed',
+                'final_summary' => json_encode($finalSummary)
+            ]);
+            return $this->respond(['message' => 'Budget closed successfully.']);
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_CLOSE_BUDGET] {exception}', ['exception' => $e]);
+            return $this->failServerError('Could not close the budget cycle.');
         }
     }
 }
