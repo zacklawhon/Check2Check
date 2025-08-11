@@ -1161,4 +1161,133 @@ class BudgetController extends BaseController
             return $this->failServerError('Could not close the budget cycle.');
         }
     }
+
+    public function markBillUnpaid($cycleId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetCycleModel = new BudgetCycleModel();
+
+        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+        if (!$budgetCycle) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
+        $labelToUnpay = $this->request->getVar('label');
+        $expenses = json_decode($budgetCycle['initial_expenses'], true);
+        $unpaidExpense = null;
+        $updated = false;
+
+        // 1. Find the expense in the budget's JSON and mark it as unpaid
+        foreach ($expenses as &$expense) {
+            if ($expense['label'] === $labelToUnpay && $expense['type'] === 'recurring') {
+                if ($expense['is_paid'] === false) {
+                    return $this->fail('This bill is not marked as paid.');
+                }
+                $expense['is_paid'] = false;
+                $updated = true;
+                $unpaidExpense = $expense;
+                break;
+            }
+        }
+
+        if ($updated) {
+            $db = \Config\Database::connect();
+            $db->transStart();
+
+            try {
+                // 2. Find and delete the corresponding transaction
+                $transactionModel = new TransactionModel();
+                // The `markBillPaid` function logs the expense label as the description.
+                // This is how we find the exact transaction to delete.
+                $transactionToDelete = $transactionModel->where('budget_cycle_id', $cycleId)
+                    ->where('user_id', $userId)
+                    ->where('type', 'expense')
+                    ->where('description', $labelToUnpay)
+                    ->first();
+
+                if ($transactionToDelete) {
+                    $transactionModel->delete($transactionToDelete['id']);
+                }
+
+                // 3. Save the updated expenses list to the budget cycle
+                $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenses)]);
+
+                $db->transComplete();
+
+                if ($db->transStatus() === false) {
+                    throw new \Exception('Database transaction failed.');
+                }
+
+                return $this->respondUpdated(['message' => 'Bill marked as unpaid and transaction removed.']);
+
+            } catch (\Exception $e) {
+                log_message('error', '[ERROR_MARK_UNPAID] {exception}', ['exception' => $e]);
+                return $this->failServerError('Could not update bill status.');
+            }
+        }
+
+        return $this->fail('Bill not found in this budget.');
+    }
+
+    public function updateIncomeInCycle($budgetId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $rules = [
+            'original_label' => 'required|string',
+            'label' => 'required|string',
+            'amount' => 'required|decimal'
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $budgetCycleModel = new BudgetCycleModel();
+        $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budgetCycle) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
+        $originalLabel = $this->request->getVar('original_label');
+        $newLabel = $this->request->getVar('label');
+        $newAmount = (float) $this->request->getVar('amount');
+
+        $incomeItems = json_decode($budgetCycle['initial_income'], true);
+        $itemFound = false;
+        $originalAmount = 0;
+
+        // Find the original item and update it
+        foreach ($incomeItems as &$item) {
+            if ($item['label'] === $originalLabel) {
+                $itemFound = true;
+                $originalAmount = (float) $item['amount'];
+                $item['label'] = $newLabel;
+                $item['amount'] = $newAmount;
+                break;
+            }
+        }
+
+        if (!$itemFound) {
+            return $this->failNotFound('Income item not found in this budget.');
+        }
+
+        // Log a transaction for the difference
+        $adjustmentAmount = $newAmount - $originalAmount;
+        if ($adjustmentAmount !== 0.0) {
+            $transactionModel = new TransactionModel();
+            $transactionModel->logTransaction(
+                $userId,
+                $budgetId,
+                'income',
+                'Adjustment',
+                $adjustmentAmount,
+                "Adjustment for '{$originalLabel}'"
+            );
+        }
+
+        // Save the updated income array
+        $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
+        return $this->respondUpdated(['message' => 'Income item updated successfully.']);
+    }
 }

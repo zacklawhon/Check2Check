@@ -1,43 +1,52 @@
 import React, { useState, useEffect } from 'react';
 
 function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
-    const [label, setLabel] = useState('');
-    const [amount, setAmount] = useState('');
-    const [originalAmount, setOriginalAmount] = useState('');
+    const [formData, setFormData] = useState({ label: '', amount: '' });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
     useEffect(() => {
         if (item) {
-            setLabel(item.label || '');
-            setAmount(item.amount || '');
-            setOriginalAmount(item.amount || '');
+            setFormData({
+                label: item.label || '',
+                amount: item.amount || ''
+            });
         }
     }, [item]);
 
+    const handleChange = (e) => {
+        setFormData(prev => ({ ...prev, [e.target.name]: e.target.value }));
+    };
+
     const handleSave = async () => {
-        if (!label || !amount) {
+        if (!formData.label || !formData.amount) {
             setError('All fields are required.');
             return;
         }
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/update-income/${budgetId}`, {
+            // --- 1. THIS IS THE CORRECTED URL ---
+            const url = `/api/budget/${budgetId}/update-income`;
+
+            // --- 2. THIS IS THE CORRECTED BODY PAYLOAD ---
+            // The backend expects 'original_label', 'label', and 'amount'.
+            const body = {
+                original_label: item.label, // The original name to find the item
+                label: formData.label,      // The new name
+                amount: formData.amount       // The new amount
+            };
+            
+            const response = await fetch(url, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({
-                    original_label: item.label,
-                    new_label: label,
-                    new_amount: amount,
-                    original_amount: originalAmount
-                })
+                body: JSON.stringify(body)
             });
 
             if (!response.ok) {
                 const data = await response.json();
-                throw new Error(data.message || 'Failed to update income.');
+                throw new Error(data.messages.error || 'Failed to update income.');
             }
             onSuccess();
         } catch (err) {
@@ -52,9 +61,10 @@ function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex justify-center items-center z-50">
             <div className="bg-gray-800 p-6 rounded-lg shadow-2xl w-full max-w-md">
-                <h2 className="text-2xl font-bold mb-6 text-white">Edit Income Source</h2>
+                <h2 className="text-2xl font-bold mb-6 text-white">
+                    Edit: <span className="text-indigo-400">{item?.label}</span>
+                </h2>
                 
-                {/* --- FIX: Added Labels --- */}
                 <div className="space-y-4">
                     <div>
                         <label htmlFor="income-label" className="block text-sm font-semibold mb-1 text-gray-300">
@@ -63,8 +73,9 @@ function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
                         <input
                             id="income-label"
                             type="text"
-                            value={label}
-                            onChange={(e) => setLabel(e.target.value)}
+                            name="label" // Name attribute for handleChange
+                            value={formData.label}
+                            onChange={handleChange}
                             className="w-full bg-gray-900/50 text-white rounded-lg p-3 border border-gray-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition"
                         />
                     </div>
@@ -75,8 +86,9 @@ function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
                         <input
                             id="income-amount"
                             type="number"
-                            value={amount}
-                            onChange={(e) => setAmount(e.target.value)}
+                            name="amount" // Name attribute for handleChange
+                            value={formData.amount}
+                            onChange={handleChange}
                             className="w-full bg-gray-900/50 text-white rounded-lg p-3 border border-gray-700 focus:ring-2 focus:ring-indigo-400 focus:outline-none transition"
                         />
                     </div>

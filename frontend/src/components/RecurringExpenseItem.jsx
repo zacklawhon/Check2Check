@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import ConfirmationModal from './modals/ConfirmationModal';
 import ExpenseDetailModal from './modals/ExpenseDetailModal';
-import { getDayWithOrdinal } from './utils/formatters'; // Import our new helper function
+import { getDayWithOrdinal } from './utils/formatters';
 
 function RecurringExpenseItem({ item, budgetId, onUpdate }) {
     const [loading, setLoading] = useState(false);
@@ -52,6 +52,29 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
             setLoading(false);
         }
     };
+
+    const handleMarkUnpaid = async (e) => {
+        e.stopPropagation();
+        setLoading(true);
+        setError('');
+        try {
+            const response = await fetch(`/api/budget/mark-bill-unpaid/${budgetId}`, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                credentials: 'include',
+                body: JSON.stringify({ label: item.label })
+            });
+            if (!response.ok) {
+                const data = await response.json();
+                throw new Error(data.message || 'Failed to undo payment.');
+            }
+            onUpdate();
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
     
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
@@ -77,6 +100,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         setIsConfirmModalOpen(true);
     };
 
+    // This section is for items that don't have an amount set yet.
     if (!item.estimated_amount) {
         return (
             <li className="bg-gray-700 p-3 rounded-md">
@@ -88,11 +112,11 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                     <div className="flex items-center gap-2">
                         <span className="text-gray-400">$</span>
                         <div>
-                            <label htmlFor="expense-amount" className="block text-sm font-semibold mb-1 text-gray-400">Amount</label>
+                            <label htmlFor={`expense-amount-${item.id}`} className="sr-only">Amount</label>
                             <input
                                 type="number"
                                 step="0.01"
-                                id="expense-amount"
+                                id={`expense-amount-${item.id}`}
                                 placeholder="0.00"
                                 value={amount}
                                 onChange={(e) => setAmount(e.target.value)}
@@ -110,15 +134,15 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         );
     }
 
+    // This is for items that have an amount and can be paid or unpaid.
     return (
         <>
             <li 
-                onClick={() => setIsDetailModalOpen(true)}
+                onClick={() => !item.is_paid && setIsDetailModalOpen(true)}
                 className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : 'hover:bg-gray-600 cursor-pointer'}`}
             >
                 <div>
                     <span className={`${item.is_paid ? 'line-through' : ''}`}>{item.label}</span>
-                    {/* --- FIX: This section now formats the due date and shows optional data --- */}
                     <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
                         <span className="capitalize">{item.category}</span>
                         {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
@@ -128,13 +152,25 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                 </div>
                 <div className="flex items-center gap-2">
                     <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
-                    <button
-                        onClick={handleMarkPaid}
-                        disabled={loading || item.is_paid}
-                        className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
-                    >
-                        {item.is_paid ? 'Paid' : 'Pay'}
-                    </button>
+                    
+                    {item.is_paid ? (
+                        <button
+                            onClick={handleMarkUnpaid}
+                            disabled={loading}
+                            className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
+                        >
+                            Undo
+                        </button>
+                    ) : (
+                        <button
+                            onClick={handleMarkPaid}
+                            disabled={loading}
+                            className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
+                        >
+                            Pay
+                        </button>
+                    )}
+
                     <button onClick={handleDeleteClick} className="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
                 </div>
                  {error && <p className="text-red-500 text-xs w-full text-right mt-1">{error}</p>}

@@ -57,7 +57,7 @@ class InvitationController extends BaseController
         // Optional: Rate limiting to prevent spam (e.g., 5 invites per day)
         $today = date('Y-m-d 00:00:00');
         $sentToday = $invitationModel->where('inviter_user_id', $inviterId)->where('created_at >=', $today)->countAllResults();
-        if ($sentToday >= 5) {
+        if ($sentToday >= 7) {
             return $this->fail('You have reached the maximum number of daily invitations.', 429); // 429 Too Many Requests
         }
 

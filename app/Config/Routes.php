@@ -46,7 +46,9 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->get('transactions/(:num)', 'BudgetController::getTransactionsForCycle/$1');
             $routes->post('update-variable-amount/(:num)', 'BudgetController::updateVariableExpenseAmount/$1');
             $routes->post('mark-bill-paid/(:num)', 'BudgetController::markBillPaid/$1');
+            $routes->post('mark-bill-unpaid/(:num)', 'BudgetController::markBillUnpaid/$1');
             $routes->post('add-expense/(:num)', 'BudgetController::addExpenseToCycle/$1');
+            $routes->post('(:num)/update-income', 'BudgetController::updateIncomeInCycle/$1');
             $routes->post('add-income/(:num)', 'BudgetController::addIncomeToCycle/$1');
             $routes->post('add-variable-expense/(:num)', 'BudgetController::addVariableExpense/$1');
             $routes->post('remove-expense/(:num)', 'BudgetController::removeExpenseFromCycle/$1');
