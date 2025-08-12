@@ -184,7 +184,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
                                             step="0.01"
                                             placeholder="0.00"
                                             value={selectedItem.amount}
-                                            onChange={(e) => handleAmountChange(source.id, newAmount)}
+                                            onChange={(e) => handleAmountChange(source.id, e.target.value)}
                                             disabled={!isSelected}
                                             className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-700 disabled:opacity-50"
                                         />

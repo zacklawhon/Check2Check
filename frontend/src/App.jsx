@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // We'll move the data fetching logic into this component
@@ -21,11 +21,16 @@ function ProtectedRoute() {
   const [activeBudget, setActiveBudget] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [isNewUser, setIsNewUser] = useState(false);
-  // 2. Get the current browser location
-  const location = useLocation();
 
-  const fetchInitialData = async () => {
+  const location = useLocation();
+  const navigate = useNavigate();
+
+  const fetchInitialData = async (newBudgetId = null, isSilent = false) => {
+    if (!isSilent) {
+      setLoadingUser(true);
+    }
     try {
+      // 1. Fetch all data just as before
       const [profileRes, cyclesRes, accountsRes, activeBudgetRes] = await Promise.all([
         fetch('/api/user/profile', { credentials: 'include' }),
         fetch('/api/budget/cycles', { credentials: 'include' }),
@@ -37,26 +42,42 @@ function ProtectedRoute() {
         throw new Error('Authentication check failed.');
       }
 
+      // 2. Parse all data
       const userData = await profileRes.json();
       const cyclesData = await cyclesRes.json();
-
-      setUser(userData);
-      setAccounts(await accountsRes.json());
-
-      if (cyclesData.length === 0) {
-        setIsNewUser(true);
-      }
-
+      const accountsData = await accountsRes.json();
+      let activeBudgetData = null;
       if (activeBudgetRes.ok) {
-        const budgetData = await activeBudgetRes.json();
-        if (budgetData) setActiveBudget(budgetData);
+        activeBudgetData = await activeBudgetRes.json();
       }
+
+      // 3. Set all state for the global layout
+      setUser(userData);
+      setAccounts(accountsData);
+      setIsNewUser(cyclesData.length === 0);
+      if (activeBudgetData) {
+        setActiveBudget(activeBudgetData);
+      }
+
+      if (newBudgetId) {
+        navigate(`/budget/${newBudgetId}`);
+      }
+
+      // 4. *** THIS IS THE KEY CHANGE ***
+      // Return the fresh data so child components can use it immediately.
+      return {
+        user: userData,
+        accounts: accountsData,
+        activeBudget: activeBudgetData
+      };
 
     } catch (err) {
       console.error("Failed to fetch initial data:", err);
       setUser(null);
     } finally {
-      setLoadingUser(false);
+      if (!isSilent) {
+        setLoadingUser(false);
+      }
     }
   };
 
@@ -70,12 +91,11 @@ function ProtectedRoute() {
     return <Navigate to="/" replace />;
   }
 
-  // 3. Update the redirect condition to check the current path
-  // "If the user is new AND they are NOT already at the wizard page, redirect them."
   if (isNewUser && location.pathname !== '/wizard') {
     return <Navigate to="/wizard" replace />;
   }
 
+  // Pass down the modified refresh function
   const contextData = { user, activeBudget, accounts, refreshData: fetchInitialData };
   return (
     <AuthenticatedLayout activeBudget={activeBudget}>

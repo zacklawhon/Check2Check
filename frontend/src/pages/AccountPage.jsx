@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useOutletContext } from 'react-router-dom'; 
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditItemModal from '../components/modals/EditItemModal';
 import ProfileForm from '../components/account/ProfileForm';
@@ -7,6 +8,7 @@ import AccountManager from '../components/account/AccountManager'; // Import the
 import { getDayWithOrdinal } from '../components/utils/formatters';
 
 function AccountPage() {
+    const { user } = useOutletContext(); 
     const [items, setItems] = useState({ income_sources: [], recurring_expenses: [] });
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
@@ -76,7 +78,7 @@ function AccountPage() {
                     {/* The New AccountManager replaces the old FinancialToolsForm */}
                     <AccountManager />
                     
-                    <ProfileForm onUpdate={fetchData} />
+                    <ProfileForm user={user} onUpdate={fetchData} />
 
                     <div className="bg-gray-800 p-6 rounded-lg">
                         <h2 className="text-2xl font-bold text-green-400 mb-4">Saved Income</h2>

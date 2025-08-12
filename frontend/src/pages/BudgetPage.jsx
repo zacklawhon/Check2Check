@@ -26,8 +26,8 @@ function BudgetPage() {
     // 2. Add state to control the new prompt's visibility
     const [showNextSteps, setShowNextSteps] = useState(false);
 
-    const fetchBudgetData = async (isRefresh = false) => {
-        if (!budgetId) return;
+    const fetchPageData = async (isRefresh) => {
+        // This 'if' check will now work correctly and not cause a crash.
         if (!isRefresh) setLoading(true);
         try {
             const [budgetRes, transactionsRes] = await Promise.all([
@@ -37,36 +37,44 @@ function BudgetPage() {
 
             if (!budgetRes.ok || !transactionsRes.ok) throw new Error('Could not fetch budget data.');
 
-            const budgetData = await budgetRes.json();
-            setBudget(budgetData);
+            setBudget(await budgetRes.json());
             setTransactions(await transactionsRes.json());
-
-            // --- 3. This is the new trigger logic for the prompt ---
-            const recurring = budgetData.initial_expenses.filter(exp => exp.type === 'recurring');
-            // Show prompt if all bills are paid AND it's the user's first budget
-            if (user && user.completed_budget_count === 0 && !user.has_seen_accounts_prompt && recurring.length > 0 && recurring.every(exp => exp.is_paid)) {
-                setShowNextSteps(true);
-            } else {
-                setShowNextSteps(false);
-            }
 
         } catch (err) {
             setError(err.message);
-        } finally {
-            setLoading(false);
         }
+        // The 'finally' block is handled by the calling function.
     };
+
+    // 3. Update useEffect to call the new simplified function
+    const refreshAllData = async (isRefresh = true) => {
+        if (!isRefresh) setLoading(true);
+        await fetchPageData(isRefresh); // This now passes the parameter correctly
+        if (refreshGlobalData) {
+            await refreshGlobalData(null, true);
+        }
+        if (!isRefresh) setLoading(false);
+    };
+
+    // Use the reliable refresh function for all updates.
+    const refreshBudget = () => refreshAllData(true);
 
     useEffect(() => {
-        fetchBudgetData();
-    }, [budgetId, user]); // Add user to dependency array to re-evaluate when it loads
-
-    const refreshBudget = () => {
-        fetchBudgetData(true);
-        if (refreshGlobalData) {
-            refreshGlobalData();
+        if (budgetId) {
+            refreshAllData(false); // Initial load with loading screen
         }
-    };
+    }, [budgetId]);
+
+    useEffect(() => {
+        if (user && budget) {
+            const recurring = budget.initial_expenses.filter(exp => exp.type === 'recurring');
+            const shouldShow = user.completed_budget_count === 0
+                && !user.has_seen_accounts_prompt
+                && recurring.length > 0
+                && recurring.every(exp => exp.is_paid);
+            setShowNextSteps(shouldShow);
+        }
+    }, [user, budget]);
 
     const handleSuccess = () => { setModalType(null); refreshBudget(); };
     const handleEditSuccess = () => { setItemToEdit(null); refreshBudget(); };
@@ -87,6 +95,7 @@ function BudgetPage() {
             setError(err.message);
         }
     };
+    
 
     const handleCloseBudget = async () => {
         setIsClosing(true);
@@ -296,7 +305,7 @@ function BudgetPage() {
                 />
             )}
             {isEditDatesModalOpen && (
-                <EditDatesModal budget={budget} onClose={() => setIsEditDatesModalOpen(false)} onSuccess={refreshBudget} />
+                <EditDatesModal budget={budget} onSuccess={() => {refreshBudget(); setIsEditDatesModalOpen(false);}} />
             )}
             <ConfirmationModal
                 isOpen={!!itemToRemove}

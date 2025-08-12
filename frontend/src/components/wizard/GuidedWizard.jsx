@@ -119,16 +119,13 @@ export function GuidedWizard() {
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to create budget cycle.');
 
-            // --- 2. THIS IS THE FIX ---
-            // Await the global refresh to update the parent's state (isNewUser will become false).
-            await refreshData();
-
-            // Now that the parent knows we're no longer a "new user", we can navigate.
-            navigate(`/budget/${data.id}`);
+            // --- 2. THIS IS THE NEW LOGIC ---
+            // Call refreshData and pass the new budget ID to it.
+            // It will handle the state update and the navigation.
+            await refreshData(data.id);
 
         } catch (err) {
             setError(err.message);
-        } finally {
             setLoading(false);
         }
     };
