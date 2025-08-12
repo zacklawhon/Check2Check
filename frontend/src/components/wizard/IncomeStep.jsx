@@ -12,16 +12,24 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
     
     const inputRefs = useRef([]);
 
+    // --- THIS IS THE FIX ---
+    // We've split the original useEffect into two more specific ones.
+
+    // This effect runs whenever the list of available suggestions changes.
     useEffect(() => {
         const initialSuggestions = suggestions.map(s => ({ ...s, amount: s.amount || '' }));
         setAllIncomeSources(initialSuggestions);
-        
+    }, [suggestions]);
+
+    // This effect runs only ONCE when the component first loads to set the initial checked items.
+    // It will no longer reset your selections when a new item is added.
+    useEffect(() => {
         const preparedIncome = existingIncome.map(item => ({
             ...item,
             amount: item.amount || ''
         }));
         setSelectedIncome(preparedIncome);
-    }, [suggestions, existingIncome]);
+    }, []); // The empty array [] ensures this runs only on the initial render.
 
     const handleSelectionChange = (source, isChecked) => {
         if (isChecked) {
@@ -75,6 +83,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
                 onNewSourceAdded(newIncomeSource);
             }
             
+            // This line now works correctly because the useEffect is not resetting the state.
             setSelectedIncome(prev => [...prev, newIncomeSource]);
             
             setSourceName('');
@@ -175,7 +184,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
                                             step="0.01"
                                             placeholder="0.00"
                                             value={selectedItem.amount}
-                                            onChange={(e) => handleAmountChange(source.id, e.target.value)}
+                                            onChange={(e) => handleAmountChange(source.id, newAmount)}
                                             disabled={!isSelected}
                                             className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 focus:ring-1 focus:ring-indigo-500 focus:outline-none disabled:bg-gray-700 disabled:opacity-50"
                                         />

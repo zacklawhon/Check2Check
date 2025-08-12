@@ -1,17 +1,15 @@
-import React, { useState, useEffect } from 'react';
-import { useNavigate, useOutletContext } from 'react-router-dom'; // Import useOutletContext
+import React, { useState, useEffect } from 'react'; // 1. Correctly import useState and useEffect
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import BudgetList from '../components/BudgetList';
-import GuidedWizard from '../components/wizard/GuidedWizard';
-import SavingsCard from '../components/SavingsCard';
+import AccountsCard from '../components/AccountsCard'; // 2. Import the new AccountsCard
 
 function DashboardPage() {
     const navigate = useNavigate();
-    // --- 1. Get all data from the parent ProtectedRoute using the context hook ---
-    const { user, activeBudget, financialTools, refreshData } = useOutletContext();
-    const [budgetCycles, setBudgetCycles] = useState([]); // Keep state for budget cycles
+    // 3. Get the new 'accounts' list from the context
+    const { user, activeBudget, accounts, refreshData } = useOutletContext();
+    const [budgetCycles, setBudgetCycles] = useState([]);
     const [loadingCycles, setLoadingCycles] = useState(true);
 
-    // --- 2. Create a separate, simpler fetch for just the budget cycles list ---
     useEffect(() => {
         const fetchCycles = async () => {
             try {
@@ -29,27 +27,27 @@ function DashboardPage() {
 
 
     if (!user) {
-        // This case is handled by ProtectedRoute, but as a fallback:
         return <div className="text-red-500 p-8 text-center">Could not find user profile.</div>;
     }
     
-    // --- 3. Show a wizard if the user exists but the budget list is still loading or empty ---
     if (loadingCycles) {
         return <div className="text-white p-8 text-center">Loading Budgets...</div>;
     }
 
-    if (budgetCycles.length === 0) {
-        return <GuidedWizard user={user} />;
-    }
+    // This logic is now handled by the redirect in ProtectedRoute
+    // if (budgetCycles.length === 0) {
+    //     return <GuidedWizard user={user} />;
+    // }
   
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
-            {financialTools?.has_savings_account == 1 && (
+            {/* 4. Update the condition to check for accounts and render the new card */}
+            {accounts && accounts.length > 0 && (
                 <div className="max-w-2xl mx-auto mb-12">
-                    <SavingsCard
-                        balance={financialTools.current_savings_balance}
+                    <AccountsCard
+                        accounts={accounts}
                         budgetId={activeBudget?.id}
-                        onUpdate={refreshData} // Use the refresh function from the context
+                        onUpdate={refreshData}
                     />
                 </div>
             )}

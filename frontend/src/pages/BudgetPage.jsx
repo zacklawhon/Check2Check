@@ -7,11 +7,12 @@ import EditIncomeModal from '../components/modals/EditIncomeModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditDatesModal from '../components/modals/EditDatesModal';
 import AccountsCard from '../components/AccountsCard';
+import NextStepsPrompt from '../components/NextStepsPrompt'; // 1. Import the new component
 
 function BudgetPage() {
     const { budgetId } = useParams();
     const navigate = useNavigate();
-    const { user, accounts, refreshData } = useOutletContext(); 
+    const { user, accounts, refreshData: refreshGlobalData } = useOutletContext();
 
     const [budget, setBudget] = useState(null);
     const [transactions, setTransactions] = useState([]);
@@ -22,6 +23,8 @@ function BudgetPage() {
     const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
+    // 2. Add state to control the new prompt's visibility
+    const [showNextSteps, setShowNextSteps] = useState(false);
 
     const fetchBudgetData = async (isRefresh = false) => {
         if (!budgetId) return;
@@ -32,11 +35,21 @@ function BudgetPage() {
                 fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' })
             ]);
 
-            if (!budgetRes.ok || !transactionsRes.ok) {
-                throw new Error('Could not fetch budget data.');
-            }
-            setBudget(await budgetRes.json());
+            if (!budgetRes.ok || !transactionsRes.ok) throw new Error('Could not fetch budget data.');
+
+            const budgetData = await budgetRes.json();
+            setBudget(budgetData);
             setTransactions(await transactionsRes.json());
+
+            // --- 3. This is the new trigger logic for the prompt ---
+            const recurring = budgetData.initial_expenses.filter(exp => exp.type === 'recurring');
+            // Show prompt if all bills are paid AND it's the user's first budget
+            if (user && user.completed_budget_count === 0 && !user.has_seen_accounts_prompt && recurring.length > 0 && recurring.every(exp => exp.is_paid)) {
+                setShowNextSteps(true);
+            } else {
+                setShowNextSteps(false);
+            }
+
         } catch (err) {
             setError(err.message);
         } finally {
@@ -46,10 +59,17 @@ function BudgetPage() {
 
     useEffect(() => {
         fetchBudgetData();
-    }, [budgetId]);
+    }, [budgetId, user]); // Add user to dependency array to re-evaluate when it loads
 
-    const handleSuccess = () => { setModalType(null); refreshData(); };
-    const handleEditSuccess = () => { setItemToEdit(null); refreshData(); };
+    const refreshBudget = () => {
+        fetchBudgetData(true);
+        if (refreshGlobalData) {
+            refreshGlobalData();
+        }
+    };
+
+    const handleSuccess = () => { setModalType(null); refreshBudget(); };
+    const handleEditSuccess = () => { setItemToEdit(null); refreshBudget(); };
 
     const handleRemoveIncome = async () => {
         if (!itemToRemove) return;
@@ -62,7 +82,7 @@ function BudgetPage() {
             });
             if (!response.ok) throw new Error('Failed to remove income.');
             setItemToRemove(null);
-            refreshData();
+            refreshBudget();
         } catch (err) {
             setError(err.message);
         }
@@ -101,11 +121,9 @@ function BudgetPage() {
     const totalExpectedIncome = budget.initial_income.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
     const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
     const expectedSurplus = totalExpectedIncome - totalExpectedExpenses;
-
     const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalExpensesPaid = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const currentCash = totalIncome - totalExpensesPaid;
-
     let surplusLabel = 'Expected Surplus';
     let surplusColor = 'text-white';
     if (expectedSurplus > 0) {
@@ -116,17 +134,14 @@ function BudgetPage() {
         surplusColor = 'text-red-400';
     }
     const displaySurplusAmount = Math.abs(expectedSurplus);
-
     const recurringExpenses = budget.initial_expenses.filter(exp => exp.type === 'recurring');
     const variableExpenses = budget.initial_expenses.filter(exp => exp.type === 'variable');
-
     const groupedRecurringExpenses = recurringExpenses.reduce((acc, expense) => {
         const category = expense.category || 'other';
         if (!acc[category]) acc[category] = [];
         acc[category].push(expense);
         return acc;
     }, {});
-
     const isClosable = budget.status === 'active' && isPastEndDate(budget.end_date);
 
     return (
@@ -142,6 +157,9 @@ function BudgetPage() {
                     &larr; View All Budgets
                 </button>
             </header>
+
+            {/* --- 4. Render the new prompt when its state is true --- */}
+            {showNextSteps && <NextStepsPrompt />}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="md:col-span-1 flex flex-col gap-8">
@@ -181,16 +199,14 @@ function BudgetPage() {
                             </div>
                         )}
                     </div>
-
                     {accounts && accounts.length > 0 && (
                         <AccountsCard
                             accounts={accounts}
                             budgetId={budgetId}
-                            onUpdate={refreshData}
+                            onUpdate={refreshBudget}
                         />
                     )}
                 </div>
-
                 <div className="md:col-span-2 bg-gray-800 p-6 rounded-lg shadow-xl">
                     <div className="mb-8">
                         <div className="flex justify-between items-center mb-3">
@@ -232,7 +248,7 @@ function BudgetPage() {
                                                     key={`rec-exp-${item.id || index}`}
                                                     item={item}
                                                     budgetId={budgetId}
-                                                    onUpdate={refreshData}
+                                                    onUpdate={refreshBudget}
                                                 />
                                             ))}
                                         </ul>
@@ -252,7 +268,7 @@ function BudgetPage() {
                                         key={`var-exp-${item.label}-${index}`}
                                         item={item}
                                         budgetId={budgetId}
-                                        onUpdate={refreshData}
+                                        onUpdate={refreshBudget}
                                         transactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}
                                     />
                                 ))}
@@ -263,7 +279,13 @@ function BudgetPage() {
             </div>
 
             {modalType && (
-                <AddItemModal type={modalType} budgetId={budgetId} accounts={accounts} onClose={() => setModalType(null)} onSuccess={handleSuccess} />
+                <AddItemModal
+                    type={modalType}
+                    budgetId={budgetId}
+                    accounts={accounts}
+                    onClose={() => setModalType(null)}
+                    onSuccess={handleSuccess}
+                />
             )}
             {itemToEdit && (
                 <EditIncomeModal
@@ -274,7 +296,7 @@ function BudgetPage() {
                 />
             )}
             {isEditDatesModalOpen && (
-                <EditDatesModal budget={budget} onClose={() => setIsEditDatesModalOpen(false)} onSuccess={refreshData} />
+                <EditDatesModal budget={budget} onClose={() => setIsEditDatesModalOpen(false)} onSuccess={refreshBudget} />
             )}
             <ConfirmationModal
                 isOpen={!!itemToRemove}

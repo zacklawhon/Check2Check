@@ -205,4 +205,16 @@ class UserController extends BaseController
         // both with a 200 OK status, which prevents the console error.
         return $this->respond($activeBudget);
     }
+
+    public function dismissAccountsPrompt()
+    {
+        $userId = session()->get('userId');
+        $userModel = new UserModel();
+
+        if ($userModel->update($userId, ['has_seen_accounts_prompt' => 1])) {
+            return $this->respondUpdated(['message' => 'Prompt dismissed.']);
+        }
+
+        return $this->failServerError('Could not update user profile.');
+    }
 }

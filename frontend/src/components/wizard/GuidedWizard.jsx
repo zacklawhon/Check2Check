@@ -1,13 +1,15 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import DateConfirmationStep from './DateConfirmationStep';
 import IncomeStep from './IncomeStep';
 import ExpenseStep from './ExpenseStep';
 import SpendingStep from './SpendingStep';
 
-function GuidedWizard({ user }) {
+export function GuidedWizard() {
     const navigate = useNavigate();
-    // FIX: The wizard now always starts at step 1.
+    // 1. Get the user, accounts, AND the refreshData function from the context
+    const { user, accounts, refreshData } = useOutletContext();
+
     const [step, setStep] = useState(1);
     const [wizardData, setWizardData] = useState({
         confirmedDates: { startDate: '', endDate: '' },
@@ -19,14 +21,11 @@ function GuidedWizard({ user }) {
     const [error, setError] = useState('');
 
     useEffect(() => {
-        // FIX: The wizard now ALWAYS calls the 'wizard-suggestions' endpoint.
-        // For a new user, the backend will provide default, non-personalized suggestions.
         const fetchSuggestions = async () => {
             try {
                 const response = await fetch('/api/budget/wizard-suggestions', { credentials: 'include' });
                 if (!response.ok) throw new Error('Could not load setup data.');
                 const data = await response.json();
-
                 const suggestions = {
                     proposedStartDate: data.proposedStartDate,
                     proposedEndDate: data.proposedEndDate,
@@ -34,7 +33,6 @@ function GuidedWizard({ user }) {
                     suggestedExpenses: data.suggestedExpenses || [],
                     learned_spending_categories: data.learned_spending_categories || [],
                 };
-
                 setWizardData(prev => ({
                     ...prev,
                     suggestions: suggestions,
@@ -47,21 +45,32 @@ function GuidedWizard({ user }) {
                 setLoading(false);
             }
         };
-
         fetchSuggestions();
-    }, []); // The dependency array is now empty, so this runs once on mount.
+    }, []);
 
     const nextStep = () => setStep(prev => prev + 1);
     const prevStep = () => setStep(prev => prev - 1);
 
+    const updateIncomeSuggestions = (newSource) => {
+        setWizardData(prev => ({
+            ...prev,
+            suggestions: { ...prev.suggestions, suggestedIncome: [...prev.suggestions.suggestedIncome, newSource] }
+        }));
+    };
+
+    const updateExpenseSuggestions = (newExpense) => {
+        setWizardData(prev => ({
+            ...prev,
+            suggestions: { ...prev.suggestions, suggestedExpenses: [...prev.suggestions.suggestedExpenses, newExpense] }
+        }));
+    };
+
     const handleDatesConfirmed = (dates) => {
         setWizardData(prev => ({ ...prev, confirmedDates: dates }));
-        
         const start = new Date(`${dates.startDate}T00:00:00`);
         const end = new Date(`${dates.endDate}T00:00:00`);
-
         const filteredExpenses = (wizardData.suggestions.suggestedExpenses || []).filter(exp => {
-            if (!exp.due_date) return false;
+            if (!exp.due_date) return true;
             const dueDateDay = parseInt(exp.due_date, 10);
             let current = new Date(start);
             while (current <= end) {
@@ -78,19 +87,16 @@ function GuidedWizard({ user }) {
         setWizardData(prev => ({ ...prev, confirmedIncome: incomeList }));
         nextStep();
     };
-    
+
     const handleExpensesConfirmed = (expenseList) => {
         setWizardData(prev => ({ ...prev, confirmedExpenses: expenseList }));
         nextStep();
     };
-    
+
     const updateSpending = (newCategory) => {
         setWizardData(prev => ({
             ...prev,
-            suggestions: {
-                ...prev.suggestions,
-                learned_spending_categories: [...prev.suggestions.learned_spending_categories, newCategory]
-            }
+            suggestions: { ...prev.suggestions, learned_spending_categories: [...prev.suggestions.learned_spending_categories, newCategory] }
         }));
     };
 
@@ -112,37 +118,24 @@ function GuidedWizard({ user }) {
             });
             const data = await response.json();
             if (!response.ok) throw new Error(data.message || 'Failed to create budget cycle.');
+
+            // --- 2. THIS IS THE FIX ---
+            // Await the global refresh to update the parent's state (isNewUser will become false).
+            await refreshData();
+
+            // Now that the parent knows we're no longer a "new user", we can navigate.
             navigate(`/budget/${data.id}`);
+
         } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
-    
+
     if (loading) return <div className="text-center p-8 text-white">Loading your setup...</div>;
     if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
     if (!wizardData.suggestions) return null;
-
-    const updateIncomeSuggestions = (newSource) => {
-        setWizardData(prev => ({
-            ...prev,
-            suggestions: {
-                ...prev.suggestions,
-                suggestedIncome: [...prev.suggestions.suggestedIncome, newSource]
-            }
-        }));
-    };
-
-    const updateExpenseSuggestions = (newExpense) => {
-        setWizardData(prev => ({
-            ...prev,
-            suggestions: {
-                ...prev.suggestions,
-                suggestedExpenses: [...prev.suggestions.suggestedExpenses, newExpense]
-            }
-        }));
-    };
 
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
@@ -161,11 +154,10 @@ function GuidedWizard({ user }) {
                         onComplete={handleIncomeConfirmed}
                         suggestions={wizardData.suggestions.suggestedIncome}
                         existingIncome={wizardData.confirmedIncome}
-                        // --- 2. PASS THE NEW FUNCTION AS A PROP ---
                         onNewSourceAdded={updateIncomeSuggestions}
                     />
                 )}
-                 {step === 3 && (
+                {step === 3 && (
                     <ExpenseStep
                         onBack={prevStep}
                         onComplete={handleExpensesConfirmed}
@@ -181,6 +173,7 @@ function GuidedWizard({ user }) {
                         onBack={prevStep}
                         onComplete={handleFinishSetup}
                         updateSpending={updateSpending}
+                        user={user} // Pass user prop to SpendingStep
                         existingCategories={wizardData.suggestions.learned_spending_categories}
                     />
                 )}
@@ -188,4 +181,3 @@ function GuidedWizard({ user }) {
         </div>
     );
 }
-export default GuidedWizard;

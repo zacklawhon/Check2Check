@@ -1,7 +1,7 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getDayWithOrdinal } from '../utils/formatters';
 
-function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {}, onNewExpenseAdded }) {
+function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {}, onNewExpenseAdded, accounts = [] }) {
     const [formState, setFormState] = useState({
         label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
         interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: ''
@@ -14,18 +14,27 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     
     const inputRefs = useRef([]);
 
+    // --- THIS IS THE FIX ---
+    // The original useEffect has been split into two.
+
+    // This effect now ONLY updates the master list of all available expenses.
     useEffect(() => {
         const initialSuggestions = suggestions.map(s => ({ ...s, estimated_amount: s.estimated_amount || '' }));
         setAllExpenses(initialSuggestions);
+    }, [suggestions]);
+
+    // This effect runs only ONCE to set the initial checked items.
+    useEffect(() => {
         setSelectedExpenses(existingExpenses.map(e => ({ ...e, estimated_amount: e.estimated_amount || '' })));
-    }, [suggestions, existingExpenses]);
+    }, []); // Empty array ensures this runs only on initial render.
+
 
     const filteredSuggestions = useMemo(() => {
         if (!confirmedDates.startDate || !confirmedDates.endDate) { return allExpenses; }
         const start = new Date(`${confirmedDates.startDate}T00:00:00`);
         const end = new Date(`${confirmedDates.endDate}T00:00:00`);
         return allExpenses.filter(exp => {
-            if (!exp.due_date) return true; // Always include expenses with no due date
+            if (!exp.due_date) return true;
             const dueDateDay = parseInt(exp.due_date, 10);
             let current = new Date(start);
             while (current <= end) {
@@ -94,7 +103,8 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                 principal_balance: formState.principal_balance,
                 interest_rate: formState.interest_rate,
                 maturity_date: formState.maturity_date,
-                outstanding_balance: formState.outstanding_balance
+                outstanding_balance: formState.outstanding_balance,
+                transfer_to_account_id: formState.transfer_to_account_id
             };
             
             if (onNewExpenseAdded) {
@@ -105,7 +115,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
 
             setFormState({
                 label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
-                interest_rate: '', maturity_date: '', outstanding_balance: ''
+                interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: ''
             });
 
         } catch (err) {
@@ -156,7 +166,8 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                     principal_balance: formState.principal_balance,
                     interest_rate: formState.interest_rate,
                     maturity_date: formState.maturity_date,
-                    outstanding_balance: formState.outstanding_balance
+                    outstanding_balance: formState.outstanding_balance,
+                    transfer_to_account_id: formState.transfer_to_account_id
                 };
                 
                 finalExpenseList.push(newExpense);
@@ -279,8 +290,8 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             <div className="flex justify-between mt-8">
                  <button onClick={onBack} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Back</button>
                  <button onClick={handleNext} disabled={isNextDisabled || loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500 disabled:cursor-not-allowed">
-                    {loading ? 'Saving...' : 'Next: Spending'}
-                </button>
+                     {loading ? 'Saving...' : 'Next: Spending'}
+                 </button>
             </div>
         </div>
     );

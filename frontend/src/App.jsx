@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { BrowserRouter, Routes, Route, Navigate, Outlet } from 'react-router-dom';
+import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
 // We'll move the data fetching logic into this component
@@ -10,7 +10,7 @@ import VerificationPage from './pages/VerificationPage';
 import DashboardPage from './pages/DashboardPage';
 import BudgetPage from './pages/BudgetPage';
 import BudgetReviewPage from './pages/BudgetReviewPage';
-import GuidedWizard from './components/wizard/GuidedWizard';
+import { GuidedWizard } from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
 import RegisterPage from './pages/RegisterPage';
 
@@ -19,40 +19,39 @@ function ProtectedRoute() {
   const [user, setUser] = useState(null);
   const [loadingUser, setLoadingUser] = useState(true);
   const [activeBudget, setActiveBudget] = useState(null);
-  // --- 1. This state is now for 'accounts' instead of 'financialTools' ---
   const [accounts, setAccounts] = useState([]);
   const [isNewUser, setIsNewUser] = useState(false);
+  // 2. Get the current browser location
+  const location = useLocation();
 
   const fetchInitialData = async () => {
     try {
       const [profileRes, cyclesRes, accountsRes, activeBudgetRes] = await Promise.all([
         fetch('/api/user/profile', { credentials: 'include' }),
         fetch('/api/budget/cycles', { credentials: 'include' }),
-        // --- 2. Fetch from the new user-accounts endpoint ---
         fetch('/api/user-accounts', { credentials: 'include' }),
         fetch('/api/user/active-budget', { credentials: 'include' })
       ]);
-      
+
       if (!profileRes.ok || !cyclesRes.ok || !accountsRes.ok) {
         throw new Error('Authentication check failed.');
       }
 
       const userData = await profileRes.json();
       const cyclesData = await cyclesRes.json();
-      
+
       setUser(userData);
-      // --- 3. Set the accounts data ---
       setAccounts(await accountsRes.json());
-      
+
       if (cyclesData.length === 0) {
         setIsNewUser(true);
       }
-      
+
       if (activeBudgetRes.ok) {
         const budgetData = await activeBudgetRes.json();
         if (budgetData) setActiveBudget(budgetData);
       }
-      
+
     } catch (err) {
       console.error("Failed to fetch initial data:", err);
       setUser(null);
@@ -70,12 +69,13 @@ function ProtectedRoute() {
   if (!user) {
     return <Navigate to="/" replace />;
   }
-  
-  if (isNewUser) {
-      return <Navigate to="/wizard" replace />;
+
+  // 3. Update the redirect condition to check the current path
+  // "If the user is new AND they are NOT already at the wizard page, redirect them."
+  if (isNewUser && location.pathname !== '/wizard') {
+    return <Navigate to="/wizard" replace />;
   }
 
-  // --- 4. Pass the 'accounts' list down to the child pages ---
   const contextData = { user, activeBudget, accounts, refreshData: fetchInitialData };
   return (
     <AuthenticatedLayout activeBudget={activeBudget}>

@@ -31,6 +31,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('update-demographics', 'UserController::updateDemographics');
             $routes->post('update-financial-profile', 'UserController::updateFinancialProfile');
             $routes->get('active-budget', 'UserController::getActiveBudget');
+            $routes->post('dismiss-accounts-prompt', 'UserController::dismissAccountsPrompt');
         });
 
         // Budget Routes

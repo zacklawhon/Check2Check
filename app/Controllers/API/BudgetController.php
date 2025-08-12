@@ -247,7 +247,9 @@ class BudgetController extends BaseController
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
 
-        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', '=>' . $userId)->first();
+        // --- THIS IS THE FIX ---
+        // The query was incorrectly written with '=>'
+        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
         }
@@ -259,8 +261,9 @@ class BudgetController extends BaseController
 
         foreach ($expenses as &$expense) {
             if ($expense['label'] === $labelToPay && $expense['type'] === 'recurring') {
-                if ($expense['is_paid'] === true)
+                if ($expense['is_paid'] === true) {
                     return $this->fail('This bill has already been marked as paid.');
+                }
                 $expense['is_paid'] = true;
                 $updated = true;
                 $paidExpense = $expense;
@@ -272,35 +275,33 @@ class BudgetController extends BaseController
             $db = \Config\Database::connect();
             $db->transStart();
             try {
-                // --- THIS IS THE NEW LOGIC ---
                 // Check if this is a transfer to a user account
                 if (isset($paidExpense['transfer_to_account_id']) && !empty($paidExpense['transfer_to_account_id'])) {
                     $accountId = $paidExpense['transfer_to_account_id'];
                     $amount = (float) $paidExpense['estimated_amount'];
 
-                    // Update the account balance
-                    $accountModel = new UserAccountModel();
+                    $accountModel = new \App\Models\UserAccountModel();
                     $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
                     if ($account) {
                         $newBalance = (float) $account['current_balance'] + $amount;
                         $accountModel->update($accountId, ['current_balance' => $newBalance]);
                     }
-                    // Log a neutral 'savings' transaction for this transfer
+
                     $transactionModel = new TransactionModel();
                     $transactionModel->logTransaction($userId, $cycleId, 'savings', $paidExpense['category'], $amount, $paidExpense['label']);
 
                 } else {
-                    // This is the original logic for a normal expense
+                    // Original logic for a normal expense
                     $transactionModel = new TransactionModel();
                     $transactionModel->logTransaction($userId, $cycleId, 'expense', $paidExpense['category'], (float) $paidExpense['estimated_amount'], $paidExpense['label']);
                 }
 
-                // Save the updated expenses list
                 $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenses)]);
 
                 $db->transComplete();
-                if ($db->transStatus() === false)
+                if ($db->transStatus() === false) {
                     throw new \Exception('Database transaction failed.');
+                }
 
                 return $this->respondUpdated(['message' => 'Bill marked as paid and transaction logged.']);
 
