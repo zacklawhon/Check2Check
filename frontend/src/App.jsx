@@ -22,6 +22,7 @@ function ProtectedRoute() {
   const [accounts, setAccounts] = useState([]);
   const [isNewUser, setIsNewUser] = useState(false);
 
+
   const location = useLocation();
   const navigate = useNavigate();
 
@@ -105,7 +106,8 @@ function ProtectedRoute() {
 }
 
 function App() {
-  // App.jsx no longer holds any state. It's just a router.
+  const isStaging = window.location.hostname.includes('staging');
+  
   return (
     <div className="bg-gray-900 min-h-screen">
       <BrowserRouter>
@@ -131,6 +133,26 @@ function App() {
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
       </BrowserRouter>
+
+      {isStaging && (
+        <div style={{
+          position: 'fixed',
+          bottom: '0',
+          left: '0',
+          width: '100%',
+          backgroundColor: 'rgba(234, 179, 8, 0.9)', // Yellow color with opacity
+          color: 'black',
+          textAlign: 'center',
+          padding: '8px',
+          fontWeight: 'bold',
+          fontSize: '1rem',
+          zIndex: 9999, // Ensures it's on top of all other content
+          boxShadow: '0 -2px 10px rgba(0,0,0,0.5)',
+          textTransform: 'uppercase',
+        }}>
+          🚧 Staging Environment 🚧
+        </div>
+      )}
     </div>
   );
 }
