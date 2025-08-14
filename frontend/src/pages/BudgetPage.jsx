@@ -7,7 +7,8 @@ import EditIncomeModal from '../components/modals/EditIncomeModal';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditDatesModal from '../components/modals/EditDatesModal';
 import AccountsCard from '../components/AccountsCard';
-import NextStepsPrompt from '../components/NextStepsPrompt'; // 1. Import the new component
+import NextStepsPrompt from '../components/NextStepsPrompt';
+import AccelerateGoalModal from '../components/modals/AccelerateGoalModal';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -16,6 +17,7 @@ function BudgetPage() {
 
     const [budget, setBudget] = useState(null);
     const [transactions, setTransactions] = useState([]);
+    const [goals, setGoals] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalType, setModalType] = useState(null);
@@ -23,54 +25,54 @@ function BudgetPage() {
     const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
-    // 2. Add state to control the new prompt's visibility
     const [showNextSteps, setShowNextSteps] = useState(false);
+    const [isAccelerateModalOpen, setIsAccelerateModalOpen] = useState(false);
 
-    const fetchPageData = async (isRefresh) => {
-        // This 'if' check will now work correctly and not cause a crash.
+    // --- THIS IS THE CORRECTED FUNCTION ---
+    // It now correctly includes the fetch call for '/api/goals' in the Promise.all array.
+    const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
-            const [budgetRes, transactionsRes] = await Promise.all([
+            const [budgetRes, transactionsRes, goalsRes] = await Promise.all([
                 fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
-                fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' })
+                fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' }),
+                fetch('/api/goals', { credentials: 'include' }) // This line was missing
             ]);
 
-            if (!budgetRes.ok || !transactionsRes.ok) throw new Error('Could not fetch budget data.');
+            if (!budgetRes.ok || !transactionsRes.ok || !goalsRes.ok) {
+                throw new Error('Could not fetch all budget data.');
+            }
 
             setBudget(await budgetRes.json());
             setTransactions(await transactionsRes.json());
+            setGoals(await goalsRes.json());
 
         } catch (err) {
             setError(err.message);
+        } finally {
+            if (!isRefresh) setLoading(false);
         }
-        // The 'finally' block is handled by the calling function.
     };
-
-    // 3. Update useEffect to call the new simplified function
-    const refreshAllData = async (isRefresh = true) => {
-        if (!isRefresh) setLoading(true);
-        await fetchPageData(isRefresh); // This now passes the parameter correctly
+    
+    const refreshBudget = () => {
+        fetchPageData(true);
         if (refreshGlobalData) {
-            await refreshGlobalData(null, true);
+            refreshGlobalData(null, true);
         }
-        if (!isRefresh) setLoading(false);
     };
-
-    // Use the reliable refresh function for all updates.
-    const refreshBudget = () => refreshAllData(true);
 
     useEffect(() => {
         if (budgetId) {
-            refreshAllData(false); // Initial load with loading screen
+            fetchPageData(false);
         }
     }, [budgetId]);
 
     useEffect(() => {
         if (user && budget) {
             const recurring = budget.initial_expenses.filter(exp => exp.type === 'recurring');
-            const shouldShow = user.completed_budget_count === 0
-                && !user.has_seen_accounts_prompt
-                && recurring.length > 0
+            const shouldShow = user.completed_budget_count === 0 
+                && !user.has_seen_accounts_prompt 
+                && recurring.length > 0 
                 && recurring.every(exp => exp.is_paid);
             setShowNextSteps(shouldShow);
         }
@@ -78,6 +80,7 @@ function BudgetPage() {
 
     const handleSuccess = () => { setModalType(null); refreshBudget(); };
     const handleEditSuccess = () => { setItemToEdit(null); refreshBudget(); };
+    const handleDatesUpdateSuccess = () => { setIsEditDatesModalOpen(false); refreshBudget(); };
 
     const handleRemoveIncome = async () => {
         if (!itemToRemove) return;
@@ -95,7 +98,6 @@ function BudgetPage() {
             setError(err.message);
         }
     };
-    
 
     const handleCloseBudget = async () => {
         setIsClosing(true);
@@ -152,6 +154,7 @@ function BudgetPage() {
         return acc;
     }, {});
     const isClosable = budget.status === 'active' && isPastEndDate(budget.end_date);
+    const activeGoal = goals.find(g => g.status === 'active');
 
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
@@ -167,11 +170,24 @@ function BudgetPage() {
                 </button>
             </header>
 
-            {/* --- 4. Render the new prompt when its state is true --- */}
-            {showNextSteps && <NextStepsPrompt />}
+            {showNextSteps && <NextStepsPrompt onDismiss={refreshBudget} />}
 
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 <div className="md:col-span-1 flex flex-col gap-8">
+                    {expectedSurplus > 0 && activeGoal && (
+                        <div className="bg-indigo-800 p-6 rounded-lg shadow-xl border border-indigo-500">
+                             <h2 className="text-2xl font-bold mb-3 text-center">Accelerate Your Goal!</h2>
+                             <p className="text-indigo-200 text-center mb-4">
+                                You have an expected surplus of <strong className="text-white">${expectedSurplus.toFixed(2)}</strong>. Put it to work!
+                             </p>
+                             <button 
+                                onClick={() => setIsAccelerateModalOpen(true)}
+                                className="w-full bg-white text-indigo-800 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100"
+                             >
+                                Apply Surplus
+                             </button>
+                        </div>
+                    )}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
                         <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Summary</h2>
                         <div className="space-y-3">
@@ -287,6 +303,20 @@ function BudgetPage() {
                 </div>
             </div>
 
+            {activeGoal && (
+                <AccelerateGoalModal
+                    isOpen={isAccelerateModalOpen}
+                    onClose={() => setIsAccelerateModalOpen(false)}
+                    onSuccess={() => {
+                        setIsAccelerateModalOpen(false);
+                        refreshBudget();
+                    }}
+                    goal={activeGoal}
+                    surplus={expectedSurplus}
+                    budgetId={budgetId}
+                />
+            )}
+            
             {modalType && (
                 <AddItemModal
                     type={modalType}
@@ -305,7 +335,7 @@ function BudgetPage() {
                 />
             )}
             {isEditDatesModalOpen && (
-                <EditDatesModal budget={budget} onSuccess={() => {refreshBudget(); setIsEditDatesModalOpen(false);}} />
+                <EditDatesModal budget={budget} onClose={() => setIsEditDatesModalOpen(false)} onSuccess={handleDatesUpdateSuccess} />
             )}
             <ConfirmationModal
                 isOpen={!!itemToRemove}

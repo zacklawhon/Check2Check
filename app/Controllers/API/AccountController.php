@@ -37,6 +37,21 @@ class AccountController extends BaseController
         return $this->respond($data);
     }
 
+    public function getUserAccounts()
+    {
+        $session = session();
+        $userId = $session->get('userId');
+
+        $accountModel = new \App\Models\UserAccountModel(); // Using the provided UserAccountModel
+
+        $accounts = $accountModel->where('user_id', $userId)->findAll();
+
+        return $this->respond($accounts);
+    }
+
+
+
+
     /**
      * Deactivates an income source by setting its is_active flag to 0.
      *

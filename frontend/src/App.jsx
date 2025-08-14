@@ -10,6 +10,7 @@ import VerificationPage from './pages/VerificationPage';
 import DashboardPage from './pages/DashboardPage';
 import BudgetPage from './pages/BudgetPage';
 import BudgetReviewPage from './pages/BudgetReviewPage';
+import GoalsPage from './pages/GoalsPage';
 import { GuidedWizard } from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
 import RegisterPage from './pages/RegisterPage';
@@ -128,6 +129,7 @@ function App() {
             <Route path="/budget/:budgetId" element={<BudgetPage />} />
             <Route path="/review/:budgetId" element={<BudgetReviewPage />} />
             <Route path="/account" element={<AccountPage />} />
+            <Route path="/goals" element={<GoalsPage />} />
           </Route>
 
           <Route path="*" element={<Navigate to="/" replace />} />

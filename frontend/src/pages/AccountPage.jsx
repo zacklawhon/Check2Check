@@ -1,27 +1,44 @@
 import React, { useState, useEffect } from 'react';
-import { useOutletContext } from 'react-router-dom'; 
+import { Link, useOutletContext } from 'react-router-dom';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditItemModal from '../components/modals/EditItemModal';
 import ProfileForm from '../components/account/ProfileForm';
 import AccountActions from '../components/account/AccountActions';
-import AccountManager from '../components/account/AccountManager'; // Import the new component
+import AccountManager from '../components/account/AccountManager';
+import GoalsDisplay from '../components/account/GoalsDisplay';
 import { getDayWithOrdinal } from '../components/utils/formatters';
 
 function AccountPage() {
-    const { user } = useOutletContext(); 
+    const { user } = useOutletContext();
     const [items, setItems] = useState({ income_sources: [], recurring_expenses: [] });
     const [loading, setLoading] = useState(true);
+    const [goals, setGoals] = useState([]);
     const [error, setError] = useState('');
     const [editingItem, setEditingItem] = useState(null);
     const [itemToDelete, setItemToDelete] = useState(null);
+    const [showDebtNudge, setShowDebtNudge] = useState(false);
 
     const fetchData = async () => {
         if (!loading) setLoading(true);
         try {
-            // We only need to fetch the recurring items now
-            const itemsRes = await fetch('/api/account/recurring-items', { credentials: 'include' });
-            if (!itemsRes.ok) throw new Error('Failed to fetch account data.');
-            setItems(await itemsRes.json());
+            // 3. Fetch goals and items at the same time
+            const [itemsRes, goalsRes] = await Promise.all([
+                fetch('/api/account/recurring-items', { credentials: 'include' }),
+                fetch('/api/goals', { credentials: 'include' })
+            ]);
+
+            if (!itemsRes.ok || !goalsRes.ok) throw new Error('Failed to fetch account data.');
+            
+            const fetchedItems = await itemsRes.json();
+            setItems(fetchedItems);
+            setGoals(await goalsRes.json());
+
+            const debts = fetchedItems.recurring_expenses.filter(exp => exp.category === 'loan' || exp.category === 'credit-card');
+            if (debts.length > 0) {
+                const hasIncompleteDebt = debts.some(d => !d.outstanding_balance || !d.interest_rate);
+                setShowDebtNudge(hasIncompleteDebt);
+            }
+
         } catch (err) {
             setError(err.message);
         } finally {
@@ -75,9 +92,23 @@ function AccountPage() {
                 <h1 className="text-4xl font-bold text-white text-center mb-8">Account Management</h1>
                 {error && <p className="text-red-500 text-center mb-4">{error}</p>}
                 <div className="space-y-8 max-w-4xl mx-auto">
-                    {/* The New AccountManager replaces the old FinancialToolsForm */}
-                    <AccountManager />
+                    {/* 4. Conditionally render the "Nudge" card */}
+                    {showDebtNudge && (
+                        <div className="bg-indigo-800 border border-indigo-500 text-white p-6 rounded-lg shadow-xl text-center">
+                            <h2 className="text-2xl font-bold mb-3">Are You Ready to Get Out of Debt? 💡</h2>
+                            <p className="text-indigo-200 mb-4">
+                                You're one step away from creating a powerful debt elimination plan. Add the <strong>current balance</strong> and <strong>interest rate</strong> for your saved loans and credit cards to get started.
+                            </p>
+                            <Link to="/goals" className="bg-white text-indigo-800 font-bold py-2 px-6 rounded-lg hover:bg-indigo-100 transition-colors">
+                                Create My Plan
+                            </Link>
+                        </div>
+                    )}
                     
+                    <GoalsDisplay goals={goals} />
+
+                    <AccountManager />
+
                     <ProfileForm user={user} onUpdate={fetchData} />
 
                     <div className="bg-gray-800 p-6 rounded-lg">

@@ -58,6 +58,17 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
         }
     };
 
+    if (item.is_goal_payment) {
+        return (
+            <li className="bg-gray-700 p-3 rounded-md opacity-70">
+                <div className="flex justify-between items-center">
+                    <span className="font-semibold line-through">{item.label}</span>
+                    <span className="font-semibold text-gray-400">-${parseFloat(item.estimated_amount).toFixed(2)}</span>
+                </div>
+            </li>
+        );
+    }
+
     return (
         <>
             <li className="bg-gray-700 p-3 rounded-md">

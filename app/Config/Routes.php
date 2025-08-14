@@ -80,6 +80,15 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         ]);
 
         $routes->post('user-accounts/update-balance/(:num)', 'UserAccountController::updateBalance/$1');
+        $routes->get('user-accounts', 'AccountController::getUserAccounts');
+
+        $routes->group('goals', static function ($routes) {
+            $routes->get('/', 'GoalController::index');
+            $routes->post('/', 'GoalController::create');
+            $routes->put('(:num)', 'GoalController::update/$1');
+            $routes->delete('(:num)', 'GoalController::delete/$1');
+            $routes->post('(:num)/log-payment', 'GoalController::logPayment/$1');
+        });
 
         $routes->group('account', static function ($routes) {
             $routes->get('recurring-items', 'AccountController::getRecurringItems');
