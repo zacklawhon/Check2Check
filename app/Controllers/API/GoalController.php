@@ -112,6 +112,8 @@ class GoalController extends BaseController
         return $this->respondUpdated(['message' => 'Goal updated successfully.']);
     }
 
+    // In GoalController.php
+
     public function delete($id = null)
     {
         $session = session();
@@ -119,19 +121,23 @@ class GoalController extends BaseController
         $goalModel = new UserGoalModel();
 
         // Ensure the goal exists and belongs to the user
-        $goal = $goalModel->where('id', $id)->where('user_id', '==', $userId)->first();
+        // FIX: Removed the incorrect '==' operator from the where clause.
+        $goal = $goalModel->where('id', $id)
+            ->where('user_id', $userId)
+            ->first();
+
         if (!$goal) {
-            return $this->failNotFound('Goal not found.');
+            return $this->failNotFound('Goal not found or you do not have permission to delete it.');
         }
 
-        // Instead of a hard delete, we'll mark it as 'deleted' to preserve history.
-        // The index() method already filters for 'active' goals.
+        // Instead of a hard delete, we'll mark it as 'deleted'.
         if ($goalModel->update($id, ['status' => 'deleted'])) {
             return $this->respondDeleted(['message' => 'Goal deleted successfully.']);
         }
 
         return $this->failServerError('Could not delete the goal.');
     }
+
     public function logPayment($id = null)
     {
         $session = session();

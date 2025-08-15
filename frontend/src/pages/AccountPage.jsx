@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
-import { Link, useOutletContext } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditItemModal from '../components/modals/EditItemModal';
+import EditGoalModal from '../components/modals/EditGoalModal';
 import ProfileForm from '../components/account/ProfileForm';
 import AccountActions from '../components/account/AccountActions';
 import AccountManager from '../components/account/AccountManager';
 import GoalsDisplay from '../components/account/GoalsDisplay';
+import IntroGoalCard from '../components/account/IntroGoalCard'; 
 import { getDayWithOrdinal } from '../components/utils/formatters';
 
 function AccountPage() {
@@ -16,7 +18,9 @@ function AccountPage() {
     const [error, setError] = useState('');
     const [editingItem, setEditingItem] = useState(null);
     const [itemToDelete, setItemToDelete] = useState(null);
-    const [showDebtNudge, setShowDebtNudge] = useState(false);
+    const [goalToDelete, setGoalToDelete] = useState(null);
+    const [editingGoal, setEditingGoal] = useState(null);
+    const navigate = useNavigate();
 
     const fetchData = async () => {
         if (!loading) setLoading(true);
@@ -28,16 +32,11 @@ function AccountPage() {
             ]);
 
             if (!itemsRes.ok || !goalsRes.ok) throw new Error('Failed to fetch account data.');
-            
+
             const fetchedItems = await itemsRes.json();
             setItems(fetchedItems);
             setGoals(await goalsRes.json());
 
-            const debts = fetchedItems.recurring_expenses.filter(exp => exp.category === 'loan' || exp.category === 'credit-card');
-            if (debts.length > 0) {
-                const hasIncompleteDebt = debts.some(d => !d.outstanding_balance || !d.interest_rate);
-                setShowDebtNudge(hasIncompleteDebt);
-            }
 
         } catch (err) {
             setError(err.message);
@@ -49,6 +48,38 @@ function AccountPage() {
     useEffect(() => {
         fetchData();
     }, []);
+
+    const handleDeleteGoal = (goal) => {
+        setGoalToDelete(goal);
+    };
+
+    // This function runs when the user confirms the deletion
+    const confirmDeleteGoal = async () => {
+        if (!goalToDelete) return;
+        try {
+            const response = await fetch(`/api/goals/${goalToDelete.id}`, {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            if (!response.ok) throw new Error('Failed to delete goal.');
+            setGoals(currentGoals => currentGoals.filter(g => g.id !== goalToDelete.id));
+        } catch (err) {
+            setError(err.message);
+        } finally {
+            setGoalToDelete(null); // Close the modal
+        }
+    };
+
+    // This function will now open the edit modal
+    const handleEditGoal = (goal) => {
+        setEditingGoal(goal);
+    };
+
+    // This is called when the edit modal successfully saves
+    const handleEditGoalSuccess = () => {
+        setEditingGoal(null); // Close the modal
+        fetchData(); // Refresh all data to ensure consistency
+    };
 
     const handleDeleteClick = (item, type) => {
         setItemToDelete({ ...item, type });
@@ -93,19 +124,16 @@ function AccountPage() {
                 {error && <p className="text-red-500 text-center mb-4">{error}</p>}
                 <div className="space-y-8 max-w-4xl mx-auto">
                     {/* 4. Conditionally render the "Nudge" card */}
-                    {showDebtNudge && (
-                        <div className="bg-indigo-800 border border-indigo-500 text-white p-6 rounded-lg shadow-xl text-center">
-                            <h2 className="text-2xl font-bold mb-3">Are You Ready to Get Out of Debt? 💡</h2>
-                            <p className="text-indigo-200 mb-4">
-                                You're one step away from creating a powerful debt elimination plan. Add the <strong>current balance</strong> and <strong>interest rate</strong> for your saved loans and credit cards to get started.
-                            </p>
-                            <Link to="/goals" className="bg-white text-indigo-800 font-bold py-2 px-6 rounded-lg hover:bg-indigo-100 transition-colors">
-                                Create My Plan
-                            </Link>
-                        </div>
+                     {goals.length === 0 ? (
+                        <IntroGoalCard onStart={() => navigate('/goals')} />
+                    ) : (
+                        <GoalsDisplay 
+                            goals={goals}
+                            onEdit={handleEditGoal}
+                            onDelete={handleDeleteGoal}
+                            onAddMore={() => navigate('/goals')}
+                        />
                     )}
-                    
-                    <GoalsDisplay goals={goals} />
 
                     <AccountManager />
 
@@ -159,6 +187,21 @@ function AccountPage() {
                     <AccountActions />
                 </div>
             </div>
+
+            <ConfirmationModal
+                isOpen={!!goalToDelete}
+                onClose={() => setGoalToDelete(null)}
+                onConfirm={confirmDeleteGoal}
+                title="Delete Goal"
+                message={`Are you sure you want to delete the goal "${goalToDelete?.goal_name}"? This action cannot be undone.`}
+            />
+
+            <EditGoalModal
+                isOpen={!!editingGoal}
+                goal={editingGoal}
+                onClose={() => setEditingGoal(null)}
+                onSuccess={handleEditGoalSuccess}
+            />
 
             <ConfirmationModal
                 isOpen={!!itemToDelete}
