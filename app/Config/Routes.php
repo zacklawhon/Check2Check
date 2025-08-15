@@ -63,6 +63,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('update-income-amount/(:num)', 'BudgetController::updateInitialIncomeAmount/$1');
             $routes->post('(:num)/transfer-to-account', 'BudgetController::transferToAccount/$1');
             $routes->post('(:num)/transfer-from-account', 'BudgetController::transferFromAccount/$1');
+            $routes->post('project-income', 'BudgetController::projectIncome');
         });
 
         $routes->group('expenses', static function ($routes) {
@@ -102,6 +103,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('request-email-change', 'AccountController::requestEmailChange');
             $routes->get('verify-email-change/(:segment)', 'AccountController::verifyEmailChange/$1');
             $routes->delete('delete', 'AccountController::deleteAccount');
+            $routes->put('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');   
+            $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
         });
 
         $routes->group('feedback', static function ($routes) {

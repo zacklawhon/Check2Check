@@ -14,6 +14,7 @@ use App\Models\TransactionModel;
 use App\Models\UserModel;
 use App\Models\UserAccountModel;
 use App\Models\UserFinancialToolsModel;
+use App\Services\ProjectionService;
 use CodeIgniter\API\ResponseTrait;
 use DateTime;
 use Exception;
@@ -1342,4 +1343,22 @@ class BudgetController extends BaseController
             return $this->failServerError('Could not update budget dates.');
         }
     }
+
+    public function projectIncome()
+    {
+        $json = $this->request->getJSON(true);
+        $rules = $json['income_rules'] ?? [];
+        $startDate = $json['start_date'] ?? '';
+        $endDate = $json['end_date'] ?? '';
+
+        if (empty($startDate) || empty($endDate) || empty($rules)) {
+            return $this->failValidationErrors('Start date, end date, and income rules are required.');
+        }
+
+        $projectionService = new ProjectionService();
+        $projectedIncome = $projectionService->projectIncome($startDate, $endDate, $rules);
+
+        return $this->respond($projectedIncome);
+    }
+
 }

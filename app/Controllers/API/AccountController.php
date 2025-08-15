@@ -135,9 +135,15 @@ class AccountController extends BaseController
         }
 
         $json = $this->request->getJSON(true);
+
+        // --- THIS IS THE FIX ---
+        // The data now includes all the new frequency fields from the frontend.
         $data = [
             'label' => $json['label'],
             'frequency' => $json['frequency'],
+            'frequency_day' => $json['frequency_day'] ?? null,
+            'frequency_date_1' => $json['frequency_date_1'] ?? null,
+            'frequency_date_2' => $json['frequency_date_2'] ?? null,
         ];
 
         if ($model->update($id, $data)) {
@@ -408,4 +414,5 @@ class AccountController extends BaseController
         $session->destroy();
         return $this->respondDeleted(['message' => 'Account deleted successfully.']);
     }
+
 }

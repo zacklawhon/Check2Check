@@ -54,25 +54,33 @@ function AccountManager() {
                     <button onClick={() => { setActiveAccount(null); setIsEditModalOpen(true); }} className="bg-indigo-600 py-2 px-4 rounded">Add New</button>
                 </div>
                 {error && <p className="text-red-400 mb-2">{error}</p>}
-                <ul className="space-y-3">
-                    {accounts.map(acc => (
-                        <li key={acc.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center">
-                            <div>
-                                <p className="font-semibold text-gray-200">{acc.account_name}</p>
-                                <p className="text-sm text-gray-400 capitalize">{acc.account_type}</p>
-                            </div>
-                            <div className="flex items-center gap-4">
-                                <span className="font-semibold text-gray-200">${parseFloat(acc.current_balance).toFixed(2)}</span>
-                                <div className="flex gap-2">
-                                    {/* --- 4. Add the new "Adjust" button --- */}
-                                    <button onClick={() => { setActiveAccount(acc); setIsAdjustModalOpen(true); }} className="text-xs text-yellow-400 hover:text-yellow-300">Adjust</button>
-                                    <button onClick={() => { setActiveAccount(acc); setIsEditModalOpen(true); }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                                    <button onClick={() => setDeletingAccount(acc)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
+
+                {/* --- START: ADDED LOGIC --- */}
+                {accounts.length === 0 ? (
+                    <p className="text-gray-400 text-center py-4">
+                        Add and Manage Savings and Checking accounts here. Click "Add New" to get started.
+                    </p>
+                ) : (
+                    <ul className="space-y-3">
+                        {accounts.map(acc => (
+                            <li key={acc.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center">
+                                <div>
+                                    <p className="font-semibold text-gray-200">{acc.account_name}</p>
+                                    <p className="text-sm text-gray-400 capitalize">{acc.account_type}</p>
                                 </div>
-                            </div>
-                        </li>
-                    ))}
-                </ul>
+                                <div className="flex items-center gap-4">
+                                    <span className="font-semibold text-gray-200">${parseFloat(acc.current_balance).toFixed(2)}</span>
+                                    <div className="flex gap-2">
+                                        <button onClick={() => { setActiveAccount(acc); setIsAdjustModalOpen(true); }} className="text-xs text-yellow-400 hover:text-yellow-300">Adjust</button>
+                                        <button onClick={() => { setActiveAccount(acc); setIsEditModalOpen(true); }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                                        <button onClick={() => setDeletingAccount(acc)} className="text-xs text-red-400 hover:text-red-300">Delete</button>
+                                    </div>
+                                </div>
+                            </li>
+                        ))}
+                    </ul>
+                )}
+                {/* --- END: ADDED LOGIC --- */}
             </div>
             {/* --- 5. Render the new modals --- */}
             <AccountModal isOpen={isEditModalOpen} onClose={() => setIsEditModalOpen(false)} onSuccess={handleSuccess} account={activeAccount} />

@@ -1,19 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import DateConfirmationStep from './DateConfirmationStep';
+import BudgetCycleStep from './BudgetCycleStep';
 import IncomeStep from './IncomeStep';
+import ReviewStep from './ReviewStep';
 import ExpenseStep from './ExpenseStep';
 import SpendingStep from './SpendingStep';
 
 export function GuidedWizard() {
     const navigate = useNavigate();
-    // 1. Get the user, accounts, AND the refreshData function from the context
     const { user, accounts, refreshData } = useOutletContext();
 
     const [step, setStep] = useState(1);
     const [wizardData, setWizardData] = useState({
         confirmedDates: { startDate: '', endDate: '' },
-        confirmedIncome: [],
+        confirmedIncomeRules: [],
+        projectedIncome: [],      
         confirmedExpenses: [],
         suggestions: null,
     });
@@ -28,7 +30,6 @@ export function GuidedWizard() {
                 const data = await response.json();
                 const suggestions = {
                     proposedStartDate: data.proposedStartDate,
-                    proposedEndDate: data.proposedEndDate,
                     suggestedIncome: data.suggestedIncome || [],
                     suggestedExpenses: data.suggestedExpenses || [],
                     learned_spending_categories: data.learned_spending_categories || [],
@@ -67,6 +68,7 @@ export function GuidedWizard() {
 
     const handleDatesConfirmed = (dates) => {
         setWizardData(prev => ({ ...prev, confirmedDates: dates }));
+        // The logic to pre-filter expenses based on dates is still useful
         const start = new Date(`${dates.startDate}T00:00:00`);
         const end = new Date(`${dates.endDate}T00:00:00`);
         const filteredExpenses = (wizardData.suggestions.suggestedExpenses || []).filter(exp => {
@@ -84,7 +86,13 @@ export function GuidedWizard() {
     };
 
     const handleIncomeConfirmed = (incomeList) => {
-        setWizardData(prev => ({ ...prev, confirmedIncome: incomeList }));
+        // --- FIX: Use the correct state property name ---
+        setWizardData(prev => ({ ...prev, confirmedIncomeRules: incomeList }));
+        nextStep();
+    };
+
+    const handleReviewConfirmed = (finalProjectedIncome) => {
+        setWizardData(prev => ({ ...prev, projectedIncome: finalProjectedIncome }));
         nextStep();
     };
 
@@ -111,7 +119,7 @@ export function GuidedWizard() {
                 body: JSON.stringify({
                     start_date: wizardData.confirmedDates.startDate,
                     end_date: wizardData.confirmedDates.endDate,
-                    income_sources: JSON.stringify(wizardData.confirmedIncome),
+                    income_sources: JSON.stringify(wizardData.projectedIncome), 
                     recurring_expenses: JSON.stringify(wizardData.confirmedExpenses),
                     spending_categories: JSON.stringify(finalSpendingCategories)
                 })
@@ -130,6 +138,8 @@ export function GuidedWizard() {
         }
     };
 
+
+
     if (loading) return <div className="text-center p-8 text-white">Loading your setup...</div>;
     if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
     if (!wizardData.suggestions) return null;
@@ -139,9 +149,8 @@ export function GuidedWizard() {
             <h1 className="text-3xl font-bold mb-6 text-center">Guided Setup</h1>
             <div className="bg-gray-800 p-8 rounded-lg shadow-xl max-w-2xl mx-auto">
                 {step === 1 && (
-                    <DateConfirmationStep
+                    <BudgetCycleStep
                         proposedStartDate={wizardData.suggestions.proposedStartDate}
-                        proposedEndDate={wizardData.suggestions.proposedEndDate}
                         onComplete={handleDatesConfirmed}
                     />
                 )}
@@ -155,6 +164,14 @@ export function GuidedWizard() {
                     />
                 )}
                 {step === 3 && (
+                    <ReviewStep
+                        onBack={prevStep}
+                        onComplete={handleReviewConfirmed}
+                        dates={wizardData.confirmedDates}
+                        incomeRules={wizardData.confirmedIncomeRules}
+                    />
+                )}
+                {step === 4 && (
                     <ExpenseStep
                         onBack={prevStep}
                         onComplete={handleExpensesConfirmed}
@@ -165,7 +182,7 @@ export function GuidedWizard() {
                         onNewExpenseAdded={updateExpenseSuggestions}
                     />
                 )}
-                {step === 4 && (
+                {step === 5 && (
                     <SpendingStep
                         onBack={prevStep}
                         onComplete={handleFinishSetup}
