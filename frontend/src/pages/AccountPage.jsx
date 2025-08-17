@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ConfirmationModal from '../components/modals/ConfirmationModal';
 import EditItemModal from '../components/modals/EditItemModal';
+import EditIncomeRuleModal from '../components/modals/EditIncomeRuleModal'; 
 import EditGoalModal from '../components/modals/EditGoalModal';
 import ProfileForm from '../components/account/ProfileForm';
 import AccountActions from '../components/account/AccountActions';
@@ -16,7 +17,8 @@ function AccountPage() {
     const [loading, setLoading] = useState(true);
     const [goals, setGoals] = useState([]);
     const [error, setError] = useState('');
-    const [editingItem, setEditingItem] = useState(null);
+    const [editingExpense, setEditingExpense] = useState(null);
+    const [editingIncome, setEditingIncome] = useState(null);
     const [itemToDelete, setItemToDelete] = useState(null);
     const [goalToDelete, setGoalToDelete] = useState(null);
     const [editingGoal, setEditingGoal] = useState(null);
@@ -104,8 +106,9 @@ function AccountPage() {
     };
 
     const handleEditSuccess = () => {
-        setEditingItem(null);
-        fetchData(); // Refresh the list of items
+        setEditingExpense(null);
+        setEditingIncome(null);
+        fetchData();
     };
 
     const groupedExpenses = items.recurring_expenses.reduce((acc, expense) => {
@@ -149,7 +152,8 @@ function AccountPage() {
                                         <p className="text-sm text-gray-400 capitalize">{item.frequency}</p>
                                     </div>
                                     <div className="flex gap-2">
-                                        <button onClick={() => setEditingItem(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                                        {/* --- Use the new handler for income --- */}
+                                        <button onClick={() => setEditingIncome(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                                         <button onClick={() => handleDeleteClick(item, 'income')} className="text-xs text-red-400 hover:text-red-300">Delete</button>
                                     </div>
                                 </li>
@@ -174,7 +178,7 @@ function AccountPage() {
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setEditingItem(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
+                                                    <button onClick={() => setEditingExpense(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                                                     <button onClick={() => handleDeleteClick(item, 'expense')} className="text-xs text-red-400 hover:text-red-300">Delete</button>
                                                 </div>
                                             </li>
@@ -212,9 +216,15 @@ function AccountPage() {
             />
 
             <EditItemModal
-                isOpen={!!editingItem}
-                item={editingItem}
-                onClose={() => setEditingItem(null)}
+                isOpen={!!editingExpense}
+                item={editingExpense}
+                onClose={() => setEditingExpense(null)}
+                onSuccess={handleEditSuccess}
+            />
+            <EditIncomeRuleModal
+                isOpen={!!editingIncome}
+                incomeSource={editingIncome}
+                onClose={() => setEditingIncome(null)}
                 onSuccess={handleEditSuccess}
             />
         </>

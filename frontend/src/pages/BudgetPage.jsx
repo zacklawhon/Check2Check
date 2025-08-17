@@ -9,6 +9,7 @@ import EditDatesModal from '../components/modals/EditDatesModal';
 import AccountsCard from '../components/AccountsCard';
 import NextStepsPrompt from '../components/NextStepsPrompt';
 import AccelerateGoalModal from '../components/modals/AccelerateGoalModal';
+import ReceiveIncomeModal from '../components/modals/ReceiveIncomeModal';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -22,14 +23,13 @@ function BudgetPage() {
     const [error, setError] = useState('');
     const [modalType, setModalType] = useState(null);
     const [itemToEdit, setItemToEdit] = useState(null);
+    const [itemToReceive, setItemToReceive] = useState(null);
     const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [showNextSteps, setShowNextSteps] = useState(false);
     const [isAccelerateModalOpen, setIsAccelerateModalOpen] = useState(false);
 
-    // --- THIS IS THE CORRECTED FUNCTION ---
-    // It now correctly includes the fetch call for '/api/goals' in the Promise.all array.
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
@@ -53,7 +53,7 @@ function BudgetPage() {
             if (!isRefresh) setLoading(false);
         }
     };
-    
+
     const refreshBudget = () => {
         fetchPageData(true);
         if (refreshGlobalData) {
@@ -70,9 +70,9 @@ function BudgetPage() {
     useEffect(() => {
         if (user && budget) {
             const recurring = budget.initial_expenses.filter(exp => exp.type === 'recurring');
-            const shouldShow = user.completed_budget_count === 0 
-                && !user.has_seen_accounts_prompt 
-                && recurring.length > 0 
+            const shouldShow = user.completed_budget_count === 0
+                && !user.has_seen_accounts_prompt
+                && recurring.length > 0
                 && recurring.every(exp => exp.is_paid);
             setShowNextSteps(shouldShow);
         }
@@ -97,6 +97,11 @@ function BudgetPage() {
         } catch (err) {
             setError(err.message);
         }
+    };
+
+    const handleReceiveSuccess = () => {
+        setItemToReceive(null);
+        refreshBudget();
     };
 
     const handleCloseBudget = async () => {
@@ -125,6 +130,12 @@ function BudgetPage() {
         return endDate < today;
     };
 
+    const formatDate = (dateString) => {
+        if (!dateString) return '';
+        const date = new Date(`${dateString}T00:00:00`);
+        return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
     if (loading) return <div className="text-white p-8 text-center">Loading your budget...</div>;
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
     if (!budget || !user) return <div className="text-white p-8 text-center">Budget or user data not found.</div>;
@@ -132,15 +143,15 @@ function BudgetPage() {
     const totalExpectedIncome = budget.initial_income.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
     const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
     const expectedSurplus = totalExpectedIncome - totalExpectedExpenses;
-    const totalIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
+
+    const totalReceivedIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
     const totalExpensesPaid = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const currentCash = totalIncome - totalExpensesPaid;
+    const currentCash = totalReceivedIncome - totalExpensesPaid;
+
     let surplusLabel = 'Expected Surplus';
     let surplusColor = 'text-white';
-    if (expectedSurplus > 0) {
-        surplusLabel = 'Expected Surplus';
-        surplusColor = 'text-green-400';
-    } else if (expectedSurplus < 0) {
+    if (expectedSurplus > 0) surplusColor = 'text-green-400';
+    if (expectedSurplus < 0) {
         surplusLabel = 'Expected Deficit';
         surplusColor = 'text-red-400';
     }
@@ -176,24 +187,29 @@ function BudgetPage() {
                 <div className="md:col-span-1 flex flex-col gap-8">
                     {expectedSurplus > 0 && activeGoal && (
                         <div className="bg-indigo-800 p-6 rounded-lg shadow-xl border border-indigo-500">
-                             <h2 className="text-2xl font-bold mb-3 text-center">Accelerate Your Goal!</h2>
-                             <p className="text-indigo-200 text-center mb-4">
+                            <h2 className="text-2xl font-bold mb-3 text-center">Accelerate Your Goal!</h2>
+                            <p className="text-indigo-200 text-center mb-4">
                                 You have an expected surplus of <strong className="text-white">${expectedSurplus.toFixed(2)}</strong>. Put it to work!
-                             </p>
-                             <button 
+                            </p>
+                            <button
                                 onClick={() => setIsAccelerateModalOpen(true)}
                                 className="w-full bg-white text-indigo-800 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100"
-                             >
+                            >
                                 Apply Surplus
-                             </button>
+                            </button>
                         </div>
                     )}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
                         <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Summary</h2>
                         <div className="space-y-3">
+                            {/* --- UPDATED SUMMARY DISPLAY --- */}
                             <div className="flex justify-between">
-                                <span className="text-gray-400">Total Income:</span>
-                                <span className="font-semibold text-green-500">${totalIncome.toFixed(2)}</span>
+                                <span className="text-gray-400">Expected Income:</span>
+                                <span className="font-semibold">${totalExpectedIncome.toFixed(2)}</span>
+                            </div>
+                            <div className="flex justify-between">
+                                <span className="text-gray-400">Received Income:</span>
+                                <span className="font-semibold text-green-500">${totalReceivedIncome.toFixed(2)}</span>
                             </div>
                             <div className="flex justify-between">
                                 <span className="text-gray-400">Planned Expenses:</span>
@@ -239,21 +255,34 @@ function BudgetPage() {
                             <button onClick={() => setModalType('income')} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg">+ Add</button>
                         </div>
                         <ul className="space-y-2">
-                            {budget.initial_income.map((incomeItem, index) => (
-                                <li key={`income-${incomeItem.id || incomeItem.label}-${index}`} className="flex justify-between items-center bg-gray-900/50 p-3 rounded-md">
+                            {budget.initial_income.map((incomeItem, index) => {
+                                // Check if this income has been received
+                                const isReceived = incomeItem.is_received === true;
+                                return (
+                                    <li key={`income-${index}`} className={`flex justify-between items-center p-3 rounded-md transition-colors ${isReceived ? 'bg-gray-700' : 'bg-gray-900/50'}`}>
                                     <div>
-                                        <p>{incomeItem.label}</p>
-                                        <p className="text-xs text-gray-400 capitalize">{incomeItem.frequency}</p>
+                                        <p className={`font-semibold ${isReceived ? 'text-gray-400 line-through' : ''}`}>{incomeItem.label}</p>
+                                        {/* --- THIS IS THE FIX --- */}
+                                        {/* Display the projected date for the income event */}
+                                        <p className="text-xs text-gray-400">
+                                            Expected: <span className="font-semibold text-indigo-300">{formatDate(incomeItem.date)}</span>
+                                        </p>
                                     </div>
                                     <div className="flex items-center gap-3">
-                                        <span className="font-semibold text-green-400">+ ${parseFloat(incomeItem.amount).toFixed(2)}</span>
-                                        <button onClick={() => setItemToEdit(incomeItem)} title="Edit" className="text-gray-400 hover:text-white">
-                                            <svg xmlns="http://www.w3.org/2000/svg" className="h-4 w-4" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path strokeLinecap="round" strokeLinejoin="round" strokeWidth="2" d="M15.232 5.232l3.536 3.536m-2.036-5.036a2.5 2.5 0 113.536 3.536L6.5 21.036H3v-3.536L16.732 3.732z" /></svg>
+                                        <span className={`font-semibold ${isReceived ? 'text-gray-500' : 'text-green-400'}`}>+ ${parseFloat(incomeItem.amount).toFixed(2)}</span>
+                                        {!isReceived && (
+                                            <button onClick={() => setItemToReceive(incomeItem)} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
+                                                Receive
+                                            </button>
+                                        )}
+                                        <button disabled={isReceived} onClick={() => setItemToEdit(incomeItem)} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
+                                            {/* SVG icon */}
                                         </button>
-                                        <button onClick={() => setItemToRemove(incomeItem)} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+                                        <button disabled={isReceived} onClick={() => setItemToRemove(incomeItem)} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed">&times;</button>
                                     </div>
                                 </li>
-                            ))}
+                                );
+                            })}
                         </ul>
                     </div>
                     <div>
@@ -316,7 +345,7 @@ function BudgetPage() {
                     budgetId={budgetId}
                 />
             )}
-            
+
             {modalType && (
                 <AddItemModal
                     type={modalType}
@@ -343,6 +372,13 @@ function BudgetPage() {
                 onConfirm={handleRemoveIncome}
                 title="Confirm Removal"
                 message={`Are you sure you want to remove the income source "${itemToRemove?.label}"? This will create a negative transaction to balance your budget.`}
+            />
+            <ReceiveIncomeModal
+                isOpen={!!itemToReceive}
+                item={itemToReceive}
+                budgetId={budgetId}
+                onClose={() => setItemToReceive(null)}
+                onSuccess={handleReceiveSuccess}
             />
         </div>
     );

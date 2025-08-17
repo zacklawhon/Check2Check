@@ -56,7 +56,6 @@ class BudgetController extends BaseController
         }
 
         try {
-            // FIX: This now uses the lists of items sent from the wizard's selections
             $incomeSources = json_decode($this->request->getVar('income_sources'), true);
             $recurringExpenses = json_decode($this->request->getVar('recurring_expenses'), true);
             $spendingCategories = json_decode($this->request->getVar('spending_categories'), true);
@@ -90,18 +89,9 @@ class BudgetController extends BaseController
                 return $this->fail($budgetCycleModel->errors());
             }
 
-            // FIX: Use the centralized transaction model method
-            $transactionModel = new TransactionModel();
-            foreach ($incomeSources as $income) {
-                $transactionModel->logTransaction(
-                    $userId,
-                    $budgetId,
-                    'income',
-                    $income['label'],
-                    (float) $income['amount'],
-                    "Initial income from {$income['label']}"
-                );
-            }
+            // --- THIS IS THE FIX ---
+            // The loop that created initial income transactions has been removed.
+            // Transactions will now only be created when the user clicks "Receive".
 
             return $this->respondCreated(['id' => $budgetId, 'message' => 'Budget cycle created successfully.']);
         } catch (\Exception $e) {
@@ -141,6 +131,7 @@ class BudgetController extends BaseController
         $session = session();
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
+        $transactionModel = new TransactionModel(); // <-- Add transaction model
 
         $budgetCycle = $budgetCycleModel->where('id', $id)
             ->where('user_id', $userId)
@@ -150,7 +141,35 @@ class BudgetController extends BaseController
             return $this->failNotFound('Budget cycle not found.');
         }
 
-        $budgetCycle['initial_income'] = json_decode($budgetCycle['initial_income'] ?? '[]', true);
+        $initialIncome = json_decode($budgetCycle['initial_income'] ?? '[]', true);
+        
+        // --- THIS IS THE FIX FOR BACKWARD COMPATIBILITY ---
+        
+        // 1. Get all transactions for this budget cycle.
+        $transactions = $transactionModel->where('budget_cycle_id', $id)->findAll();
+        
+        // 2. Create a simple list of labels for all existing income transactions.
+        $receivedIncomeLabels = [];
+        foreach ($transactions as $t) {
+            if ($t['type'] === 'income') {
+                // The 'description' field holds the original label.
+                $receivedIncomeLabels[] = $t['description'];
+            }
+        }
+
+        // 3. Loop through the planned income and add the 'is_received' flag if a transaction already exists.
+        if (!empty($receivedIncomeLabels)) {
+            foreach ($initialIncome as &$item) {
+                // Check if the item has already been marked (from a previous load)
+                if (!isset($item['is_received']) && in_array($item['label'], $receivedIncomeLabels)) {
+                    $item['is_received'] = true;
+                }
+            }
+        }
+        
+        // --- END OF FIX ---
+
+        $budgetCycle['initial_income'] = $initialIncome; // Use the modified array
         $budgetCycle['initial_expenses'] = json_decode($budgetCycle['initial_expenses'] ?? '[]', true);
         $budgetCycle['final_summary'] = json_decode($budgetCycle['final_summary'] ?? '[]', true);
 
@@ -718,62 +737,38 @@ class BudgetController extends BaseController
         $expenseModel = new RecurringExpenseModel();
         $spendingCategoryModel = new LearnedSpendingCategoryModel();
 
-        $lastIncome = $incomeModel->where('user_id', $userId)
-            ->where('is_active', 1)
-            ->orderBy('created_at', 'DESC')
-            ->first();
-
-        // --- FIX: This block now handles a new user gracefully ---
-        if (!$lastIncome) {
-            // This is a new user with no saved income. Provide default dates.
-            $proposedStartDate = date('Y-m-d');
-            $proposedEndDate = date('Y-m-d', strtotime('+2 weeks'));
-
-            $data = [
-                'proposedStartDate' => $proposedStartDate,
-                'proposedEndDate' => $proposedEndDate,
-                'suggestedIncome' => [],
-                'suggestedExpenses' => [],
-                'learned_spending_categories' => []
-            ];
-
-            return $this->respond($data);
-        }
-        // --- End of FIX ---
-
-        // The rest of the function is the original logic for a returning user
-        $frequency = $lastIncome['frequency'];
-        $today = new \DateTime();
-
-        // Logic to propose dates based on income frequency
-        if ($frequency === 'weekly') {
-            $proposedStartDate = $today->modify('next Sunday')->format('Y-m-d');
-            $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+6 days')->format('Y-m-d');
-        } elseif ($frequency === 'bi-weekly') {
-            $proposedStartDate = $today->modify('next Friday')->format('Y-m-d');
-            $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+13 days')->format('Y-m-d');
-        } else { // Default for semi-monthly, monthly
-            $dayOfMonth = (int) $today->format('d');
-            if ($dayOfMonth < 15) {
-                $proposedStartDate = $today->format('Y-m-15');
-                $proposedEndDate = $today->format('Y-m-t'); // Last day of current month
-            } else {
-                $proposedStartDate = $today->format('Y-m-t');
-                $proposedEndDate = (new \DateTime($proposedStartDate))->modify('+15 days')->format('Y-m-t');
-            }
-        }
-
         $suggestedIncome = $incomeModel->where('user_id', $userId)->where('is_active', 1)->findAll();
         $suggestedExpenses = $expenseModel->where('user_id', $userId)->where('is_active', 1)->findAll();
         $learnedCategories = $spendingCategoryModel->where('user_id', $userId)->findAll();
 
+        $isReturningUserWithRules = false;
+        if (!empty($suggestedIncome)) {
+            $isReturningUserWithRules = array_reduce($suggestedIncome, function ($carry, $item) {
+                return $carry || !(
+                    (($item['frequency'] === 'weekly' || $item['frequency'] === 'bi-weekly') && !$item['frequency_day']) ||
+                    (($item['frequency'] === 'monthly' || $item['frequency'] === 'semi-monthly') && !$item['frequency_date_1'])
+                );
+            }, false);
+        }
+
+        $today = new DateTime();
+        $proposedStartDate = $today->format('Y-m-d');
+        $proposedEndDate = (clone $today)->modify('+1 month -1 day')->format('Y-m-d');
+
         $data = [
+            'isExpress' => $isReturningUserWithRules,
             'proposedStartDate' => $proposedStartDate,
             'proposedEndDate' => $proposedEndDate,
             'suggestedIncome' => $suggestedIncome,
             'suggestedExpenses' => $suggestedExpenses,
             'learned_spending_categories' => $learnedCategories
         ];
+
+        if ($isReturningUserWithRules) {
+            $projectionService = new \App\Services\ProjectionService();
+            $data['projectedIncome'] = $projectionService->projectIncome($proposedStartDate, $proposedEndDate, $suggestedIncome);
+            $data['projectedExpenses'] = $projectionService->projectExpenses($proposedStartDate, $proposedEndDate, $suggestedExpenses);
+        }
 
         return $this->respond($data);
     }
@@ -1359,6 +1354,74 @@ class BudgetController extends BaseController
         $projectedIncome = $projectionService->projectIncome($startDate, $endDate, $rules);
 
         return $this->respond($projectedIncome);
+    }
+
+    public function markIncomeReceived($budgetId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetCycleModel = new BudgetCycleModel();
+
+        $budget = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
+        $rules = [
+            'label' => 'required|string',
+            'amount' => 'required|decimal',
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $label = $this->request->getVar('label');
+        $actualAmount = (float) $this->request->getVar('amount');
+
+        $incomeItems = json_decode($budget['initial_income'], true);
+        $itemFound = false;
+
+        // Mark the income item as "received" in the budget's JSON data
+        foreach ($incomeItems as &$item) {
+            if ($item['label'] === $label) {
+                $item['is_received'] = true; // Add a new flag
+                $itemFound = true;
+                break;
+            }
+        }
+
+        if (!$itemFound) {
+            return $this->failNotFound('The planned income item was not found in this budget.');
+        }
+
+        $db = \Config\Database::connect();
+        $db->transStart();
+        try {
+            // Log the actual income transaction
+            $transactionModel = new TransactionModel();
+            $transactionModel->logTransaction(
+                $userId,
+                $budgetId,
+                'income',
+                'Received Income',
+                $actualAmount,
+                $label
+            );
+
+            // Save the updated list of planned income
+            $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
+
+            $db->transComplete();
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            return $this->respondUpdated(['message' => 'Income marked as received.']);
+
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_MARK_INCOME_RECEIVED] ' . $e->getMessage());
+            return $this->failServerError('Could not process income.');
+        }
     }
 
 }

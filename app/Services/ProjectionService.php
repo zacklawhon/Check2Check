@@ -50,6 +50,37 @@ class ProjectionService
         return $projectedIncome;
     }
 
+    public function projectExpenses(string $startDate, string $endDate, array $expenseRules): array
+    {
+        $projectedExpenses = [];
+        $start = new DateTime($startDate);
+        $end = new DateTime($endDate);
+
+        foreach ($expenseRules as $rule) {
+            if (empty($rule['due_date'])) {
+                continue; // Skip expenses without a due date for now
+            }
+
+            $dueDateDay = (int)$rule['due_date'];
+            $current = clone $start;
+
+            // Loop through each day in the budget cycle
+            while ($current <= $end) {
+                // If the day of the month matches the due date, add it to the projection
+                if ((int)$current->format('j') === $dueDateDay) {
+                    $projectedExpenses[] = [
+                        'label' => $rule['label'],
+                        'estimated_amount' => (float)($rule['estimated_amount'] ?? 0), // Use a default if not set
+                        'date' => $current->format('Y-m-d'),
+                        'category' => $rule['category'],
+                    ];
+                }
+                $current->modify('+1 day');
+            }
+        }
+        return $projectedExpenses;
+    }
+
     private function createIncomeEvent(array $rule, string $date): array
     {
         return [

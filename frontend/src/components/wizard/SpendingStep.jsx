@@ -8,14 +8,17 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // FIX: State to manage the list of selected categories
+    // State to manage the list of selected categories
     const [selectedCategories, setSelectedCategories] = useState([]);
 
+    // --- THIS IS THE FIX ---
+    // This hook now initializes the selected categories to an empty list,
+    // ensuring the checkboxes are unchecked by default when the component loads.
     useEffect(() => {
-        setSelectedCategories(existingCategories);
+        setSelectedCategories([]);
     }, [existingCategories]);
 
-    // FIX: Handler for checkbox changes
+    // Handler for checkbox changes
     const handleSelectionChange = (category, isChecked) => {
         if (isChecked) {
             setSelectedCategories(prev => [...prev, category]);
@@ -39,7 +42,7 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
             if (!response.ok) throw new Error(data.message || 'Failed to add category.');
             
             const newCategory = { id: data.id, name: categoryName };
-            // Add to the main list and the selected list
+            // Add to the main list and automatically select it
             updateSpending(newCategory);
             setSelectedCategories(prev => [...prev, newCategory]);
             setCategoryName('');
@@ -50,7 +53,7 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
         }
     };
 
-    // FIX: Passes the final confirmed list up to the parent wizard
+    // Passes the final confirmed list up to the parent wizard
     const handleNext = () => {
         onComplete(selectedCategories);
     };
@@ -58,9 +61,8 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
     return (
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 4: Variable Spending</h2>
-            <p className="text-gray-400 mb-6">Confirm your variable spending categories, like groceries, gas, or entertainment. You'll set the amount for these in each budget cycle.</p>
+            <p className="text-gray-400 mb-6">Select any variable spending categories you'd like to include in this budget, like groceries, gas, or entertainment.</p>
 
-            {/* FIX: New selectable list for existing categories */}
             {existingCategories.length > 0 && (
                 <div className="mb-6">
                     <h3 className="font-semibold mb-2">Your Saved Categories</h3>
@@ -99,7 +101,6 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
                     Back
                 </button>
                 <button onClick={handleNext} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">
-                    {/* FIX: Corrected button text */}
                     Finish Setup
                 </button>
             </div>
