@@ -131,7 +131,7 @@ class BudgetController extends BaseController
         $session = session();
         $userId = $session->get('userId');
         $budgetCycleModel = new BudgetCycleModel();
-        $transactionModel = new TransactionModel(); // <-- Add transaction model
+        $transactionModel = new TransactionModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $id)
             ->where('user_id', $userId)
@@ -143,33 +143,40 @@ class BudgetController extends BaseController
 
         $initialIncome = json_decode($budgetCycle['initial_income'] ?? '[]', true);
         
-        // --- THIS IS THE FIX FOR BACKWARD COMPATIBILITY ---
+        // --- FIX FOR WIZARD-CREATED LEGACY TRANSACTIONS ---
         
-        // 1. Get all transactions for this budget cycle.
         $transactions = $transactionModel->where('budget_cycle_id', $id)->findAll();
         
-        // 2. Create a simple list of labels for all existing income transactions.
-        $receivedIncomeLabels = [];
+        $receivedIncomeDescriptions = [];
         foreach ($transactions as $t) {
             if ($t['type'] === 'income') {
-                // The 'description' field holds the original label.
-                $receivedIncomeLabels[] = $t['description'];
+                $receivedIncomeDescriptions[] = $t['description'];
             }
         }
 
-        // 3. Loop through the planned income and add the 'is_received' flag if a transaction already exists.
-        if (!empty($receivedIncomeLabels)) {
+        if (!empty($receivedIncomeDescriptions)) {
             foreach ($initialIncome as &$item) {
-                // Check if the item has already been marked (from a previous load)
-                if (!isset($item['is_received']) && in_array($item['label'], $receivedIncomeLabels)) {
-                    $item['is_received'] = true;
+                // Check if the item has already been marked
+                if (!isset($item['is_received'])) {
+                    $isReceived = false;
+                    // Loop through the transaction descriptions
+                    foreach ($receivedIncomeDescriptions as $desc) {
+                        // Check if the description CONTAINS the item label
+                        if (strpos($desc, $item['label']) !== false) {
+                            $isReceived = true;
+                            break; // Found a match, no need to check further
+                        }
+                    }
+                    if ($isReceived) {
+                        $item['is_received'] = true;
+                    }
                 }
             }
         }
         
         // --- END OF FIX ---
 
-        $budgetCycle['initial_income'] = $initialIncome; // Use the modified array
+        $budgetCycle['initial_income'] = $initialIncome;
         $budgetCycle['initial_expenses'] = json_decode($budgetCycle['initial_expenses'] ?? '[]', true);
         $budgetCycle['final_summary'] = json_decode($budgetCycle['final_summary'] ?? '[]', true);
 

@@ -7,6 +7,9 @@ use App\Models\IncomeSourceModel;
 use App\Models\RecurringExpenseModel;
 use App\Models\UserModel;
 use App\Models\UserFinancialToolsModel;
+use App\Models\BudgetCycleModel;
+use App\Services\ProjectionService;
+use App\Models\TransactionModel;
 use Config\Services;
 
 class AccountController extends BaseController
@@ -135,9 +138,6 @@ class AccountController extends BaseController
         }
 
         $json = $this->request->getJSON(true);
-
-        // --- THIS IS THE FIX ---
-        // The data now includes all the new frequency fields from the frontend.
         $data = [
             'label' => $json['label'],
             'frequency' => $json['frequency'],
@@ -146,10 +146,104 @@ class AccountController extends BaseController
             'frequency_date_2' => $json['frequency_date_2'] ?? null,
         ];
 
-        if ($model->update($id, $data)) {
-            return $this->respondUpdated(['message' => 'Income source updated successfully.']);
+        $db = \Config\Database::connect();
+        $db->transStart();
+        try {
+            // 1. Update the master income source rule
+            if ($model->update($id, $data) === false) {
+                return $this->fail($model->errors());
+            }
+
+            // 2. Check for an active budget cycle
+            $budgetCycleModel = new BudgetCycleModel();
+            $activeBudget = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
+
+            if ($activeBudget) {
+                // --- START OF FIX ---
+                // 3. Get all necessary data sources
+                $allIncomeRulesFromDB = $model->where('user_id', $userId)->where('is_active', 1)->findAll();
+                $currentPlannedIncome = json_decode($activeBudget['initial_income'], true) ?: [];
+                $transactionModel = new TransactionModel();
+                $transactions = $transactionModel->where('budget_cycle_id', $activeBudget['id'])->where('type', 'income')->findAll();
+
+                // 4. Create a primary amount map from planned income (highest priority)
+                $amountMap = [];
+                foreach ($currentPlannedIncome as $plannedItem) {
+                    if (isset($plannedItem['id'])) {
+                        $amountMap[$plannedItem['id']] = $plannedItem['amount'];
+                    }
+                }
+
+                // 5. Create a fallback amount map from transactions (secondary priority)
+                $transactionAmountMap = [];
+                foreach ($transactions as $t) {
+                    $bestMatchRuleId = null;
+                    $longestMatchLength = 0;
+
+                    // Find the best (longest) matching rule for this transaction
+                    foreach ($allIncomeRulesFromDB as $rule) {
+                        if (strpos($t['description'], $rule['label']) !== false) {
+                            $currentMatchLength = strlen($rule['label']);
+                            if ($currentMatchLength > $longestMatchLength) {
+                                $longestMatchLength = $currentMatchLength;
+                                $bestMatchRuleId = $rule['id'];
+                            }
+                        }
+                    }
+
+                    if ($bestMatchRuleId !== null) {
+                        $transactionAmountMap[$bestMatchRuleId] = $t['amount'];
+                    }
+                }
+
+                // 6. Merge amounts into the master rules, using the fallback if necessary
+                $rulesWithAmounts = [];
+                foreach ($allIncomeRulesFromDB as $rule) {
+                    $rule['amount'] = $amountMap[$rule['id']] ?? $transactionAmountMap[$rule['id']] ?? null;
+                    if ($rule['amount'] !== null) {
+                        $rulesWithAmounts[] = $rule;
+                    }
+                }
+
+                // 7. Project using the complete rules
+                $projectionService = new ProjectionService();
+                $newProjectedIncome = $projectionService->projectIncome(
+                    $activeBudget['start_date'],
+                    $activeBudget['end_date'],
+                    $rulesWithAmounts
+                );
+
+                // 8. Preserve the "received" status from existing transactions
+                $receivedLabels = array_column($transactions, 'description');
+                if (!empty($receivedLabels)) {
+                    foreach ($newProjectedIncome as &$projItem) {
+                        foreach ($receivedLabels as $label) {
+                            if (strpos($label, $projItem['label']) !== false) {
+                                $projItem['is_received'] = true;
+                                break;
+                            }
+                        }
+                    }
+                }
+                // --- END OF FIX ---
+
+                // 9. Update the active budget with the new, state-aware projection
+                $budgetCycleModel->update($activeBudget['id'], [
+                    'initial_income' => json_encode($newProjectedIncome)
+                ]);
+            }
+
+            $db->transComplete();
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed.');
+            }
+
+            return $this->respondUpdated(['message' => 'Income source updated and budget synced.']);
+
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR_UPDATE_INCOME_SOURCE] ' . $e->getMessage());
+            return $this->failServerError('Could not update income source.');
         }
-        return $this->fail($model->errors());
     }
 
     /**
