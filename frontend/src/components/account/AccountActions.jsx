@@ -7,6 +7,7 @@ function AccountActions() {
     const navigate = useNavigate(); 
     const [newEmail, setNewEmail] = useState('');
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
+    const [isFreshStartOpen, setIsFreshStartOpen] = useState(false); // New state for the modal
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [success, setSuccess] = useState('');
@@ -55,6 +56,28 @@ function AccountActions() {
         }
     };
 
+    // New handler for the fresh start action
+    const handleFreshStart = async () => {
+        setIsFreshStartOpen(false);
+        setLoading(true);
+        setError('');
+        setSuccess('');
+        try {
+            const response = await fetch('/api/user/fresh-start', {
+                method: 'DELETE',
+                credentials: 'include'
+            });
+            const data = await response.json();
+            if (!response.ok) throw new Error(data.message || 'Failed to reset account.');
+            // Reload the page to clear out any old state and show the fresh account
+            window.location.reload(); 
+        } catch (err) { // <-- This was the line with the error
+            setError(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     return (
         <>
             <div className="bg-gray-800 p-6 rounded-lg border border-red-500/50">
@@ -71,7 +94,24 @@ function AccountActions() {
                         {success && <p className="text-green-400 text-sm mt-1 text-right">{success}</p>}
                     </form>
 
-                    <div>
+                    {/* Fresh Start Section */}
+                    <div className="border-t border-gray-700 pt-4">
+                        <label className="block text-gray-300">Fresh Start</label>
+                        <p className="text-sm text-gray-400 mb-2">
+                            Reset your account, clearing all budgets, goals, and transactions.
+                            Your login will be kept.
+                        </p>
+                        <div className="text-right">
+                            <button 
+                                onClick={() => setIsFreshStartOpen(true)} 
+                                className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-2 px-4 rounded-lg">
+                                Start Fresh
+                            </button>
+                        </div>
+                    </div>
+                    
+                    {/* Delete Account Section */}
+                    <div className="border-t border-gray-700 pt-4">
                         <label className="block text-gray-300">Delete Account</label>
                         <p className="text-sm text-gray-400 mb-2">This will permanently anonymize your account and log you out. This action cannot be undone.</p>
                         <div className="text-right">
@@ -88,6 +128,15 @@ function AccountActions() {
                 onConfirm={handleDeleteAccount}
                 title="Delete Account?"
                 message="Are you absolutely sure? All your data will be anonymized and you will be logged out."
+            />
+
+            {/* New ConfirmationModal for Fresh Start */}
+            <ConfirmationModal
+                isOpen={isFreshStartOpen}
+                onClose={() => setIsFreshStartOpen(false)}
+                onConfirm={handleFreshStart}
+                title="Start Fresh?"
+                message="Are you sure? This will permanently delete all of your budgets, goals, and transactions. This action cannot be undone."
             />
         </>
     );

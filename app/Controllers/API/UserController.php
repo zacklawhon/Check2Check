@@ -5,9 +5,16 @@
 namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
-use App\Models\UserModel;
-use App\Models\UserFinancialToolsModel;
+use App\Models\TransactionModel;
 use App\Models\BudgetCycleModel;
+use App\Models\IncomeSourceModel;
+use App\Models\RecurringExpenseModel;
+use App\Models\LearnedSpendingCategoryModel;
+use App\Models\UserAccountModel;
+use App\Models\UserFinancialToolsModel;
+use App\Models\UserGoalModel;
+use App\Models\UserModel;
+
 use CodeIgniter\API\ResponseTrait;
 
 class UserController extends BaseController
@@ -217,4 +224,44 @@ class UserController extends BaseController
 
         return $this->failServerError('Could not update user profile.');
     }
-}
+
+    public function freshStart()
+    {
+        $userId = $this->getUserId(); // Uses the existing private helper method
+
+        if (!$userId) {
+            return $this->failUnauthorized('Authentication required.');
+        }
+
+        $db = \Config\Database::connect();
+        $db->transStart();
+
+        try {
+            // Now also deleting transactions
+            (new TransactionModel())->where('user_id', $userId)->delete();
+
+            // Delete data from all other relevant tables
+            (new BudgetCycleModel())->where('user_id', $userId)->delete();
+            (new IncomeSourceModel())->where('user_id', $userId)->delete();
+            (new RecurringExpenseModel())->where('user_id', $userId)->delete();
+            (new LearnedSpendingCategoryModel())->where('user_id', $userId)->delete();
+            (new UserAccountModel())->where('user_id', $userId)->delete();
+            (new UserGoalModel())->where('user_id', $userId)->delete();
+            (new UserFinancialToolsModel())->where('user_id', $userId)->delete();
+
+            $db->transComplete();
+
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed during fresh start.');
+            }
+
+            return $this->respondDeleted(['message' => 'Your account has been reset.']);
+
+        } catch (\Exception $e) {
+            log_message('error', '[FRESH_START_ERROR] ' . $e->getMessage());
+            return $this->failServerError('Could not reset your account at this time.');
+        }
+    }
+
+
+} //End of Controller
