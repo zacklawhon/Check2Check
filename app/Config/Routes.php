@@ -16,15 +16,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
     // All routes that require a user to be logged in are grouped here for clarity.
     $routes->group('', ['filter' => 'sessionauth'], static function ($routes) {
 
-        // Onboarding Routes
-        $routes->group('onboarding', static function ($routes) {
-            $routes->post('add-income', 'OnboardingController::addIncomeSource');
-            $routes->post('add-expense', 'OnboardingController::addRecurringExpense');
-            $routes->post('add-spending-category', 'OnboardingController::addSpendingCategory');
-            $routes->post('update-financial-tools', 'OnboardingController::updateFinancialTools');
-            $routes->get('data', 'OnboardingController::getOnboardingData');
-        });
-
         // User Profile Routes
         $routes->group('user', static function ($routes) {
             $routes->get('profile', 'UserController::getProfile');
@@ -37,6 +28,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
 
         // Budget Routes
         $routes->group('budget', static function ($routes) {
+            $routes->post('spending-categories', 'BudgetController::createSpendingCategory');
             $routes->get('expense-history', 'BudgetController::getExpenseHistory');
             $routes->get('wizard-suggestions', 'BudgetController::getWizardSuggestions');
             $routes->post('create', 'BudgetController::createCycle');
@@ -94,6 +86,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         });
 
         $routes->group('account', static function ($routes) {
+            $routes->post('income-sources', 'AccountController::createIncomeSource');
+            $routes->post('recurring-expenses', 'AccountController::createRecurringExpense');
             $routes->get('recurring-items', 'AccountController::getRecurringItems');
             $routes->delete('income-sources/(:num)', 'AccountController::deleteIncomeSource/$1');
             $routes->delete('recurring-expenses/(:num)', 'AccountController::deleteRecurringExpense/$1');
@@ -105,7 +99,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('request-email-change', 'AccountController::requestEmailChange');
             $routes->get('verify-email-change/(:segment)', 'AccountController::verifyEmailChange/$1');
             $routes->delete('delete', 'AccountController::deleteAccount');
-            $routes->put('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');   
+            $routes->put('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');
             $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
         });
 

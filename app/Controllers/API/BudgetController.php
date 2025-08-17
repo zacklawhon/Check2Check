@@ -142,11 +142,11 @@ class BudgetController extends BaseController
         }
 
         $initialIncome = json_decode($budgetCycle['initial_income'] ?? '[]', true);
-        
+
         // --- FIX FOR WIZARD-CREATED LEGACY TRANSACTIONS ---
-        
+
         $transactions = $transactionModel->where('budget_cycle_id', $id)->findAll();
-        
+
         $receivedIncomeDescriptions = [];
         foreach ($transactions as $t) {
             if ($t['type'] === 'income') {
@@ -173,7 +173,7 @@ class BudgetController extends BaseController
                 }
             }
         }
-        
+
         // --- END OF FIX ---
 
         $budgetCycle['initial_income'] = $initialIncome;
@@ -1429,6 +1429,23 @@ class BudgetController extends BaseController
             log_message('error', '[ERROR_MARK_INCOME_RECEIVED] ' . $e->getMessage());
             return $this->failServerError('Could not process income.');
         }
+    }
+
+    public function createSpendingCategory()
+    {
+        $data = $this->request->getJSON(true);
+        $model = new LearnedSpendingCategoryModel();
+        $data['user_id'] = session()->get('userId');
+
+        $exists = $model->where('user_id', $data['user_id'])->where('name', $data['name'])->first();
+        if ($exists) {
+            return $this->respond(['status' => 'success', 'message' => 'Category already exists.', 'id' => $exists['id']]);
+        }
+
+        if ($model->save($data)) {
+            return $this->respondCreated(['status' => 'success', 'id' => $model->getInsertID()]);
+        }
+        return $this->fail($model->errors());
     }
 
 }

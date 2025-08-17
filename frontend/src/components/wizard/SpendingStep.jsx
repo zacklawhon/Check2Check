@@ -32,7 +32,7 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('/api/onboarding/add-spending-category', {
+            const response = await fetch('/api/budget/spending-categories', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

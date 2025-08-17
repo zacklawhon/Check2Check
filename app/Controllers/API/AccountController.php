@@ -509,4 +509,62 @@ class AccountController extends BaseController
         return $this->respondDeleted(['message' => 'Account deleted successfully.']);
     }
 
+    public function createIncomeSource()
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $incomeModel = new IncomeSourceModel();
+
+        $data = [
+            'label' => $this->request->getVar('label'),
+            'frequency' => $this->request->getVar('frequency'),
+            'frequency_day' => $this->request->getVar('frequency_day') ?? null,
+            'frequency_date_1' => $this->request->getVar('frequency_date_1') ?? null,
+            'frequency_date_2' => $this->request->getVar('frequency_date_2') ?? null,
+        ];
+
+        // Assuming findOrCreate is a custom method on your model
+        $newId = $incomeModel->findOrCreate($userId, $data);
+
+        if (!$newId) {
+            return $this->failServerError('Could not save income source.');
+        }
+
+        return $this->respondCreated(['id' => $newId, 'message' => 'Income source saved.']);
+    }
+
+    public function createRecurringExpense()
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $json = $this->request->getJSON(true);
+
+        // Basic data common to all expense types
+        $data = [
+            'user_id' => $userId,
+            'label' => $json['label'],
+            'due_date' => $json['dueDate'] ?? null,
+            'category' => $json['category'] ?? 'other'
+        ];
+
+        // FIX: Add category-specific fields based on the request
+        if ($data['category'] === 'loan') {
+            $data['principal_balance'] = $json['principal_balance'] ?? null;
+            $data['interest_rate'] = $json['interest_rate'] ?? null;
+            $data['maturity_date'] = $json['maturity_date'] ?? null;
+        } elseif ($data['category'] === 'credit-card') {
+            $data['outstanding_balance'] = $json['outstanding_balance'] ?? null;
+            $data['interest_rate'] = $json['interest_rate'] ?? null;
+        }
+
+        $model = new RecurringExpenseModel();
+
+        if ($model->insert($data)) {
+            $id = $model->getInsertID();
+            return $this->respondCreated(['id' => $id, 'message' => 'Expense added.']);
+        } else {
+            return $this->fail($model->errors());
+        }
+    }
+
 }

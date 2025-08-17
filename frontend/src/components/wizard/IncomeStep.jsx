@@ -137,55 +137,58 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
     };
 
     const handleSubmit = async (e) => {
-        e.preventDefault();
-        if (!formState.sourceName || !formState.amount || parseFloat(formState.amount) <= 0) {
-            setError('Please provide a valid name and amount.');
-            return;
-        }
-        setLoading(true);
-        setError('');
+    e.preventDefault();
+    if (!formState.sourceName || !formState.amount || parseFloat(formState.amount) <= 0) {
+        setError('Please provide a valid name and amount.');
+        return;
+    }
+    setLoading(true);
+    setError('');
 
-        try {
-            // --- 2. UPDATED PAYLOAD WITH ALL FREQUENCY DETAILS ---
-            const payload = {
-                label: formState.sourceName,
-                frequency: formState.frequency,
-                frequency_day: formState.frequencyDay,
-                frequency_date_1: formState.frequencyDate1,
-                frequency_date_2: formState.frequencyDate2,
-            };
+    try {
+        const payload = {
+            label: formState.sourceName,
+            frequency: formState.frequency,
+            frequency_day: formState.frequencyDay,
+            frequency_date_1: formState.frequencyDate1,
+            frequency_date_2: formState.frequencyDate2,
+        };
 
-            const response = await fetch('/api/onboarding/add-income', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add income source.');
+        // FIX: Update this URL to the new endpoint
+        const response = await fetch('/api/account/income-sources', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            credentials: 'include',
+            body: JSON.stringify(payload)
+        });
+        const data = await response.json();
+        if (!response.ok) throw new Error(data.message || 'Failed to add income source.');
 
-            const newIncomeSource = {
-                id: data.id,
-                label: formState.sourceName,
-                amount: formState.amount,
-                frequency: formState.frequency
-            };
+        const newIncomeSource = {
+            id: data.id,
+            label: formState.sourceName,
+            amount: formState.amount,
+            frequency: formState.frequency,
+            // Also add the new date properties to the frontend state
+            frequency_day: payload.frequency_day,
+            frequency_date_1: payload.frequency_date_1,
+            frequency_date_2: payload.frequency_date_2,
+        };
 
-            if (onNewSourceAdded) { onNewSourceAdded(newIncomeSource); }
-            setSelectedIncome(prev => [...prev, newIncomeSource]);
+        if (onNewSourceAdded) { onNewSourceAdded(newIncomeSource); }
+        setSelectedIncome(prev => [...prev, newIncomeSource]);
 
-            // Reset form
-            setFormState({
-                sourceName: '', amount: '', frequency: 'weekly',
-                frequencyDay: '5', frequencyDate1: '15', frequencyDate2: '30'
-            });
+        setFormState({
+            sourceName: '', amount: '', frequency: 'weekly',
+            frequencyDay: '5', frequencyDate1: '15', frequencyDate2: '30'
+        });
 
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
-    };
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
+};
 
     const handleNext = async () => {
         // --- FIX: EXPANDED CHECK FOR ANY LEGACY RULE ---
