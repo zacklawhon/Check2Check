@@ -58,6 +58,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('(:num)/transfer-from-account', 'BudgetController::transferFromAccount/$1');
             $routes->post('project-income', 'BudgetController::projectIncome');
             $routes->post('(:num)/receive-income', 'BudgetController::markIncomeReceived/$1');
+            $routes->put('recurring-expense/(:num)', 'BudgetController::updateRecurringExpenseInCycle/$1');
         });
 
         $routes->group('expenses', static function ($routes) {

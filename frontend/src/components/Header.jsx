@@ -1,11 +1,22 @@
-import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import React, { useState, useMemo } from 'react';
+import { useNavigate, useLocation } from 'react-router-dom';
 import HelpFeedbackModal from './modals/HelpFeedbackModal';
 
 function Header({ activeBudget }) {
   const navigate = useNavigate();
+  const location = useLocation(); 
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
+
+
+  const pageKey = useMemo(() => {
+    const { pathname } = location;
+    if (pathname.startsWith('/budget/')) return 'budget';
+    if (pathname.startsWith('/wizard')) return 'wizard';
+    if (pathname.startsWith('/account')) return 'account';
+    if (pathname.startsWith('/dashboard')) return 'dashboard';
+    return 'default'; // Fallback key
+  }, [location]);
 
   const handleLogout = async () => {
     await fetch('/api/auth/logout', { 
@@ -78,7 +89,13 @@ function Header({ activeBudget }) {
           </nav>
         </div>
       )}
-      <HelpFeedbackModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
+
+      {/* 4. Pass the pageKey prop to the modal */}
+      <HelpFeedbackModal 
+        isOpen={isHelpModalOpen} 
+        onClose={() => setIsHelpModalOpen(false)}
+        pageKey={pageKey}
+      />
     </header>
   );
 }

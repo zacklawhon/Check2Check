@@ -3,7 +3,7 @@ import ConfirmationModal from './modals/ConfirmationModal';
 import ExpenseDetailModal from './modals/ExpenseDetailModal';
 import { getDayWithOrdinal } from './utils/formatters';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate }) {
+function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -15,7 +15,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/update-recurring-amount/${budgetId}`, {
+            const response = await fetch(`/api/budget/recurring-expense/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -75,7 +75,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
             setLoading(false);
         }
     };
-    
+
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
         try {
@@ -91,10 +91,10 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
             }
             onUpdate();
         } catch (err) {
-            setError(err.message); 
+            setError(err.message);
         }
     };
-    
+
     const handleDeleteClick = (e) => {
         e.stopPropagation();
         setIsConfirmModalOpen(true);
@@ -137,8 +137,9 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
     // This is for items that have an amount and can be paid or unpaid.
     return (
         <>
+            {/* 1. Add the onClick and interactive styles back to the list item */}
             <li 
-                onClick={() => !item.is_paid && setIsDetailModalOpen(true)}
+                onClick={!item.is_paid ? onEditInBudget : undefined}
                 className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : 'hover:bg-gray-600 cursor-pointer'}`}
             >
                 <div>
@@ -152,6 +153,8 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                 </div>
                 <div className="flex items-center gap-2">
                     <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
+                    
+                    {/* 2. The separate "Edit" button has been removed from here */}
                     
                     {item.is_paid ? (
                         <button
@@ -171,7 +174,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate }) {
                         </button>
                     )}
 
-                    <button onClick={handleDeleteClick} className="text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+                    <button 
+                        onClick={handleDeleteClick} 
+                        className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed"
+                        disabled={item.is_paid || loading}
+                    >
+                        &times;
+                    </button>
                 </div>
                  {error && <p className="text-red-500 text-xs w-full text-right mt-1">{error}</p>}
             </li>

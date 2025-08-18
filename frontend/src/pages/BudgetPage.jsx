@@ -10,6 +10,7 @@ import AccountsCard from '../components/AccountsCard';
 import NextStepsPrompt from '../components/NextStepsPrompt';
 import AccelerateGoalModal from '../components/modals/AccelerateGoalModal';
 import ReceiveIncomeModal from '../components/modals/ReceiveIncomeModal';
+import EditBudgetItemModal from '../components/modals/EditBudgetItemModal';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -29,6 +30,7 @@ function BudgetPage() {
     const [isClosing, setIsClosing] = useState(false);
     const [showNextSteps, setShowNextSteps] = useState(false);
     const [isAccelerateModalOpen, setIsAccelerateModalOpen] = useState(false);
+    
 
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
@@ -79,7 +81,12 @@ function BudgetPage() {
     }, [user, budget]);
 
     const handleSuccess = () => { setModalType(null); refreshBudget(); };
-    const handleEditSuccess = () => { setItemToEdit(null); refreshBudget(); };
+
+    const handleEditSuccess = () => {
+        setItemToEdit(null);
+        refreshBudget();
+    };
+
     const handleDatesUpdateSuccess = () => { setIsEditDatesModalOpen(false); refreshBudget(); };
 
     const handleRemoveIncome = async () => {
@@ -134,6 +141,11 @@ function BudgetPage() {
         if (!dateString) return '';
         const date = new Date(`${dateString}T00:00:00`);
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
+    };
+
+    const handleBudgetEditSuccess = () => {
+        setItemToEditInBudget(null);
+        refreshBudget();
     };
 
     if (loading) return <div className="text-white p-8 text-center">Loading your budget...</div>;
@@ -260,27 +272,27 @@ function BudgetPage() {
                                 const isReceived = incomeItem.is_received === true;
                                 return (
                                     <li key={`income-${index}`} className={`flex justify-between items-center p-3 rounded-md transition-colors ${isReceived ? 'bg-gray-700' : 'bg-gray-900/50'}`}>
-                                    <div>
-                                        <p className={`font-semibold ${isReceived ? 'text-gray-400 line-through' : ''}`}>{incomeItem.label}</p>
-                                        {/* --- THIS IS THE FIX --- */}
-                                        {/* Display the projected date for the income event */}
-                                        <p className="text-xs text-gray-400">
-                                            Expected: <span className="font-semibold text-indigo-300">{formatDate(incomeItem.date)}</span>
-                                        </p>
-                                    </div>
-                                    <div className="flex items-center gap-3">
-                                        <span className={`font-semibold ${isReceived ? 'text-gray-500' : 'text-green-400'}`}>+ ${parseFloat(incomeItem.amount).toFixed(2)}</span>
-                                        {!isReceived && (
-                                            <button onClick={() => setItemToReceive(incomeItem)} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
-                                                Receive
+                                        <div>
+                                            <p className={`font-semibold ${isReceived ? 'text-gray-400 line-through' : ''}`}>{incomeItem.label}</p>
+                                            {/* --- THIS IS THE FIX --- */}
+                                            {/* Display the projected date for the income event */}
+                                            <p className="text-xs text-gray-400">
+                                                Expected: <span className="font-semibold text-indigo-300">{formatDate(incomeItem.date)}</span>
+                                            </p>
+                                        </div>
+                                        <div className="flex items-center gap-3">
+                                            <span className={`font-semibold ${isReceived ? 'text-gray-500' : 'text-green-400'}`}>+ ${parseFloat(incomeItem.amount).toFixed(2)}</span>
+                                            {!isReceived && (
+                                                <button onClick={() => setItemToReceive(incomeItem)} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
+                                                    Receive
+                                                </button>
+                                            )}
+                                            <button disabled={isReceived} onClick={() => setItemToEdit(incomeItem)} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
+                                                {/* SVG icon */}
                                             </button>
-                                        )}
-                                        <button disabled={isReceived} onClick={() => setItemToEdit(incomeItem)} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
-                                            {/* SVG icon */}
-                                        </button>
-                                        <button disabled={isReceived} onClick={() => setItemToRemove(incomeItem)} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed">&times;</button>
-                                    </div>
-                                </li>
+                                            <button disabled={isReceived} onClick={() => setItemToRemove(incomeItem)} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed">&times;</button>
+                                        </div>
+                                    </li>
                                 );
                             })}
                         </ul>
@@ -303,6 +315,8 @@ function BudgetPage() {
                                                     item={item}
                                                     budgetId={budgetId}
                                                     onUpdate={refreshBudget}
+                                                    // Pass the handler to open the new modal
+                                                    onEditInBudget={() => setItemToEdit(item)}
                                                 />
                                             ))}
                                         </ul>
@@ -379,6 +393,14 @@ function BudgetPage() {
                 budgetId={budgetId}
                 onClose={() => setItemToReceive(null)}
                 onSuccess={handleReceiveSuccess}
+            />
+
+            <EditBudgetItemModal
+                isOpen={!!itemToEdit}
+                onClose={() => setItemToEdit(null)}
+                onSuccess={handleEditSuccess}
+                item={itemToEdit}
+                budgetId={budgetId}
             />
         </div>
     );

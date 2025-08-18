@@ -1448,4 +1448,50 @@ class BudgetController extends BaseController
         return $this->fail($model->errors());
     }
 
+    public function updateRecurringExpenseInCycle($budgetId)
+    {
+        $session = session();
+        $userId = $session->get('userId');
+        $budgetModel = new BudgetCycleModel();
+
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
+        $rules = [
+            'label' => 'required|string', // Used to identify the item
+            'estimated_amount' => 'required|decimal',
+            'due_date' => 'permit_empty|integer|max_length[2]',
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+
+        $labelToUpdate = $this->request->getVar('label');
+        $newAmount = $this->request->getVar('estimated_amount');
+        $newDueDate = $this->request->getVar('due_date');
+
+        $expenses = json_decode($budget['initial_expenses'], true);
+        $itemFound = false;
+
+        foreach ($expenses as &$exp) {
+            // Find the recurring expense by its unique label within this budget
+            if ($exp['type'] === 'recurring' && $exp['label'] === $labelToUpdate) {
+                $exp['estimated_amount'] = $newAmount;
+                $exp['due_date'] = $newDueDate;
+                $itemFound = true;
+                break;
+            }
+        }
+
+        if (!$itemFound) {
+            return $this->failNotFound('Recurring expense not found in this budget.');
+        }
+
+        $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenses)]);
+
+        return $this->respondUpdated(['message' => 'Budget expense updated successfully.']);
+    }
+
 }

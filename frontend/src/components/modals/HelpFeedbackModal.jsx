@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
+import { helpContent } from '../../data/helpContent.jsx';
 
-// --- Feedback Tab Component ---
+// --- Feedback Tab Component (Your existing code, unchanged) ---
 const FeedbackTab = ({ onClose }) => {
     const [formData, setFormData] = useState({
         type: 'general',
@@ -88,7 +89,7 @@ const FeedbackTab = ({ onClose }) => {
     );
 };
 
-// --- Invite Tab Component ---
+// --- Invite Tab Component (Your existing code, unchanged) ---
 const InviteTab = () => {
     const [email, setEmail] = useState('');
     const [invitations, setInvitations] = useState([]);
@@ -178,19 +179,62 @@ const InviteTab = () => {
     );
 };
 
+// --- 2. NEW Tutorial Tab Component ---
+const TutorialTab = ({ pageKey }) => {
+    // Look up the correct tutorial content based on the pageKey
+    const tutorial = helpContent[pageKey] || helpContent.default;
+    return (
+        <div>
+            <h3 className="text-xl font-bold text-indigo-400 mb-4">{tutorial.title}</h3>
+            <div className="space-y-3 text-gray-300 prose prose-invert max-w-none">
+                {tutorial.content}
+            </div>
+        </div>
+    );
+};
+
 // --- Main Modal Component ---
-export default function HelpFeedbackModal({ isOpen, onClose }) {
-    const [activeTab, setActiveTab] = useState('feedback');
+// 3. Update props to accept pageKey and change default active tab
+export default function HelpFeedbackModal({ isOpen, onClose, pageKey }) {
+    const [activeTab, setActiveTab] = useState('tutorial');
+
+    // Reset to the tutorial tab whenever the modal is opened
+    useEffect(() => {
+        if(isOpen) {
+            setActiveTab('tutorial');
+        }
+    }, [isOpen]);
 
     if (!isOpen) return null;
+    
+    // 4. Helper function to render the correct tab content
+    const renderTabContent = () => {
+        switch (activeTab) {
+            case 'tutorial':
+                return <TutorialTab pageKey={pageKey} />;
+            case 'feedback':
+                return <FeedbackTab onClose={onClose} />;
+            case 'invite':
+                return <InviteTab />;
+            default:
+                return null;
+        }
+    };
 
     return (
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
-            <div className="bg-gray-800 text-white p-6 rounded-lg shadow-xl w-full max-w-lg relative">
+            <div className="bg-gray-800 text-white p-6 rounded-lg shadow-xl w-full max-w-2xl relative">
                 <button onClick={onClose} className="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
                 
+                {/* 5. Add the new "Tutorial" button to the navigation */}
                 <div className="mb-4 border-b border-gray-700">
                     <nav className="flex gap-4 -mb-px">
+                        <button 
+                            onClick={() => setActiveTab('tutorial')}
+                            className={`py-3 px-1 font-semibold ${activeTab === 'tutorial' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}
+                        >
+                            Tutorial
+                        </button>
                         <button 
                             onClick={() => setActiveTab('feedback')}
                             className={`py-3 px-1 font-semibold ${activeTab === 'feedback' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}
@@ -206,8 +250,8 @@ export default function HelpFeedbackModal({ isOpen, onClose }) {
                     </nav>
                 </div>
 
-                <div>
-                    {activeTab === 'feedback' ? <FeedbackTab onClose={onClose} /> : <InviteTab />}
+                <div className="min-h-[300px] max-h-[60vh] overflow-y-auto pr-2">
+                    {renderTabContent()}
                 </div>
             </div>
         </div>
