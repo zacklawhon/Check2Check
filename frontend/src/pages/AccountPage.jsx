@@ -1,9 +1,9 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useOutletContext } from 'react-router-dom';
-import ConfirmationModal from '../components/modals/ConfirmationModal';
-import EditItemModal from '../components/modals/EditItemModal';
-import EditIncomeRuleModal from '../components/modals/EditIncomeRuleModal'; 
-import EditGoalModal from '../components/modals/EditGoalModal';
+import ConfirmationModal from '../components/common/ConfirmationModal';
+import EditItemModal from '../components/account/modals/EditItemModal';
+import EditIncomeRuleModal from '../components/account/modals/EditIncomeRuleModal'; 
+import EditGoalModal from '../components/account/modals/EditGoalModal';
 import ProfileForm from '../components/account/ProfileForm';
 import AccountActions from '../components/account/AccountActions';
 import AccountManager from '../components/account/AccountManager';

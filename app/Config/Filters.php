@@ -13,6 +13,7 @@ use CodeIgniter\Filters\PageCache;
 use CodeIgniter\Filters\PerformanceMetrics;
 use CodeIgniter\Filters\SecureHeaders;
 use App\Filters\AuthFilter;
+use App\Filters\AdminAuth;
 use App\Filters\SessionAuth;
 
 class Filters extends BaseFilters
@@ -38,6 +39,7 @@ class Filters extends BaseFilters
         'performance'   => PerformanceMetrics::class,
         'auth'          => AuthFilter::class,
         'sessionauth'   => SessionAuth::class,
+        'adminauth'     => AdminAuth::class
     ];
 
     /**

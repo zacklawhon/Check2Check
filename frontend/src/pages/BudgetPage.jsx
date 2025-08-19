@@ -1,16 +1,16 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
-import VariableExpenseItem from '../components/VariableExpenseItem';
-import RecurringExpenseItem from '../components/RecurringExpenseItem';
-import AddItemModal from '../components/modals/AddItemModal';
-import EditIncomeModal from '../components/modals/EditIncomeModal';
-import ConfirmationModal from '../components/modals/ConfirmationModal';
-import EditDatesModal from '../components/modals/EditDatesModal';
-import AccountsCard from '../components/AccountsCard';
-import NextStepsPrompt from '../components/NextStepsPrompt';
-import AccelerateGoalModal from '../components/modals/AccelerateGoalModal';
-import ReceiveIncomeModal from '../components/modals/ReceiveIncomeModal';
-import EditBudgetItemModal from '../components/modals/EditBudgetItemModal';
+import VariableExpenseItem from '../components/budget/VariableExpenseItem';
+import RecurringExpenseItem from '../components/budget/RecurringExpenseItem';
+import AddItemModal from '../components/budget/modals/AddItemModal';
+import EditIncomeModal from '../components/budget/modals/EditIncomeModal';
+import ConfirmationModal from '../components/common/ConfirmationModal';
+import EditDatesModal from '../components/budget/modals/EditDatesModal';
+import AccountsCard from '../components/budget/AccountsCard';
+import NextStepsPrompt from '../components/budget/NextStepsPrompt';
+import AccelerateGoalModal from '../components/budget/AccelerateGoalModal';
+import ReceiveIncomeModal from '../components/budget/modals/ReceiveIncomeModal';
+import EditBudgetItemModal from '../components/budget/modals/EditBudgetItemModal';
 
 function BudgetPage() {
     const { budgetId } = useParams();

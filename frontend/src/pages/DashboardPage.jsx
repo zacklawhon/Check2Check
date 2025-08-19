@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react'; // 1. Correctly import useState and useEffect
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import BudgetList from '../components/BudgetList';
-import AccountsCard from '../components/AccountsCard'; // 2. Import the new AccountsCard
+import AccountsCard from '../components/budget/AccountsCard'; // 2. Import the new AccountsCard
 
 function DashboardPage() {
     const navigate = useNavigate();

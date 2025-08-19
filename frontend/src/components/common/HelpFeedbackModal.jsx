@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { helpContent } from '../../data/helpContent.jsx';
+import { useContent } from '../../contexts/ContentContext';
 
 // --- Feedback Tab Component (Your existing code, unchanged) ---
 const FeedbackTab = ({ onClose }) => {
@@ -36,7 +36,7 @@ const FeedbackTab = ({ onClose }) => {
             if (!response.ok) {
                 throw new Error(data.messages.error || 'Failed to submit feedback.');
             }
-            
+
             setSuccess(data.message);
             setFormData({ type: 'general', subject: '', message: '' }); // Clear form
 
@@ -51,9 +51,9 @@ const FeedbackTab = ({ onClose }) => {
         <form onSubmit={handleSubmit} className="space-y-4">
             <div>
                 <label className="block text-sm font-semibold mb-2">Feedback Type</label>
-                <select 
-                    value={formData.type} 
-                    onChange={e => setFormData({...formData, type: e.target.value})}
+                <select
+                    value={formData.type}
+                    onChange={e => setFormData({ ...formData, type: e.target.value })}
                     className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-400 focus:outline-none"
                 >
                     <option value="general">General Feedback</option>
@@ -65,7 +65,7 @@ const FeedbackTab = ({ onClose }) => {
                 <label htmlFor="subject" className="block text-sm font-semibold mb-1">Subject</label>
                 <input
                     id="subject" type="text" value={formData.subject}
-                    onChange={e => setFormData({...formData, subject: e.target.value})}
+                    onChange={e => setFormData({ ...formData, subject: e.target.value })}
                     className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600" required
                 />
             </div>
@@ -73,7 +73,7 @@ const FeedbackTab = ({ onClose }) => {
                 <label htmlFor="message" className="block text-sm font-semibold mb-1">Message</label>
                 <textarea
                     id="message" value={formData.message}
-                    onChange={e => setFormData({...formData, message: e.target.value})}
+                    onChange={e => setFormData({ ...formData, message: e.target.value })}
                     rows="5"
                     className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600" required
                 />
@@ -107,7 +107,7 @@ const InviteTab = () => {
             console.error(err.message);
         }
     };
-    
+
     useEffect(() => {
         fetchInvitations();
     }, []);
@@ -130,7 +130,7 @@ const InviteTab = () => {
             if (!response.ok) {
                 throw new Error(data.message || 'Failed to send invitation.');
             }
-            
+
             setSuccess(data.message);
             setEmail('');
             fetchInvitations(); // Refresh the list
@@ -181,14 +181,20 @@ const InviteTab = () => {
 
 // --- 2. NEW Tutorial Tab Component ---
 const TutorialTab = ({ pageKey }) => {
+    // 2. Get all help content from the context
+    const allContent = useContent();
+
     // Look up the correct tutorial content based on the pageKey
-    const tutorial = helpContent[pageKey] || helpContent.default;
+    const tutorial = allContent ? (allContent[pageKey] || allContent.default) : { title: 'Loading...', content: [] };
+
     return (
         <div>
             <h3 className="text-xl font-bold text-indigo-400 mb-4">{tutorial.title}</h3>
-            <div className="space-y-3 text-gray-300 prose prose-invert max-w-none">
-                {tutorial.content}
-            </div>
+            {/* 3. Render content using dangerouslySetInnerHTML to support rich text from the DB */}
+            <div
+                className="space-y-3 text-gray-300 prose prose-invert max-w-none"
+                dangerouslySetInnerHTML={{ __html: tutorial.content[0] }}
+            />
         </div>
     );
 };
@@ -200,14 +206,11 @@ export default function HelpFeedbackModal({ isOpen, onClose, pageKey }) {
 
     // Reset to the tutorial tab whenever the modal is opened
     useEffect(() => {
-        if(isOpen) {
-            setActiveTab('tutorial');
-        }
+        if(isOpen) setActiveTab('tutorial');
     }, [isOpen]);
 
     if (!isOpen) return null;
     
-    // 4. Helper function to render the correct tab content
     const renderTabContent = () => {
         switch (activeTab) {
             case 'tutorial':
@@ -225,31 +228,14 @@ export default function HelpFeedbackModal({ isOpen, onClose, pageKey }) {
         <div className="fixed inset-0 bg-black/60 flex items-center justify-center z-50 p-4">
             <div className="bg-gray-800 text-white p-6 rounded-lg shadow-xl w-full max-w-2xl relative">
                 <button onClick={onClose} className="absolute top-3 right-4 text-gray-400 hover:text-white text-2xl">&times;</button>
-                
-                {/* 5. Add the new "Tutorial" button to the navigation */}
                 <div className="mb-4 border-b border-gray-700">
                     <nav className="flex gap-4 -mb-px">
-                        <button 
-                            onClick={() => setActiveTab('tutorial')}
-                            className={`py-3 px-1 font-semibold ${activeTab === 'tutorial' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Tutorial
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('feedback')}
-                            className={`py-3 px-1 font-semibold ${activeTab === 'feedback' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Submit Feedback
-                        </button>
-                        <button 
-                            onClick={() => setActiveTab('invite')}
-                            className={`py-3 px-1 font-semibold ${activeTab === 'invite' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}
-                        >
-                            Invite a Friend
-                        </button>
+                        {/* Tab buttons remain the same */}
+                        <button onClick={() => setActiveTab('tutorial')} className={`py-3 px-1 font-semibold ${activeTab === 'tutorial' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}>Tutorial</button>
+                        <button onClick={() => setActiveTab('feedback')} className={`py-3 px-1 font-semibold ${activeTab === 'feedback' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}>Submit Feedback</button>
+                        <button onClick={() => setActiveTab('invite')} className={`py-3 px-1 font-semibold ${activeTab === 'invite' ? 'text-indigo-400 border-b-2 border-indigo-400' : 'text-gray-400 hover:text-white'}`}>Invite a Friend</button>
                     </nav>
                 </div>
-
                 <div className="min-h-[300px] max-h-[60vh] overflow-y-auto pr-2">
                     {renderTabContent()}
                 </div>

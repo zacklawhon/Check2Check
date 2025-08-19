@@ -1,6 +1,7 @@
 import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
-import HelpFeedbackModal from './modals/HelpFeedbackModal';
+import HelpFeedbackModal from './common/HelpFeedbackModal';
+import logo from '../assets/c2c-logo-2.png';
 
 function Header({ activeBudget }) {
   const navigate = useNavigate();
@@ -34,12 +35,12 @@ function Header({ activeBudget }) {
   return (
     <header className="bg-gray-800 shadow-md relative">
       <div className="container mx-auto flex justify-between items-center p-4 text-white">
-        <h1 
-          className="text-xl md:text-2xl font-bold cursor-pointer"
+        <img 
+          src={logo} // 2. Use the imported variable here
+          alt="Check2Check Logo" 
+          className="h-8 w-auto cursor-pointer"
           onClick={() => handleNavClick('/dashboard')}
-        >
-          Check2Check.org
-        </h1>
+        />
 
         <nav className="hidden md:flex items-center gap-4 md:gap-6">
           {activeBudget && (

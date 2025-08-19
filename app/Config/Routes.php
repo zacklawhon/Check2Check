@@ -7,10 +7,13 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
+$routes->get('/admin', 'AdminController::index', ['filter' => 'sessionauth']);
+
 $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($routes) {
     // --- Unauthenticated Routes ---
     $routes->post('auth/request-link', 'AuthController::requestLink');
     $routes->post('auth/verify-link', 'AuthController::verifyLink');
+    $routes->post('auth/logout', 'AuthController::logout');
 
     // --- All Authenticated Routes ---
     // All routes that require a user to be logged in are grouped here for clarity.
@@ -113,11 +116,19 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->get('', 'InvitationController::getUserInvitations');
         });
 
+        $routes->group('content', static function ($routes) {
+            $routes->get('all', 'ContentController::getAllContent');
+            $routes->get('latest-announcement', 'ContentController::getLatestAnnouncement');
+            $routes->post('mark-as-seen', 'ContentController::markAsSeen');
+        });
+
+
     });
 });
 
 // --- SPA Catch-all Routes ---
 // These must be last to ensure they don't override API routes.
+$routes->get('(?!admin|api).*', 'Home::index');
 $routes->get('/', 'Home::index');
 $routes->get('{segment}', 'Home::index');
 $routes->get('(:any)', 'Home::index');

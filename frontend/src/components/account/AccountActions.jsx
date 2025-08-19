@@ -1,6 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import ConfirmationModal from '../modals/ConfirmationModal';
+import ConfirmationModal from '../common/ConfirmationModal';
 
 function AccountActions() {
     // Make sure you are using the hook here and not a prop

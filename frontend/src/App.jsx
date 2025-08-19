@@ -3,6 +3,8 @@ import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigat
 import { Toaster } from 'react-hot-toast';
 
 // We'll move the data fetching logic into this component
+import { ContentProvider } from './contexts/ContentContext';
+import WhatsNewModal from './components/common/WhatsNewModal';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
 import AccountPage from './pages/AccountPage';
 import LandingPage from './pages/LandingPage';
@@ -14,6 +16,7 @@ import GoalsPage from './pages/GoalsPage';
 import { GuidedWizard } from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
 import RegisterPage from './pages/RegisterPage';
+import Footer from './components/common/Footer'; 
 
 
 function ProtectedRoute() {
@@ -22,87 +25,102 @@ function ProtectedRoute() {
   const [activeBudget, setActiveBudget] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [isNewUser, setIsNewUser] = useState(false);
-
+  
+  // 2. Add state for the new content and announcement system
+  const [helpContent, setHelpContent] = useState(null);
+  const [announcement, setAnnouncement] = useState(null);
+  const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
 
   const location = useLocation();
   const navigate = useNavigate();
 
   const fetchInitialData = async (newBudgetId = null, isSilent = false) => {
-    if (!isSilent) {
-      setLoadingUser(true);
-    }
+    if (!isSilent) setLoadingUser(true);
     try {
-      // 1. Fetch all data just as before
-      const [profileRes, cyclesRes, accountsRes, activeBudgetRes] = await Promise.all([
+      // 3. Add content and announcement fetches to the initial data load
+      const [profileRes, cyclesRes, accountsRes, activeBudgetRes, contentRes, announcementRes] = await Promise.all([
         fetch('/api/user/profile', { credentials: 'include' }),
         fetch('/api/budget/cycles', { credentials: 'include' }),
         fetch('/api/user-accounts', { credentials: 'include' }),
-        fetch('/api/user/active-budget', { credentials: 'include' })
+        fetch('/api/user/active-budget', { credentials: 'include' }),
+        fetch('/api/content/all', { credentials: 'include' }),
+        fetch('/api/content/latest-announcement', { credentials: 'include' })
       ]);
 
-      if (!profileRes.ok || !cyclesRes.ok || !accountsRes.ok) {
+      if (!profileRes.ok || !cyclesRes.ok || !accountsRes.ok || !contentRes.ok) {
         throw new Error('Authentication check failed.');
       }
 
-      // 2. Parse all data
+      // Parse all data
       const userData = await profileRes.json();
       const cyclesData = await cyclesRes.json();
       const accountsData = await accountsRes.json();
-      let activeBudgetData = null;
-      if (activeBudgetRes.ok) {
-        activeBudgetData = await activeBudgetRes.json();
-      }
+      setHelpContent(await contentRes.json()); // Set help content
 
-      // 3. Set all state for the global layout
+      // Check for and set announcement
+      if (announcementRes.ok) {
+        const announcementData = await announcementRes.json();
+        if (announcementData) {
+          setAnnouncement(announcementData);
+          setIsWhatsNewOpen(true);
+        }
+      }
+      
+      let activeBudgetData = null;
+      if (activeBudgetRes.ok) activeBudgetData = await activeBudgetRes.json();
+
       setUser(userData);
       setAccounts(accountsData);
       setIsNewUser(cyclesData.length === 0);
-      if (activeBudgetData) {
-        setActiveBudget(activeBudgetData);
-      }
+      if (activeBudgetData) setActiveBudget(activeBudgetData);
+      if (newBudgetId) navigate(`/budget/${newBudgetId}`);
 
-      if (newBudgetId) {
-        navigate(`/budget/${newBudgetId}`);
-      }
-
-      // 4. *** THIS IS THE KEY CHANGE ***
-      // Return the fresh data so child components can use it immediately.
-      return {
-        user: userData,
-        accounts: accountsData,
-        activeBudget: activeBudgetData
-      };
-
+      return { user: userData, accounts: accountsData, activeBudget: activeBudgetData };
     } catch (err) {
       console.error("Failed to fetch initial data:", err);
       setUser(null);
     } finally {
-      if (!isSilent) {
-        setLoadingUser(false);
-      }
+      if (!isSilent) setLoadingUser(false);
     }
   };
 
   useEffect(() => { fetchInitialData(); }, []);
 
-  if (loadingUser) {
-    return <div className="text-center p-8 text-white">Loading...</div>;
-  }
+  // 4. Create handler to mark announcement as seen
+  const handleCloseWhatsNew = async () => {
+      if (announcement) {
+          try {
+              await fetch('/api/content/mark-as-seen', {
+                  method: 'POST',
+                  headers: { 'Content-Type': 'application/json' },
+                  credentials: 'include',
+                  body: JSON.stringify({ content_id: announcement.id })
+              });
+          } catch (err) {
+              console.error("Failed to mark announcement as seen:", err);
+          }
+      }
+      setIsWhatsNewOpen(false);
+  };
 
-  if (!user) {
-    return <Navigate to="/" replace />;
-  }
+  if (loadingUser) return <div className="text-center p-8 text-white">Loading...</div>;
+  if (!user) return <Navigate to="/" replace />;
+  if (isNewUser && location.pathname !== '/wizard') return <Navigate to="/wizard" replace />;
 
-  if (isNewUser && location.pathname !== '/wizard') {
-    return <Navigate to="/wizard" replace />;
-  }
-
-  // Pass down the modified refresh function
   const contextData = { user, activeBudget, accounts, refreshData: fetchInitialData };
+
   return (
-    <AuthenticatedLayout activeBudget={activeBudget}>
-      <Outlet context={contextData} />
-    </AuthenticatedLayout>
+    // 5. Wrap the entire authenticated layout in the ContentProvider
+    <ContentProvider content={helpContent}>
+        <AuthenticatedLayout activeBudget={activeBudget}>
+            <Outlet context={contextData} />
+            <WhatsNewModal 
+                isOpen={isWhatsNewOpen}
+                onClose={handleCloseWhatsNew}
+                announcement={announcement}
+            />
+        </AuthenticatedLayout>
+    </ContentProvider>
   );
 }
 
@@ -134,6 +152,7 @@ function App() {
 
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
+        <Footer />
       </BrowserRouter>
 
       {isStaging && (

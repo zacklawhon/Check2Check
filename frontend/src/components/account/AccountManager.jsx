@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
-import AccountModal from '../modals/AccountModal';
-import AdjustBalanceModal from '../modals/AdjustBalanceModal'; // 1. Import new modal
-import ConfirmationModal from '../modals/ConfirmationModal';
+import AccountModal from './modals/AccountModal';
+import AdjustBalanceModal from './modals/AdjustBalanceModal'; // 1. Import new modal
+import ConfirmationModal from '../common/ConfirmationModal';
 
 function AccountManager() {
     const [accounts, setAccounts] = useState([]);

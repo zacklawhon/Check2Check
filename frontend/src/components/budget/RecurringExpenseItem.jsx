@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
-import ConfirmationModal from './modals/ConfirmationModal';
+import ConfirmationModal from '../../components/common/ConfirmationModal';
 import ExpenseDetailModal from './modals/ExpenseDetailModal';
-import { getDayWithOrdinal } from './utils/formatters';
+import { getDayWithOrdinal } from '../utils/formatters';
 
 function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
     const [loading, setLoading] = useState(false);

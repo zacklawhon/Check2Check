@@ -40,6 +40,8 @@ function BudgetList({ budgetCycles, onRefresh }) {
             </div>
         );
     }
+
+    const sortedCycles = [...budgetCycles].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
     
     return (
         <div className="space-y-4 max-w-2xl mx-auto">
@@ -51,7 +53,7 @@ function BudgetList({ budgetCycles, onRefresh }) {
                 </div>
             )}
 
-            {budgetCycles.map(cycle => {
+            {sortedCycles.map(cycle => {
                 const isClosable = cycle.status === 'active' && isPastEndDate(cycle.end_date);
                 return (
                     <div key={cycle.id} className="bg-gray-800 p-4 rounded-lg flex justify-between items-center shadow-lg">
