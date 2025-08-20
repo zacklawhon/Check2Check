@@ -16,7 +16,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
     $routes->post('auth/logout', 'AuthController::logout');
 
     // --- All Authenticated Routes ---
-    // All routes that require a user to be logged in are grouped here for clarity.
     $routes->group('', ['filter' => 'sessionauth'], static function ($routes) {
 
         // User Profile Routes
@@ -29,6 +28,14 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->delete('fresh-start', 'UserController::freshStart');
         });
 
+        // ## START: NEW SHARING ROUTES ##
+        $routes->group('sharing', static function ($routes) {
+            $routes->post('invite', 'SharingController::sendInvite');
+            $routes->get('invites', 'SharingController::getInvites');
+            $routes->post('approve/(:num)', 'SharingController::approveActionRequest/$1');
+        });
+        // ## END: NEW SHARING ROUTES ##
+
         // Budget Routes
         $routes->group('budget', static function ($routes) {
             $routes->post('spending-categories', 'BudgetController::createSpendingCategory');
@@ -36,8 +43,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->get('wizard-suggestions', 'BudgetController::getWizardSuggestions');
             $routes->post('create', 'BudgetController::createCycle');
             $routes->post('add-transaction', 'BudgetController::addTransaction');
-            //$routes->post('add-income-adjustment', 'BudgetController::addIncomeAdjustment');
-            //$routes->post('add-expense-adjustment', 'BudgetController::addExpenseAdjustment');
             $routes->get('cycles', 'BudgetController::getCycles');
             $routes->get('(:num)', 'BudgetController::getCycleDetails/$1');
             $routes->get('transactions/(:num)', 'BudgetController::getTransactionsForCycle/$1');
@@ -49,7 +54,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('add-income/(:num)', 'BudgetController::addIncomeToCycle/$1');
             $routes->post('add-variable-expense/(:num)', 'BudgetController::addVariableExpense/$1');
             $routes->post('remove-expense/(:num)', 'BudgetController::removeExpenseFromCycle/$1');
-            //$routes->post('adjust-income/(:num)', 'BudgetController::adjustIncomeInCycle/$1');
             $routes->post('remove-income/(:num)', 'BudgetController::removeIncomeFromCycle/$1');
             $routes->post('update-dates/(:num)', 'BudgetController::updateBudgetDates/$1');
             $routes->post('force-close/(:num)', 'BudgetController::forceCloseCycle/$1');
@@ -127,8 +131,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
 });
 
 // --- SPA Catch-all Routes ---
-// These must be last to ensure they don't override API routes.
-$routes->get('(?!admin|api).*', 'Home::index');
 $routes->get('/', 'Home::index');
 $routes->get('{segment}', 'Home::index');
 $routes->get('(:any)', 'Home::index');
+

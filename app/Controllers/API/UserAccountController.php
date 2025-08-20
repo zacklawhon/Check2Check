@@ -6,13 +6,13 @@ use App\Controllers\BaseController;
 use App\Models\UserAccountModel;
 use CodeIgniter\API\ResponseTrait;
 
-class UserAccountController extends BaseController
+class UserAccountController extends BaseAPIController
 {
     use ResponseTrait;
 
     public function index()
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new UserAccountModel();
         $accounts = $model->where('user_id', $userId)->findAll();
         return $this->respond($accounts);
@@ -20,7 +20,7 @@ class UserAccountController extends BaseController
 
     public function create()
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $rules = [
             'account_name' => 'required|string|max_length[255]',
             'account_type' => 'required|in_list[checking,savings,credit_card,other]',
@@ -46,7 +46,7 @@ class UserAccountController extends BaseController
 
     public function update($id = null)
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new UserAccountModel();
 
         $account = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -71,7 +71,7 @@ class UserAccountController extends BaseController
 
     public function delete($id = null)
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new UserAccountModel();
 
         $account = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -88,7 +88,7 @@ class UserAccountController extends BaseController
 
     public function updateBalance($id = null)
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new UserAccountModel();
 
         $account = $model->where('id', $id)->where('user_id', $userId)->first();

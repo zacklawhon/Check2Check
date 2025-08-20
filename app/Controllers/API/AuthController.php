@@ -218,11 +218,30 @@ class AuthController extends BaseController
             return $this->failUnauthorized('This login link is invalid or has expired.');
         }
 
-        $session = Services::session();
-        $session->set([
+        // --- THIS IS THE NEW LOGIC ---
+        $userModel = new UserModel();
+        $user = $userModel->find($tokenData['user_id']);
+
+        if (!$user) {
+            $authTokenModel->delete($tokenData['id']);
+            return $this->failNotFound('User associated with this link not found.');
+        }
+
+        $sessionData = [
             'isLoggedIn' => true,
-            'userId' => $tokenData['user_id']
-        ]);
+            'userId' => $user['id'],
+            'user' => $user, // Store the full user object
+        ];
+
+        // If the user is a partner, add owner info to the session
+        if (!empty($user['owner_user_id'])) {
+            $sessionData['ownerUserId'] = $user['owner_user_id'];
+            $sessionData['permissionLevel'] = $user['permission_level'];
+        }
+        // --- END OF NEW LOGIC ---
+
+        $session = Services::session();
+        $session->set($sessionData);
 
         $authTokenModel->delete($tokenData['id']);
         return $this->respond(['status' => 'success', 'message' => 'Login successful.']);

@@ -1,7 +1,7 @@
 <?php
 namespace App\Controllers\API;
 
-use App\Controllers\BaseController;
+use App\Controllers\API\BaseAPIController;
 use CodeIgniter\API\ResponseTrait;
 use App\Models\IncomeSourceModel;
 use App\Models\RecurringExpenseModel;
@@ -12,22 +12,21 @@ use App\Services\ProjectionService;
 use App\Models\TransactionModel;
 use Config\Services;
 
-class AccountController extends BaseController
+class AccountController extends BaseAPIController
 {
     use ResponseTrait;
 
-    /**
-     * Fetches all active recurring income sources and expense templates for the authenticated user.
-     *
-     * Retrieves the user's ID from the session, queries the IncomeSourceModel and RecurringExpenseModel
-     * for active records (is_active = 1) associated with the user, and returns them in a JSON response.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response containing arrays of income sources and recurring expenses.
-     */
+    private function blockPartners()
+    {
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('Partners are not allowed to access this resource.');
+        }
+        return null;
+    }
     public function getRecurringItems()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = $this->getEffectiveUserId(); // Use effective ID for read operations
 
         $incomeModel = new IncomeSourceModel();
         $expenseModel = new RecurringExpenseModel();
@@ -42,34 +41,19 @@ class AccountController extends BaseController
 
     public function getUserAccounts()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = $this->getEffectiveUserId();
 
-        $accountModel = new \App\Models\UserAccountModel(); // Using the provided UserAccountModel
-
+        $accountModel = new \App\Models\UserAccountModel();
         $accounts = $accountModel->where('user_id', $userId)->findAll();
 
         return $this->respond($accounts);
     }
 
-
-
-
-    /**
-     * Deactivates an income source by setting its is_active flag to 0.
-     *
-     * Verifies that the income source exists and belongs to the authenticated user before updating.
-     * Instead of deleting the record, it marks it as inactive to preserve data integrity.
-     * Note: This method is nearly identical to deleteRecurringExpense in logic, differing only in the model and entity name.
-     * Consider refactoring into a generic deactivateItem method to reduce code duplication.
-     *
-     * @param int $id The ID of the income source to deactivate.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if deactivated, a 404 if not found, or a 500 error on failure.
-     */
     public function deleteIncomeSource($id)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = session()->get('userId');
         $model = new IncomeSourceModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -77,7 +61,6 @@ class AccountController extends BaseController
             return $this->failNotFound('Income source not found.');
         }
 
-        // FIX: Instead of deleting, we update the is_active flag to 0
         if ($model->update($id, ['is_active' => 0])) {
             return $this->respondDeleted(['message' => 'Income source deactivated successfully.']);
         }
@@ -85,21 +68,10 @@ class AccountController extends BaseController
         return $this->failServerError('Could not deactivate income source.');
     }
 
-    /**
-     * Deactivates a recurring expense by setting its is_active flag to 0.
-     *
-     * Checks if the recurring expense exists and is associated with the authenticated user.
-     * Updates the is_active flag to 0 instead of deleting the record.
-     * Note: This method is nearly identical to deleteIncomeSource in logic, differing only in the model and entity name.
-     * Consider refactoring into a generic deactivateItem method to reduce code duplication.
-     *
-     * @param int $id The ID of the recurring expense to deactivate.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if deactivated, a 404 if not found, or a 500 error on failure.
-     */
     public function deleteRecurringExpense($id)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = session()->get('userId');
         $model = new RecurringExpenseModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -107,7 +79,6 @@ class AccountController extends BaseController
             return $this->failNotFound('Recurring expense not found.');
         }
 
-        // FIX: Instead of deleting, we update the is_active flag to 0
         if ($model->update($id, ['is_active' => 0])) {
             return $this->respondDeleted(['message' => 'Recurring expense deactivated successfully.']);
         }
@@ -115,21 +86,10 @@ class AccountController extends BaseController
         return $this->failServerError('Could not deactivate recurring expense.');
     }
 
-    /**
-     * Updates an existing income source with new label and frequency data.
-     *
-     * Verifies the income source exists and belongs to the authenticated user.
-     * Updates the record with data provided in the JSON request body.
-     * Note: Shares similar validation and update logic with updateRecurringExpense, but fields differ significantly.
-     * Refactoring into a generic update method may add complexity without substantial benefits.
-     *
-     * @param int $id The ID of the income source to update.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if not found, or a failure response with validation errors.
-     */
     public function updateIncomeSource($id)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = session()->get('userId');
         $model = new IncomeSourceModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -149,38 +109,28 @@ class AccountController extends BaseController
         $db = \Config\Database::connect();
         $db->transStart();
         try {
-            // 1. Update the master income source rule
             if ($model->update($id, $data) === false) {
                 return $this->fail($model->errors());
             }
 
-            // 2. Check for an active budget cycle
             $budgetCycleModel = new BudgetCycleModel();
             $activeBudget = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
 
             if ($activeBudget) {
-                // --- START OF FIX ---
-                // 3. Get all necessary data sources
                 $allIncomeRulesFromDB = $model->where('user_id', $userId)->where('is_active', 1)->findAll();
                 $currentPlannedIncome = json_decode($activeBudget['initial_income'], true) ?: [];
                 $transactionModel = new TransactionModel();
                 $transactions = $transactionModel->where('budget_cycle_id', $activeBudget['id'])->where('type', 'income')->findAll();
-
-                // 4. Create a primary amount map from planned income (highest priority)
                 $amountMap = [];
                 foreach ($currentPlannedIncome as $plannedItem) {
                     if (isset($plannedItem['id'])) {
                         $amountMap[$plannedItem['id']] = $plannedItem['amount'];
                     }
                 }
-
-                // 5. Create a fallback amount map from transactions (secondary priority)
                 $transactionAmountMap = [];
                 foreach ($transactions as $t) {
                     $bestMatchRuleId = null;
                     $longestMatchLength = 0;
-
-                    // Find the best (longest) matching rule for this transaction
                     foreach ($allIncomeRulesFromDB as $rule) {
                         if (strpos($t['description'], $rule['label']) !== false) {
                             $currentMatchLength = strlen($rule['label']);
@@ -190,13 +140,10 @@ class AccountController extends BaseController
                             }
                         }
                     }
-
                     if ($bestMatchRuleId !== null) {
                         $transactionAmountMap[$bestMatchRuleId] = $t['amount'];
                     }
                 }
-
-                // 6. Merge amounts into the master rules, using the fallback if necessary
                 $rulesWithAmounts = [];
                 foreach ($allIncomeRulesFromDB as $rule) {
                     $rule['amount'] = $amountMap[$rule['id']] ?? $transactionAmountMap[$rule['id']] ?? null;
@@ -204,16 +151,8 @@ class AccountController extends BaseController
                         $rulesWithAmounts[] = $rule;
                     }
                 }
-
-                // 7. Project using the complete rules
                 $projectionService = new ProjectionService();
-                $newProjectedIncome = $projectionService->projectIncome(
-                    $activeBudget['start_date'],
-                    $activeBudget['end_date'],
-                    $rulesWithAmounts
-                );
-
-                // 8. Preserve the "received" status from existing transactions
+                $newProjectedIncome = $projectionService->projectIncome($activeBudget['start_date'], $activeBudget['end_date'], $rulesWithAmounts);
                 $receivedLabels = array_column($transactions, 'description');
                 if (!empty($receivedLabels)) {
                     foreach ($newProjectedIncome as &$projItem) {
@@ -225,12 +164,7 @@ class AccountController extends BaseController
                         }
                     }
                 }
-                // --- END OF FIX ---
-
-                // 9. Update the active budget with the new, state-aware projection
-                $budgetCycleModel->update($activeBudget['id'], [
-                    'initial_income' => json_encode($newProjectedIncome)
-                ]);
+                $budgetCycleModel->update($activeBudget['id'], ['initial_income' => json_encode($newProjectedIncome)]);
             }
 
             $db->transComplete();
@@ -239,28 +173,16 @@ class AccountController extends BaseController
             }
 
             return $this->respondUpdated(['message' => 'Income source updated and budget synced.']);
-
         } catch (\Exception $e) {
             log_message('error', '[ERROR_UPDATE_INCOME_SOURCE] ' . $e->getMessage());
             return $this->failServerError('Could not update income source.');
         }
     }
 
-    /**
-     * Updates a recurring expense with new data provided in the JSON request.
-     *
-     * Verifies the expense exists and belongs to the authenticated user. Updates fields
-     * such as label, due date, category, and financial details if provided.
-     * Note: Shares similar validation and update logic with updateIncomeSource, but fields differ significantly.
-     * Refactoring into a generic update method may add complexity without substantial benefits.
-     *
-     * @param int $id The ID of the recurring expense to update.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if not found, or a failure response with validation errors.
-     */
     public function updateRecurringExpense($id)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = session()->get('userId');
         $model = new RecurringExpenseModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -285,16 +207,9 @@ class AccountController extends BaseController
         return $this->fail($model->errors());
     }
 
-    /**
-     * Updates the authenticated user's demographic profile information.
-     *
-     * Validates input data (zip code, age range, sex, household size) and updates the user's record.
-     * Handles exceptions and logs errors if the update fails. No redundancy with other methods due to unique demographic fields.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a failure response with validation errors, or a 500 error on exception.
-     */
     public function updateProfile()
     {
+        if ($response = $this->blockPartners()) return $response;
         $session = session();
         $userId = $session->get('userId');
         $userModel = new UserModel();
@@ -328,18 +243,10 @@ class AccountController extends BaseController
         }
     }
 
-    /**
-     * Updates the authenticated user's financial tools preferences.
-     *
-     * Updates fields like checking account status, savings account status, credit card usage,
-     * and savings goal based on JSON input. Verifies the record exists before updating.
-     * No redundancy with other methods due to unique financial tool fields.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the record is not found, or a failure response with errors.
-     */
     public function updateFinancialTools()
     {
-        $userId = session()->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = $this->getEffectiveUserId();
         $json = $this->request->getJSON(true);
         $toolsModel = new UserFinancialToolsModel();
 
@@ -362,17 +269,10 @@ class AccountController extends BaseController
         return $this->fail($toolsModel->errors());
     }
 
-    /**
-     * Retrieves the authenticated user's financial tools preferences.
-     *
-     * Fetches the user's financial tools record. If none exists, creates a default record
-     * with the user's ID and returns it. No redundancy with other methods due to its unique purpose.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the financial tools data.
-     */
     public function getFinancialTools()
     {
-        $userId = session()->get('userId');
+        if ($response = $this->blockPartners()) return $response;
+        $userId = $this->getEffectiveUserId();
         $toolsModel = new UserFinancialToolsModel();
         $tools = $toolsModel->where('user_id', $userId)->first();
         if (!$tools) {
@@ -383,17 +283,9 @@ class AccountController extends BaseController
         return $this->respond($tools);
     }
 
-    /**
-     * Initiates an email change request for the authenticated user.
-     *
-     * Validates the new email address, generates a verification token, and sends a confirmation
-     * email to the user's current email address with a verification link. Stores the token and
-     * new email in temporary session data. No redundancy with other methods due to its unique email handling logic.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if the email is sent, a validation error if the email is invalid or in use, or a 500 error on failure.
-     */
     public function requestEmailChange()
     {
+        if ($response = $this->blockPartners()) return $response;
         $session = Services::session();
         $userId = $session->get('userId');
         $userModel = new UserModel();
@@ -450,17 +342,9 @@ class AccountController extends BaseController
         }
     }
 
-    /**
-     * Verifies and completes an email change request.
-     *
-     * Checks the provided token against the session's stored token and updates the user's email
-     * if valid. Removes temporary session data after successful update. No redundancy with other methods due to its unique verification logic.
-     *
-     * @param string|null $token The verification token from the email link.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a failure response for invalid/expired tokens, or a 500 error on exception.
-     */
     public function verifyEmailChange($token = null)
     {
+        if ($response = $this->blockPartners()) return $response;
         $session = Services::session();
         $userId = $session->get('userId');
         $userModel = new UserModel();
@@ -486,16 +370,9 @@ class AccountController extends BaseController
         }
     }
 
-    /**
-     * Anonymizes and deletes the authenticated user's account.
-     *
-     * Updates the user's email to a unique anonymized value and sets the account status to 'anonymized'.
-     * Destroys the session to log the user out. No redundancy with other methods due to its unique anonymization and session destruction logic.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response indicating the account was deleted.
-     */
     public function deleteAccount()
     {
+        if ($response = $this->blockPartners()) return $response;
         $session = session();
         $userId = $session->get('userId');
         $userModel = new UserModel();
@@ -511,6 +388,7 @@ class AccountController extends BaseController
 
     public function createIncomeSource()
     {
+        if ($response = $this->blockPartners()) return $response;
         $session = session();
         $userId = $session->get('userId');
         $incomeModel = new IncomeSourceModel();
@@ -535,6 +413,7 @@ class AccountController extends BaseController
 
     public function createRecurringExpense()
     {
+        if ($response = $this->blockPartners()) return $response;
         $session = session();
         $userId = $session->get('userId');
         $json = $this->request->getJSON(true);

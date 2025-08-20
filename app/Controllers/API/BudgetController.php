@@ -5,7 +5,7 @@
 
 namespace App\Controllers\API;
 
-use App\Controllers\BaseController;
+use App\Controllers\API\BaseAPIController;
 use App\Models\BudgetCycleModel;
 use App\Models\IncomeSourceModel;
 use App\Models\RecurringExpenseModel;
@@ -14,29 +14,42 @@ use App\Models\TransactionModel;
 use App\Models\UserModel;
 use App\Models\UserAccountModel;
 use App\Models\UserFinancialToolsModel;
+use App\Models\ActionRequestModel;
 use App\Services\ProjectionService;
 use CodeIgniter\API\ResponseTrait;
 use DateTime;
 use Exception;
 
-class BudgetController extends BaseController
+class BudgetController extends BaseAPIController
 {
     use ResponseTrait;
 
-    /**
-     * Creates a new budget cycle for the authenticated user.
-     *
-     * Validates input data (start/end dates, income sources, expenses, categories) and ensures no active budget exists.
-     * Processes JSON inputs for income sources, recurring expenses, and spending categories, then creates a budget cycle
-     * and logs initial income transactions. No redundancy with other methods due to its unique creation logic.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response with the new budget ID if successful, a 409 if an active budget exists,
-     * a validation error for invalid input, or a 500 error on failure.
-     */
-    public function createCycle()
+    private function handlePartnerAction(string $actionType, string $description, int $budgetId, array $payload)
     {
         $session = session();
-        $userId = $session->get('userId');
+        $requesterId = $session->get('userId');
+        $ownerId = $this->getEffectiveUserId();
+
+        $actionRequestModel = new ActionRequestModel();
+        $actionRequestModel->insert([
+            'requester_user_id' => $requesterId,
+            'owner_user_id' => $ownerId,
+            'budget_cycle_id' => $budgetId,
+            'action_type' => $actionType,
+            'payload' => json_encode($payload),
+            'description' => $description,
+        ]);
+
+        return $this->respond(['message' => 'Your request has been sent to the budget owner for approval.']);
+    }
+
+    public function createCycle()
+    {
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('Partners are not allowed to create new budgets.');
+        }
+
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
 
         $existingActiveCycle = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
@@ -89,10 +102,6 @@ class BudgetController extends BaseController
                 return $this->fail($budgetCycleModel->errors());
             }
 
-            // --- THIS IS THE FIX ---
-            // The loop that created initial income transactions has been removed.
-            // Transactions will now only be created when the user clicks "Receive".
-
             return $this->respondCreated(['id' => $budgetId, 'message' => 'Budget cycle created successfully.']);
         } catch (\Exception $e) {
             log_message('error', '[ERROR_CREATE_CYCLE] {exception}', ['exception' => $e]);
@@ -100,41 +109,23 @@ class BudgetController extends BaseController
         }
     }
 
-    /**
-     * Retrieves all budget cycles for the authenticated user.
-     *
-     * Fetches all budget cycles associated with the user from the BudgetCycleModel.
-     * No redundancy with other methods due to its unique retrieval purpose.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with an array of budget cycles.
-     */
     public function getCycles()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
         $cycles = $budgetCycleModel->where('user_id', $userId)->findAll();
         return $this->respond($cycles);
     }
 
-    /**
-     * Retrieves details of a specific budget cycle for the authenticated user.
-     *
-     * Fetches a budget cycle by ID, verifies user ownership, and decodes JSON fields (initial_income, initial_expenses, final_summary).
-     * No redundancy with other methods due to its specific retrieval logic.
-     *
-     * @param int $id The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the budget cycle details or a 404 if not found.
-     */
+
     public function getCycleDetails($id)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId(); // Use the effective user ID
         $budgetCycleModel = new BudgetCycleModel();
         $transactionModel = new TransactionModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $id)
-            ->where('user_id', $userId)
+            ->where('user_id', $userId) // Now correctly queries for the owner's data
             ->first();
 
         if (!$budgetCycle) {
@@ -142,8 +133,6 @@ class BudgetController extends BaseController
         }
 
         $initialIncome = json_decode($budgetCycle['initial_income'] ?? '[]', true);
-
-        // --- FIX FOR WIZARD-CREATED LEGACY TRANSACTIONS ---
 
         $transactions = $transactionModel->where('budget_cycle_id', $id)->findAll();
 
@@ -174,8 +163,6 @@ class BudgetController extends BaseController
             }
         }
 
-        // --- END OF FIX ---
-
         $budgetCycle['initial_income'] = $initialIncome;
         $budgetCycle['initial_expenses'] = json_decode($budgetCycle['initial_expenses'] ?? '[]', true);
         $budgetCycle['final_summary'] = json_decode($budgetCycle['final_summary'] ?? '[]', true);
@@ -183,19 +170,9 @@ class BudgetController extends BaseController
         return $this->respond($budgetCycle);
     }
 
-    /**
-     * Retrieves all transactions for a specific budget cycle.
-     *
-     * Verifies the budget cycle exists and belongs to the user, then fetches all associated transactions.
-     * No redundancy with other methods due to its specific transaction retrieval logic.
-     *
-     * @param int $cycleId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a JSON response with the transactions or a 404 if the cycle is not found.
-     */
     public function getTransactionsForCycle($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $transactionModel = new TransactionModel();
 
         $budgetCycleModel = new BudgetCycleModel();
@@ -210,21 +187,23 @@ class BudgetController extends BaseController
         return $this->respond($transactions);
     }
 
-    /**
-     * Updates the estimated amount of a variable expense in a budget cycle.
-     *
-     * Verifies the budget cycle exists and belongs to the user, updates the specified variable expense’s amount
-     * in the initial_expenses JSON field. Note: Shares fetch-decode-update pattern with other expense-related methods
-     * (e.g., markBillPaid, addExpenseToCycle). A helper method for JSON manipulation could reduce duplication.
-     *
-     * @param int $cycleId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the cycle or expense is not found,
-     * or a validation error if the amount is invalid.
-     */
     public function updateVariableExpenseAmount($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $labelToUpdate = $this->request->getVar('label');
+        $newAmount = $this->request->getVar('amount');
+
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $labelToUpdate, 'amount' => $newAmount];
+            $description = "Update '{$labelToUpdate}' variable expense to $" . number_format($newAmount, 2);
+            return $this->handlePartnerAction('update_variable_expense', $description, $cycleId, $payload);
+        }
+
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -257,25 +236,25 @@ class BudgetController extends BaseController
         return $this->fail('Expense not found in this budget.');
     }
 
-    /**
-     * Marks a recurring expense as paid in a budget cycle and logs a transaction.
-     *
-     * Verifies the budget cycle and expense exist, marks the expense as paid in the initial_expenses JSON field,
-     * and logs a transaction. Note: Shares fetch-decode-update pattern with other expense-related methods.
-     * A helper method for JSON manipulation could reduce duplication.
-     *
-     * @param int $cycleId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the cycle or expense is not found,
-     * or a failure response if the expense is already paid.
-     */
     public function markBillPaid($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $labelToPay = $this->request->getVar('label');
+        $amount = $this->request->getVar('amount');
+
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $labelToPay, 'amount' => $amount];
+            $description = "Pay bill: '{$labelToPay}' for $" . number_format($amount, 2);
+            return $this->handlePartnerAction('mark_bill_paid', $description, $cycleId, $payload);
+        }
+
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
 
-        // --- THIS IS THE FIX ---
-        // The query was incorrectly written with '=>'
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
@@ -307,7 +286,7 @@ class BudgetController extends BaseController
                     $accountId = $paidExpense['transfer_to_account_id'];
                     $amount = (float) $paidExpense['estimated_amount'];
 
-                    $accountModel = new \App\Models\UserAccountModel();
+                    $accountModel = new UserAccountModel();
                     $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
                     if ($account) {
                         $newBalance = (float) $account['current_balance'] + $amount;
@@ -342,21 +321,26 @@ class BudgetController extends BaseController
         return $this->fail('Bill not found in this budget.');
     }
 
-    /**
-     * Adds a new income to a budget cycle, optionally saving it as recurring.
-     *
-     * Validates input, adds the income to the initial_income JSON field, logs a transaction, and optionally
-     * saves to IncomeSourceModel. Note: Shares fetch-decode-update pattern with other income-related methods
-     * (e.g., adjustIncomeInCycle, updateInitialIncomeAmount). A helper method for JSON manipulation could reduce duplication.
-     *
-     * @param int $cycleId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if added, a 404 if the cycle is not found,
-     * or a validation error for invalid input.
-     */
     public function addIncomeToCycle($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $newIncome = [
+            'label' => $this->request->getVar('label'),
+            'amount' => $this->request->getVar('amount'),
+            'frequency' => $this->request->getVar('frequency') ?: 'one-time'
+        ];
+
+        if ($permission === 'update_by_request') {
+            $payload = $newIncome;
+            $description = "Add income: '{$newIncome['label']}' for $" . number_format($newIncome['amount'], 2);
+            return $this->handlePartnerAction('add_income', $description, $cycleId, $payload);
+        }
+
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -430,14 +414,30 @@ class BudgetController extends BaseController
      */
     public function addExpenseToCycle($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $newExpense = [
+            'label' => $this->request->getVar('label'),
+            'estimated_amount' => $this->request->getVar('estimated_amount'),
+            'due_date' => $this->request->getVar('due_date'),
+            'category' => $this->request->getVar('category') ?? 'other',
+            'type' => 'recurring',
+            'is_paid' => false
+        ];
+
+        if ($permission === 'update_by_request') {
+            $payload = $newExpense;
+            $description = "Add bill: '{$newExpense['label']}' for $" . number_format($newExpense['estimated_amount'], 2);
+            return $this->handlePartnerAction('add_expense', $description, $cycleId, $payload);
+        }
+
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
         $recurringExpenseModel = new RecurringExpenseModel();
 
-        // --- THIS IS THE FIX ---
-        // The query was incorrectly written as 'id', '=>' . $cycleId
-        // It is now corrected to 'id', $cycleId
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
@@ -500,18 +500,34 @@ class BudgetController extends BaseController
      */
     public function removeExpenseFromCycle($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetCycleModel = new BudgetCycleModel();
-
-        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
-        if (!$budgetCycle) {
-            return $this->failNotFound('Budget cycle not found.');
+        // Check the partner's permission level first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
         }
 
         $labelToRemove = $this->request->getVar('label');
         if (empty($labelToRemove)) {
             return $this->fail('Label is required.');
+        }
+
+        // If the user can only request changes, create a new action request
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $labelToRemove];
+            $description = "Remove expense: '{$labelToRemove}'";
+            // Use the handlePartnerAction helper to log the request
+            return $this->handlePartnerAction('remove_expense', $description, $cycleId, $payload);
+        }
+
+        // --- This is the original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $budgetCycleModel = new BudgetCycleModel();
+
+        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+        if (!$budgetCycle) {
+            return $this->failNotFound('Budget cycle not found.');
         }
 
         $expenses = json_decode($budgetCycle['initial_expenses'], true);
@@ -523,21 +539,28 @@ class BudgetController extends BaseController
         return $this->respondDeleted(['message' => 'Expense removed successfully.']);
     }
 
-    /**
-     * Adjusts the amount of an existing income in a budget cycle.
-     *
-     * Validates input, adjusts the specified income’s amount in the initial_income JSON field, and logs a transaction
-     * for the difference. Note: Shares fetch-decode-update pattern with other income-related methods. Similar to
-     * updateInitialIncomeAmount but includes transaction logging. Consider consolidating with a parameter to toggle logging.
-     *
-     * @param int $budgetId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if adjusted, a 404 if the cycle or income is not found,
-     * or a validation error for invalid input.
-     */
     public function adjustIncomeInCycle($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $label = $this->request->getVar('label');
+        $newAmount = (float) $this->request->getVar('new_amount');
+
+        // 2. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $label, 'new_amount' => $newAmount];
+            $description = "Adjust income '{$label}' to $" . number_format($newAmount, 2);
+            return $this->handlePartnerAction('adjust_income', $description, $budgetId, $payload);
+        }
+
+        // --- Original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
 
         $rules = [
             'label' => 'required|string',
@@ -554,9 +577,6 @@ class BudgetController extends BaseController
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found or access denied.');
         }
-
-        $label = $this->request->getVar('label');
-        $newAmount = (float) $this->request->getVar('new_amount');
 
         $incomeItems = json_decode($budgetCycle['initial_income'], true);
 
@@ -598,26 +618,30 @@ class BudgetController extends BaseController
         return $this->respondUpdated(['message' => 'Income adjusted successfully.']);
     }
 
-    /**
-     * Removes an income from a budget cycle.
-     *
-     * Verifies the budget cycle exists, removes the specified income from the initial_income JSON field,
-     * and logs a negative transaction. Note: Shares fetch-decode-update pattern with other income-related methods.
-     * A helper method for JSON manipulation could reduce duplication.
-     *
-     * @param int $budgetId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if removed, a 404 if the cycle or income is not found,
-     * or a validation error if the label is missing.
-     */
     public function removeIncomeFromCycle($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $label = $this->request->getVar('label');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
 
+        $label = $this->request->getVar('label');
         if (empty($label)) {
             return $this->failValidationErrors('Label is required.');
         }
+
+        // 2. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $label];
+            $description = "Remove income source: '{$label}'";
+            return $this->handlePartnerAction('remove_income', $description, $budgetId, $payload);
+        }
+
+        // --- Original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
 
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -667,8 +691,13 @@ class BudgetController extends BaseController
      */
     public function initializeSavings()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Add owner-only permission check
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('This action can only be performed by the budget owner.');
+        }
+
+        // 2. Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
 
         $rules = [
             'hasSavings' => 'required|in_list[1,0,true,false]',
@@ -681,45 +710,36 @@ class BudgetController extends BaseController
 
         $userModel = new UserModel();
         $toolsModel = new UserFinancialToolsModel();
-        // The SavingsHistoryModel is no longer needed here
-        $transactionModel = new TransactionModel(); // Use TransactionModel instead
-        $budgetCycleModel = new BudgetCycleModel(); // Needed to find the active budget
+        $transactionModel = new TransactionModel();
+        $budgetCycleModel = new BudgetCycleModel();
 
-        // 1. Update User's Zip Code
+        // 3. --- The rest of the original logic is correct, as it now uses the owner's ID ---
         $userModel->update($userId, ['demographic_zip_code' => $this->request->getVar('zipCode')]);
 
-        // 2. Find or create the financial tools record
         $toolsRecord = $toolsModel->where('user_id', $userId)->first();
         if (!$toolsRecord) {
             $toolsModel->insert(['user_id' => $userId]);
             $toolsRecord = $toolsModel->where('user_id', $userId)->first();
         }
 
-        // Use a boolean directly
         $hasSavings = filter_var($this->request->getVar('hasSavings'), FILTER_VALIDATE_BOOLEAN);
         $initialBalance = (float) $this->request->getVar('initialBalance') ?: 0;
-
         $toolsData = ['has_savings_account' => $hasSavings];
 
         if ($hasSavings && $initialBalance > 0) {
             $toolsData['current_savings_balance'] = $initialBalance;
-
-            // --- REPLACEMENT LOGIC ---
-            // Find the active budget to associate the transaction with
             $activeBudget = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
 
             if ($activeBudget) {
-                // Log the initial balance as a "savings" transaction
                 $transactionModel->logTransaction(
                     $userId,
                     $activeBudget['id'],
-                    'savings', // A new type to distinguish it from income/expense
-                    'Savings', // A general category
+                    'savings',
+                    'Savings',
                     $initialBalance,
                     'Initial savings balance'
                 );
             }
-            // --- END REPLACEMENT ---
         }
 
         $toolsModel->update($toolsRecord['id'], $toolsData);
@@ -738,8 +758,7 @@ class BudgetController extends BaseController
      */
     public function getWizardSuggestions()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $incomeModel = new IncomeSourceModel();
         $expenseModel = new RecurringExpenseModel();
         $spendingCategoryModel = new LearnedSpendingCategoryModel();
@@ -790,8 +809,7 @@ class BudgetController extends BaseController
      */
     public function getExpenseHistory()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
 
         // Get the expense label from the query string (e.g., /api/budget/expense-history?label=OGE)
         $label = $this->request->getGet('label');
@@ -826,19 +844,25 @@ class BudgetController extends BaseController
      */
     public function updateExpenseDetails($expenseId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        // 2. Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
         $recurringExpenseModel = new RecurringExpenseModel();
         $budgetCycleModel = new BudgetCycleModel();
 
-        // 1. Ensure the expense belongs to the user
-        $expense = $recurringExpenseModel->where('id', $expenseId)->where('user_id', $userId)->first();
+        // 3. Ensure the expense belongs to the user (owner)
+        $expense = $recurringExpenseModel->where('id', '=>', $expenseId)->where('user_id', $userId)->first();
         if (!$expense) {
             return $this->failNotFound('Expense not found.');
         }
 
+        // 4. Sanitize the incoming JSON data
         $json = $this->request->getJSON(true);
-
         $allowedData = [];
         $fields = ['principal_balance', 'interest_rate', 'outstanding_balance', 'maturity_date'];
         foreach ($fields as $field) {
@@ -851,13 +875,27 @@ class BudgetController extends BaseController
             return $this->failValidationErrors('No valid fields to update.');
         }
 
+        // 5. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            // A request must be associated with a budget cycle
+            $activeCycle = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
+            if (!$activeCycle) {
+                return $this->fail('An active budget cycle is required to request this change.');
+            }
+
+            $payload = ['expenseId' => $expenseId, 'updates' => $allowedData];
+            $description = "Update details for expense: '{$expense['label']}'";
+            return $this->handlePartnerAction('update_expense_details', $description, $activeCycle['id'], $payload);
+        }
+
+        // --- 6. Original logic for Owners or full_access Partners ---
         try {
-            // 2. Update the permanent recurring_expenses table
+            // Update the permanent recurring_expenses table
             if ($recurringExpenseModel->update($expenseId, $allowedData) === false) {
                 return $this->fail($recurringExpenseModel->errors());
             }
 
-            // 3. Find the active budget cycle to update its JSON data
+            // Find the active budget cycle to update its JSON data
             $activeCycle = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
             if ($activeCycle) {
                 $initialExpenses = json_decode($activeCycle['initial_expenses'], true);
@@ -865,7 +903,6 @@ class BudgetController extends BaseController
                 // Find and update the matching expense within the JSON
                 foreach ($initialExpenses as &$exp) {
                     if (isset($exp['id']) && $exp['id'] == $expenseId) {
-                        // Merge the new data into the existing item
                         $exp = array_merge($exp, $allowedData);
                         break;
                     }
@@ -881,25 +918,13 @@ class BudgetController extends BaseController
         }
     }
 
-    /**
-     * Updates the amount of a specific income in a budget cycle.
-     *
-     * Updates the amount of an income identified by ID in the initial_income JSON field. Note: Similar to
-     * adjustIncomeInCycle but lacks transaction logging. Consider consolidating with a parameter to toggle logging.
-     * Shares fetch-decode-update pattern with other income-related methods.
-     *
-     * @param int $budgetId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response if updated, a 404 if the cycle or income is not found,
-     * or a validation error if the amount is invalid.
-     */
+
     public function updateInitialIncomeAmount($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetModel = new BudgetCycleModel();
-        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) {
-            return $this->failNotFound('Budget cycle not found.');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
         }
 
         $idToUpdate = $this->request->getVar('id');
@@ -908,7 +933,39 @@ class BudgetController extends BaseController
             return $this->failValidationErrors('Amount must be a number.');
         }
 
+        // 2. Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $budgetModel = new BudgetCycleModel();
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
         $incomeItems = json_decode($budget['initial_income'], true);
+        $itemFound = false;
+        $itemLabel = '';
+
+        // Find the item to get its label for the description
+        foreach ($incomeItems as $item) {
+            if ($item['id'] == $idToUpdate) {
+                $itemFound = true;
+                $itemLabel = $item['label'];
+                break;
+            }
+        }
+
+        if (!$itemFound) {
+            return $this->fail('Income item not found in this budget.');
+        }
+
+        // 3. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = ['id' => $idToUpdate, 'amount' => $newAmount];
+            $description = "Update income '{$itemLabel}' to $" . number_format($newAmount, 2);
+            return $this->handlePartnerAction('update_initial_income', $description, $budgetId, $payload);
+        }
+
+        // --- 4. Original logic for Owners or full_access Partners ---
         $updated = false;
         foreach ($incomeItems as &$item) {
             if ($item['id'] == $idToUpdate) {
@@ -922,29 +979,18 @@ class BudgetController extends BaseController
             $budgetModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
             return $this->respondUpdated(['message' => 'Income amount updated.']);
         }
+
+        // This part should technically not be reachable if item was found before, but it's good for safety.
         return $this->fail('Income item not found in this budget.');
     }
 
-    /**
-     * Adds a variable expense to a budget cycle and optionally saves it as a learned category.
-     *
-     * Adds a variable expense to the initial_expenses JSON field and saves the category to LearnedSpendingCategoryModel
-     * if it doesn’t exist. Note: Shares fetch-decode-update pattern with other expense-related methods.
-     * A helper method for JSON manipulation could reduce duplication.
-     *
-     * @param int $budgetId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response if added, a 404 if the cycle is not found,
-     * or a validation error for invalid input.
-     */
+
     public function addVariableExpense($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetModel = new BudgetCycleModel();
-
-        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) {
-            return $this->failNotFound('Budget cycle not found.');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
         }
 
         $label = $this->request->getVar('label');
@@ -953,8 +999,26 @@ class BudgetController extends BaseController
             return $this->failValidationErrors('Label and amount are required.');
         }
 
+        // 2. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $label, 'amount' => $amount];
+            $description = "Add variable expense '{$label}' for $" . number_format($amount, 2);
+            return $this->handlePartnerAction('add_variable_expense', $description, $budgetId, $payload);
+        }
+
+        // --- 3. Original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $budgetModel = new BudgetCycleModel();
+
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
+
         // Step 1: Create or find the reusable category in 'learned_spending_categories'
-        $spendingCategoryModel = new \App\Models\LearnedSpendingCategoryModel();
+        $spendingCategoryModel = new LearnedSpendingCategoryModel();
         $category = $spendingCategoryModel->where('user_id', $userId)
             ->where('name', $label)
             ->first();
@@ -978,21 +1042,16 @@ class BudgetController extends BaseController
         return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
     }
 
-    /**
-     * Adds a savings contribution to a budget cycle and updates the balance.
-     *
-     * Validates the amount, updates the savings balance in UserFinancialToolsModel, and logs a transaction.
-     * Note: Similar to logSavings but uses TransactionModel and requires a budget cycle. Consider consolidating
-     * with logSavings, using a parameter to toggle the logging model, or deprecating if SavingsHistoryModel is redundant.
-     *
-     * @param int $budgetId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response with the new balance, a 404 if the cycle is not found,
-     * a validation error if the savings account is not set up or the amount is invalid, or a 500 error on failure.
-     */
+
     public function transferToAccount($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        // 2. Validate input
         $rules = [
             'account_id' => 'required|integer',
             'amount' => 'required|decimal|greater_than[0]'
@@ -1004,22 +1063,33 @@ class BudgetController extends BaseController
         $accountId = $this->request->getVar('account_id');
         $amount = (float) $this->request->getVar('amount');
 
+        // 3. Use the effective (owner's) ID and find the account
+        $userId = $this->getEffectiveUserId();
         $accountModel = new UserAccountModel();
         $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
         if (!$account) {
             return $this->failNotFound('Account not found.');
         }
 
+        // 4. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = ['account_id' => $accountId, 'amount' => $amount];
+            $description = "Transfer $" . number_format($amount, 2) . " to " . $account['account_name'];
+            return $this->handlePartnerAction('transfer_to_account', $description, $budgetId, $payload);
+        }
+
+        // --- 5. Original logic for Owners or full_access Partners ---
+
         // Add funds to the account
         $newBalance = (float) $account['current_balance'] + $amount;
         $accountModel->update($accountId, ['current_balance' => $newBalance]);
 
-        // Log an expense, as money is leaving the budget's cash flow
+        // Log the transaction
         $transactionModel = new TransactionModel();
         $transactionModel->logTransaction(
             $userId,
             $budgetId,
-            'savings', // <-- Change this from 'expense' to 'savings'
+            'savings',
             'Transfer',
             $amount,
             'Transfer to ' . $account['account_name']
@@ -1029,21 +1099,15 @@ class BudgetController extends BaseController
     }
 
 
-    /**
-     * Withdraws money from savings, logging it as an income or external transaction.
-     *
-     * Validates the amount and withdrawal type, updates the savings balance, and logs a transaction based on the
-     * withdrawal type (income to add to budget or external to exclude). No redundancy with other methods due to its
-     * unique withdrawal logic, but shares balance update pattern with addSavings and logSavings.
-     *
-     * @param int $budgetId The ID of the budget cycle.
-     * @return \CodeIgniter\API\ResponseTrait Returns a success response with the new balance, a 404 if the cycle is not found,
-     * a validation error if the savings account is not set up or the amount exceeds the balance, or a 500 error on failure.
-     */
     public function transferFromAccount($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        // 2. Validate input
         $rules = [
             'account_id' => 'required|integer',
             'amount' => 'required|decimal|greater_than[0]',
@@ -1057,7 +1121,9 @@ class BudgetController extends BaseController
         $amount = (float) $this->request->getVar('amount');
         $transferType = $this->request->getVar('transfer_type');
 
-        $accountModel = new \App\Models\UserAccountModel();
+        // 3. Use the effective (owner's) ID and find the account
+        $userId = $this->getEffectiveUserId();
+        $accountModel = new UserAccountModel();
         $account = $accountModel->where('id', $accountId)->where('user_id', $userId)->first();
         if (!$account) {
             return $this->failNotFound('Account not found.');
@@ -1067,7 +1133,19 @@ class BudgetController extends BaseController
             return $this->failValidationErrors('Transfer amount cannot exceed the account balance.');
         }
 
-        // This logic remains the same
+        // 4. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = [
+                'account_id' => $accountId,
+                'amount' => $amount,
+                'transfer_type' => $transferType
+            ];
+            $description = "Transfer $" . number_format($amount, 2) . " from " . $account['account_name'];
+            return $this->handlePartnerAction('transfer_from_account', $description, $budgetId, $payload);
+        }
+
+        // --- 5. Original logic for Owners or full_access Partners ---
+
         $newBalance = (float) $account['current_balance'] - $amount;
         $accountModel->update($accountId, ['current_balance' => $newBalance]);
 
@@ -1082,21 +1160,22 @@ class BudgetController extends BaseController
                 'Transfer from ' . $account['account_name']
             );
 
-            // --- THIS IS THE FIX ---
-            // We now also add a new "Planned Income" item to the budget's data.
+            // Add a new "Planned Income" item to the budget's data.
             $budgetCycleModel = new BudgetCycleModel();
-            $budgetCycle = $budgetCycleModel->find($budgetId);
-            $incomeItems = json_decode($budgetCycle['initial_income'], true);
+            // Securely find the budget cycle, ensuring it belongs to the user.
+            $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
+            if ($budgetCycle) {
+                $incomeItems = json_decode($budgetCycle['initial_income'], true);
 
-            $newIncomeItem = [
-                'label' => 'Transfer from ' . $account['account_name'],
-                'amount' => $amount,
-                'frequency' => 'one-time'
-            ];
+                $newIncomeItem = [
+                    'label' => 'Transfer from ' . $account['account_name'],
+                    'amount' => $amount,
+                    'frequency' => 'one-time'
+                ];
 
-            $incomeItems[] = $newIncomeItem;
-            $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
-            // --- END OF FIX ---
+                $incomeItems[] = $newIncomeItem;
+                $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
+            }
         }
 
         return $this->respondUpdated(['message' => 'Transfer successful.']);
@@ -1104,11 +1183,17 @@ class BudgetController extends BaseController
 
     public function closeCycle($id)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Add owner-only permission check
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('This action can only be performed by the budget owner.');
+        }
+
+        // 2. Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
         $transactionModel = new TransactionModel();
 
+        // 3. --- The rest of the original logic is correct, as it now uses the owner's ID ---
         $budget = $budgetCycleModel->where('id', $id)
             ->where('user_id', $userId)
             ->where('status', 'active')
@@ -1130,7 +1215,7 @@ class BudgetController extends BaseController
             if ($t['type'] === 'income') {
                 $actualIncome += (float) $t['amount'];
             }
-            if ($t['type'] === 'expense') {
+            if ($t['type'] === 'expense' || $t['type'] === 'savings') { // Also include savings transfers as expenses in summary
                 $actualExpenses += (float) $t['amount'];
                 $category = $t['category_name'] ?? 'Uncategorized';
                 if (!isset($expenseBreakdown[$category])) {
@@ -1140,19 +1225,12 @@ class BudgetController extends BaseController
             }
         }
 
-        // --- THIS IS THE NEW AND IMPROVED LOGIC ---
-        // Sort the spending breakdown by amount, from highest to lowest.
         arsort($expenseBreakdown);
-
-        // Take just the top 5 categories.
         $topSpending = array_slice($expenseBreakdown, 0, 5, true);
-
-        // Format the array into the structure the frontend expects.
         $topSpendingCategories = [];
         foreach ($topSpending as $category => $amount) {
             $topSpendingCategories[] = ['category' => $category, 'amount' => $amount];
         }
-        // --- END OF NEW LOGIC ---
 
         $plannedIncome = array_sum(array_column($initialIncome, 'amount'));
         $plannedExpenses = array_sum(array_column($initialExpenses, 'estimated_amount'));
@@ -1164,7 +1242,7 @@ class BudgetController extends BaseController
             'actualExpenses' => $actualExpenses,
             'plannedSurplus' => $plannedIncome - $plannedExpenses,
             'actualSurplus' => $actualIncome - $actualExpenses,
-            'topSpendingCategories' => $topSpendingCategories, // Use the new, correct key
+            'topSpendingCategories' => $topSpendingCategories,
         ];
 
         try {
@@ -1181,8 +1259,20 @@ class BudgetController extends BaseController
 
     public function markBillUnpaid($cycleId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $labelToUnpay = $this->request->getVar('label');
+
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $labelToUnpay];
+            $description = "Mark bill as unpaid: '{$labelToUnpay}'.";
+            return $this->handlePartnerAction('mark_bill_unpaid', $description, $cycleId, $payload);
+        }
+
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
 
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -1249,8 +1339,13 @@ class BudgetController extends BaseController
 
     public function updateIncomeInCycle($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        // 2. Validate input
         $rules = [
             'original_label' => 'required|string',
             'label' => 'required|string',
@@ -1260,15 +1355,31 @@ class BudgetController extends BaseController
             return $this->fail($this->validator->getErrors());
         }
 
+        $originalLabel = $this->request->getVar('original_label');
+        $newLabel = $this->request->getVar('label');
+        $newAmount = (float) $this->request->getVar('amount');
+
+        // 3. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = [
+                'original_label' => $originalLabel,
+                'label' => $newLabel,
+                'amount' => $newAmount
+            ];
+            $description = "Update income '{$originalLabel}' to '{$newLabel}' for $" . number_format($newAmount, 2);
+            return $this->handlePartnerAction('update_income_in_cycle', $description, $budgetId, $payload);
+        }
+
+        // --- 4. Original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
         $budgetCycleModel = new BudgetCycleModel();
+
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
         if (!$budgetCycle) {
             return $this->failNotFound('Budget cycle not found.');
         }
-
-        $originalLabel = $this->request->getVar('original_label');
-        $newLabel = $this->request->getVar('label');
-        $newAmount = (float) $this->request->getVar('amount');
 
         $incomeItems = json_decode($budgetCycle['initial_income'], true);
         $itemFound = false;
@@ -1310,14 +1421,10 @@ class BudgetController extends BaseController
 
     public function updateBudgetDates($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetModel = new BudgetCycleModel();
-
-        // 1. Find the budget and verify ownership
-        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) {
-            return $this->failNotFound('Budget cycle not found or access denied.');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
         }
 
         // 2. Validate the incoming dates
@@ -1334,7 +1441,26 @@ class BudgetController extends BaseController
             'end_date' => $this->request->getVar('end_date'),
         ];
 
-        // 3. Update the database
+        // 3. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = $data;
+            $description = "Change budget dates to {$data['start_date']} through {$data['end_date']}";
+            return $this->handlePartnerAction('update_budget_dates', $description, $budgetId, $payload);
+        }
+
+        // --- 4. Original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $budgetModel = new BudgetCycleModel();
+
+        // Find the budget and verify ownership
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found or access denied.');
+        }
+
+        // Update the database
         try {
             if ($budgetModel->update($budgetId, $data)) {
                 return $this->respondUpdated(['message' => 'Budget dates updated successfully.']);
@@ -1365,15 +1491,13 @@ class BudgetController extends BaseController
 
     public function markIncomeReceived($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetCycleModel = new BudgetCycleModel();
-
-        $budget = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) {
-            return $this->failNotFound('Budget cycle not found.');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
         }
 
+        // 2. Validate input
         $rules = [
             'label' => 'required|string',
             'amount' => 'required|decimal',
@@ -1384,6 +1508,24 @@ class BudgetController extends BaseController
 
         $label = $this->request->getVar('label');
         $actualAmount = (float) $this->request->getVar('amount');
+
+        // 3. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = ['label' => $label, 'amount' => $actualAmount];
+            $description = "Mark income '{$label}' as received for $" . number_format($actualAmount, 2);
+            return $this->handlePartnerAction('mark_income_received', $description, $budgetId, $payload);
+        }
+
+        // --- 4. Original logic for Owners or full_access Partners ---
+
+        // Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $budgetCycleModel = new BudgetCycleModel();
+
+        $budget = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
 
         $incomeItems = json_decode($budget['initial_income'], true);
         $itemFound = false;
@@ -1433,11 +1575,21 @@ class BudgetController extends BaseController
 
     public function createSpendingCategory()
     {
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
         $data = $this->request->getJSON(true);
         $model = new LearnedSpendingCategoryModel();
-        $data['user_id'] = session()->get('userId');
 
-        $exists = $model->where('user_id', $data['user_id'])->where('name', $data['name'])->first();
+        // 2. Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $data['user_id'] = $userId;
+
+        // 3. Proceed with the original logic
+        $exists = $model->where('user_id', $userId)->where('name', $data['name'])->first();
         if ($exists) {
             return $this->respond(['status' => 'success', 'message' => 'Category already exists.', 'id' => $exists['id']]);
         }
@@ -1445,20 +1597,19 @@ class BudgetController extends BaseController
         if ($model->save($data)) {
             return $this->respondCreated(['status' => 'success', 'id' => $model->getInsertID()]);
         }
+
         return $this->fail($model->errors());
     }
 
     public function updateRecurringExpenseInCycle($budgetId)
     {
-        $session = session();
-        $userId = $session->get('userId');
-        $budgetModel = new BudgetCycleModel();
-
-        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
-        if (!$budget) {
-            return $this->failNotFound('Budget cycle not found.');
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
         }
 
+        // 2. Validate input for all users
         $rules = [
             'label' => 'required|string', // Used to identify the item
             'estimated_amount' => 'required|decimal',
@@ -1468,16 +1619,37 @@ class BudgetController extends BaseController
             return $this->fail($this->validator->getErrors());
         }
 
+        // 3. Get request variables once
         $labelToUpdate = $this->request->getVar('label');
         $newAmount = $this->request->getVar('estimated_amount');
         $newDueDate = $this->request->getVar('due_date');
+
+        // 4. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = [
+                'label' => $labelToUpdate,
+                'estimated_amount' => $newAmount,
+                'due_date' => $newDueDate
+            ];
+            $description = "Update '{$labelToUpdate}': set amount to $" . number_format((float) $newAmount, 2);
+            return $this->handlePartnerAction('update_recurring_expense', $description, $budgetId, $payload);
+        }
+
+        // --- 5. Original logic for Owners or full_access Partners ---
+        $userId = $this->getEffectiveUserId();
+        $budgetModel = new BudgetCycleModel();
+
+        $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            return $this->failNotFound('Budget cycle not found.');
+        }
 
         $expenses = json_decode($budget['initial_expenses'], true);
         $itemFound = false;
 
         foreach ($expenses as &$exp) {
             // Find the recurring expense by its unique label within this budget
-            if ($exp['type'] === 'recurring' && $exp['label'] === $labelToUpdate) {
+            if (isset($exp['type']) && $exp['type'] === 'recurring' && $exp['label'] === $labelToUpdate) {
                 $exp['estimated_amount'] = $newAmount;
                 $exp['due_date'] = $newDueDate;
                 $itemFound = true;

@@ -1,35 +1,35 @@
 <?php
-
 namespace App\Controllers\API;
 
-use App\Controllers\BaseController;
+use App\Controllers\API\BaseAPIController;
 use App\Models\UserGoalModel;
 use App\Models\UserAccountModel;
 use App\Models\TransactionModel;
 use App\Models\BudgetCycleModel;
 use CodeIgniter\API\ResponseTrait;
 
-class GoalController extends BaseController
+class GoalController extends BaseAPIController
 {
     use ResponseTrait;
 
     public function index()
     {
-        $session = session();
-        $userId = $session->get('userId');
-
+        $userId = $this->getEffectiveUserId();
         $goalModel = new UserGoalModel();
-
-        // Find all goals for this user that are not marked as 'completed'
         $goals = $goalModel->where('user_id', $userId)
             ->where('status', 'active')
             ->findAll();
-
         return $this->respond($goals);
     }
 
     public function create()
     {
+
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('Partners are not allowed to manage goals.');
+        }
+        $userId = session()->get('userId');
+
         $session = session();
         $userId = $session->get('userId');
 
@@ -84,6 +84,11 @@ class GoalController extends BaseController
 
     public function update($id = null)
     {
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('Partners are not allowed to manage goals.');
+        }
+        $userId = session()->get('userId');
+
         $session = session();
         $userId = $session->get('userId');
         $goalModel = new UserGoalModel();
@@ -116,6 +121,11 @@ class GoalController extends BaseController
 
     public function delete($id = null)
     {
+        if ($this->getPermissionLevel() !== null) {
+            return $this->failForbidden('Partners are not allowed to manage goals.');
+        }
+        $userId = session()->get('userId');
+        
         $session = session();
         $userId = $session->get('userId');
         $goalModel = new UserGoalModel();

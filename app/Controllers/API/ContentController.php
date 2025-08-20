@@ -7,7 +7,7 @@ use App\Models\ContentModel;
 use App\Models\UserContentViewsModel;
 use CodeIgniter\API\ResponseTrait;
 
-class ContentController extends BaseController
+class ContentController extends BaseAPIController
 {
     use ResponseTrait;
 
@@ -32,7 +32,7 @@ class ContentController extends BaseController
     // Gets the latest unread announcement for the current user
     public function getLatestAnnouncement()
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $contentModel = new ContentModel();
 
         // 1. Find the most recent, active announcement
@@ -68,7 +68,7 @@ class ContentController extends BaseController
     // Marks an announcement as seen by the current user
     public function markAsSeen()
     {
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $contentId = $this->request->getJSON()->content_id ?? null;
 
         if (!$contentId) {
