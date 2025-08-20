@@ -19,7 +19,7 @@ function ReceiveIncomeModal({ isOpen, item, budgetId, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/${budgetId}/receive-income`, {
+            const response = await fetch(`/api/budget-items/${budgetId}/receive-income`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

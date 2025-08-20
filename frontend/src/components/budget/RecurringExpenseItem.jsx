@@ -15,7 +15,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/recurring-expense/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/recurring-expense/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -35,7 +35,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/mark-bill-paid/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/mark-bill-paid/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -58,7 +58,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/mark-bill-unpaid/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/mark-bill-unpaid/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -79,7 +79,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
         try {
-            const response = await fetch(`/api/budget/remove-expense/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/remove-expense/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

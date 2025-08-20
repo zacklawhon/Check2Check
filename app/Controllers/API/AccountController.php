@@ -8,6 +8,7 @@ use App\Models\RecurringExpenseModel;
 use App\Models\UserModel;
 use App\Models\UserFinancialToolsModel;
 use App\Models\BudgetCycleModel;
+use App\Models\UserAccountModel;
 use App\Services\ProjectionService;
 use App\Models\TransactionModel;
 use Config\Services;
@@ -44,7 +45,7 @@ class AccountController extends BaseAPIController
         if ($response = $this->blockPartners()) return $response;
         $userId = $this->getEffectiveUserId();
 
-        $accountModel = new \App\Models\UserAccountModel();
+        $accountModel = new UserAccountModel();
         $accounts = $accountModel->where('user_id', $userId)->findAll();
 
         return $this->respond($accounts);
@@ -53,7 +54,7 @@ class AccountController extends BaseAPIController
     public function deleteIncomeSource($id)
     {
         if ($response = $this->blockPartners()) return $response;
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new IncomeSourceModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -71,7 +72,7 @@ class AccountController extends BaseAPIController
     public function deleteRecurringExpense($id)
     {
         if ($response = $this->blockPartners()) return $response;
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new RecurringExpenseModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -89,7 +90,7 @@ class AccountController extends BaseAPIController
     public function updateIncomeSource($id)
     {
         if ($response = $this->blockPartners()) return $response;
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new IncomeSourceModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -182,7 +183,7 @@ class AccountController extends BaseAPIController
     public function updateRecurringExpense($id)
     {
         if ($response = $this->blockPartners()) return $response;
-        $userId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
         $model = new RecurringExpenseModel();
 
         $item = $model->where('id', $id)->where('user_id', $userId)->first();
@@ -210,8 +211,7 @@ class AccountController extends BaseAPIController
     public function updateProfile()
     {
         if ($response = $this->blockPartners()) return $response;
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $userModel = new UserModel();
 
         $rules = [
@@ -287,7 +287,7 @@ class AccountController extends BaseAPIController
     {
         if ($response = $this->blockPartners()) return $response;
         $session = Services::session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $userModel = new UserModel();
 
         $rules = [
@@ -346,11 +346,11 @@ class AccountController extends BaseAPIController
     {
         if ($response = $this->blockPartners()) return $response;
         $session = Services::session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $userModel = new UserModel();
 
         $storedToken = $session->getTempdata('email_change_token');
-        // FIX: Changed 'new_email' to the correct 'new_email_for_change'
+
         $newEmail = $session->getTempdata('new_email_for_change');
 
         if ($token === null || $token !== $storedToken || !$newEmail) {
@@ -360,7 +360,7 @@ class AccountController extends BaseAPIController
         try {
             $userModel->update($userId, ['email' => $newEmail]);
             $session->removeTempdata('email_change_token');
-            // FIX: Also changed the key here for consistency
+            
             $session->removeTempdata('new_email_for_change');
 
             return $this->respondUpdated(['message' => 'Email updated successfully.']);
@@ -374,7 +374,7 @@ class AccountController extends BaseAPIController
     {
         if ($response = $this->blockPartners()) return $response;
         $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $userModel = new UserModel();
 
         $userModel->update($userId, [
@@ -389,8 +389,7 @@ class AccountController extends BaseAPIController
     public function createIncomeSource()
     {
         if ($response = $this->blockPartners()) return $response;
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $incomeModel = new IncomeSourceModel();
 
         $data = [
@@ -414,8 +413,7 @@ class AccountController extends BaseAPIController
     public function createRecurringExpense()
     {
         if ($response = $this->blockPartners()) return $response;
-        $session = session();
-        $userId = $session->get('userId');
+        $userId = $this->getEffectiveUserId();
         $json = $this->request->getJSON(true);
 
         // Basic data common to all expense types
@@ -443,6 +441,82 @@ class AccountController extends BaseAPIController
             return $this->respondCreated(['id' => $id, 'message' => 'Expense added.']);
         } else {
             return $this->fail($model->errors());
+        }
+    }
+
+    public function updateExpenseDetails($expenseId)
+    {
+        // 1. Check permissions first
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        // 2. Use the effective (owner's) ID for all data operations
+        $userId = $this->getEffectiveUserId();
+        $recurringExpenseModel = new RecurringExpenseModel();
+        $budgetCycleModel = new BudgetCycleModel();
+
+        // 3. Ensure the expense belongs to the user (owner)
+        $expense = $recurringExpenseModel->where('id', '=>', $expenseId)->where('user_id', $userId)->first();
+        if (!$expense) {
+            return $this->failNotFound('Expense not found.');
+        }
+
+        // 4. Sanitize the incoming JSON data
+        $json = $this->request->getJSON(true);
+        $allowedData = [];
+        $fields = ['principal_balance', 'interest_rate', 'outstanding_balance', 'maturity_date'];
+        foreach ($fields as $field) {
+            if (isset($json[$field])) {
+                $allowedData[$field] = $json[$field] === '' ? null : $json[$field];
+            }
+        }
+
+        if (empty($allowedData)) {
+            return $this->failValidationErrors('No valid fields to update.');
+        }
+
+        // 5. Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            // A request must be associated with a budget cycle
+            $activeCycle = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
+            if (!$activeCycle) {
+                return $this->fail('An active budget cycle is required to request this change.');
+            }
+
+            $payload = ['expenseId' => $expenseId, 'updates' => $allowedData];
+            $description = "Update details for expense: '{$expense['label']}'";
+            return $this->handlePartnerAction('update_expense_details', $description, $activeCycle['id'], $payload);
+        }
+
+        // --- 6. Original logic for Owners or full_access Partners ---
+        try {
+            // Update the permanent recurring_expenses table
+            if ($recurringExpenseModel->update($expenseId, $allowedData) === false) {
+                return $this->fail($recurringExpenseModel->errors());
+            }
+
+            // Find the active budget cycle to update its JSON data
+            $activeCycle = $budgetCycleModel->where('user_id', $userId)->where('status', 'active')->first();
+            if ($activeCycle) {
+                $initialExpenses = json_decode($activeCycle['initial_expenses'], true);
+
+                // Find and update the matching expense within the JSON
+                foreach ($initialExpenses as &$exp) {
+                    if (isset($exp['id']) && $exp['id'] == $expenseId) {
+                        $exp = array_merge($exp, $allowedData);
+                        break;
+                    }
+                }
+
+                $budgetCycleModel->update($activeCycle['id'], ['initial_expenses' => json_encode($initialExpenses)]);
+            }
+
+            return $this->respondUpdated(['message' => 'Expense details updated successfully.']);
+        } catch (\Exception $e) {
+            log_message('error', '[ERROR] {exception}', ['exception' => $e]);
+            return $this->failServerError('Could not update expense details.');
         }
     }
 

@@ -27,7 +27,7 @@ function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
         setError('');
         try {
             // --- 1. THIS IS THE CORRECTED URL ---
-            const url = `/api/budget/${budgetId}/update-income`;
+            const url = `/api/budget-items/${budgetId}/update-income`;
 
             // --- 2. THIS IS THE CORRECTED BODY PAYLOAD ---
             // The backend expects 'original_label', 'label', and 'amount'.

@@ -31,7 +31,7 @@ function AddBillForm({ budgetId, onSuccess }) {
         setError('');
         try {
             // The formState contains all the data the controller needs
-            const response = await fetch(`/api/budget/add-expense/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/add-expense/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

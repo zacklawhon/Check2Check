@@ -37,7 +37,7 @@ function BudgetPage() {
         try {
             const [budgetRes, transactionsRes, goalsRes] = await Promise.all([
                 fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
-                fetch(`/api/budget/transactions/${budgetId}`, { credentials: 'include' }),
+                fetch(`/api/budget-items/transactions/${budgetId}`, { credentials: 'include' }),
                 fetch('/api/goals', { credentials: 'include' }) // This line was missing
             ]);
 
@@ -92,7 +92,7 @@ function BudgetPage() {
     const handleRemoveIncome = async () => {
         if (!itemToRemove) return;
         try {
-            const response = await fetch(`/api/budget/remove-income/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/remove-income/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

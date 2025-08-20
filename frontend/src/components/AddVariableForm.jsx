@@ -10,7 +10,7 @@ function AddVariableForm({ budgetId, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/add-expense/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/add-expense/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

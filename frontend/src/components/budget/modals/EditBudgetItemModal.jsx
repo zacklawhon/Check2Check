@@ -25,7 +25,7 @@ function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
         setError('');
 
         try {
-            const response = await fetch(`/api/budget/recurring-expense/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/recurring-expense/${budgetId}`, {
                 method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

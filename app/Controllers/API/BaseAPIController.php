@@ -33,4 +33,23 @@ class BaseAPIController extends BaseController
     {
         return session()->get('permissionLevel');
     }
+
+    protected function handlePartnerAction(string $actionType, string $description, int $budgetId, array $payload)
+    {
+        $session = session();
+        $requesterId = $session->get('userId');
+        $ownerId = $this->getEffectiveUserId();
+
+        $actionRequestModel = new \App\Models\ActionRequestModel();
+        $actionRequestModel->insert([
+            'requester_user_id' => $requesterId,
+            'owner_user_id'     => $ownerId,
+            'budget_cycle_id'   => $budgetId,
+            'action_type'       => $actionType,
+            'payload'           => json_encode($payload),
+            'description'       => $description,
+        ]);
+
+        return $this->respond(['message' => 'Your request has been sent to the budget owner for approval.']);
+    }
 }

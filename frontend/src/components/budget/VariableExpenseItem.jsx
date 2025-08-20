@@ -17,7 +17,7 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/update-variable-amount/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/update-variable-amount/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
@@ -41,7 +41,7 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions }) {
    const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
         try {
-            const response = await fetch(`/api/budget/remove-expense/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/remove-expense/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

@@ -44,7 +44,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
 
         // This logic now correctly handles all three item types
         if (type === 'income') {
-            url = `/api/budget/add-income/${budgetId}`;
+            url = `/api/budget-items/add-income/${budgetId}`;
             body = {
                 label: formData.label,
                 amount: formData.amount,
@@ -52,13 +52,13 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                 save_recurring: formData.save_recurring ? 1 : 0
             };
         } else if (type === 'variable') {
-            url = `/api/budget/add-variable-expense/${budgetId}`;
+            url = `/api/budget-items/add-variable-expense/${budgetId}`;
             body = {
                 label: formData.label,
                 amount: formData.amount
             };
         } else { // Default to 'recurring'
-            url = `/api/budget/add-expense/${budgetId}`;
+            url = `/api/budget-items/add-expense/${budgetId}`;
             body = {
                 label: formData.label,
                 due_date: formData.due_date,

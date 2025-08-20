@@ -57,7 +57,7 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
             const fetchHistory = async () => {
                 setLoadingHistory(true);
                 try {
-                    const response = await fetch(`/api/budget/expense-history?label=${encodeURIComponent(item.label)}`, {
+                    const response = await fetch(`/api/budget-items/expense-history?label=${encodeURIComponent(item.label)}`, {
                         credentials: 'include'
                     });
                     if (!response.ok) throw new Error('Could not fetch history.');
@@ -103,7 +103,7 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/mark-bill-paid/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/mark-bill-paid/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',

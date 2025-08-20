@@ -2,67 +2,70 @@
 
 namespace App\Controllers\API;
 
-use App\Controllers\BaseController;
+// 1. CHANGED: Must extend BaseAPIController to get permission helpers.
+use App\Controllers\API\BaseAPIController;
 use App\Models\TransactionModel;
 use CodeIgniter\API\ResponseTrait;
 
-class TransactionController extends BaseController
+class TransactionController extends BaseAPIController
 {
     use ResponseTrait;
 
-    /**
-     * Adds a new transaction for the authenticated user.
-     *
-     * Validates input (budget cycle ID, type, category, amount, description) and logs the transaction
-     * using TransactionModel::logTransaction. Returns the transaction data with the new ID. Shares
-     * logTransaction with BudgetController methods (e.g., createCycle, markBillPaid, addSavings),
-     * but serves a distinct purpose: manual transaction entry vs. automated logging for budget actions.
-     * The centralized logTransaction method avoids duplication of core logic. No redundancy within
-     * the controller or with other controllers.
-     *
-     * @return \CodeIgniter\API\ResponseTrait Returns a 201 response with the transaction data if saved,
-     * a 404 if the budget cycle is not found or access is denied, a validation error for invalid input,
-     * or a 500 error if insertion fails.
-     */
     public function addTransaction()
     {
-        $session = session();
-        $userId = $session->get('userId');
+        // 2. ADDED: Full permission check for this data modification action.
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
 
         $rules = [
             'budget_cycle_id' => 'required|numeric',
-            'type' => 'required|in_list[income,expense]',
-            'category_name' => 'required|string|max_length[255]',
-            'amount' => 'required|decimal',
-            'description' => 'permit_empty|string',
+            'type'            => 'required|in_list[income,expense]',
+            'category_name'   => 'required|string|max_length[255]',
+            'amount'          => 'required|decimal',
+            'description'     => 'permit_empty|string',
         ];
 
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
         }
+        
+        $data = $this->validator->getValidated();
+
+        // Handle the "update by request" case
+        if ($permission === 'update_by_request') {
+            $payload = $data;
+            $description = "Add " . $data['type'] . ": '" . ($data['description'] ?: $data['category_name']) . "' for $" . number_format($data['amount'], 2);
+            // This now uses the shared helper method from BaseAPIController
+            return $this->handlePartnerAction('add_transaction', $description, $data['budget_cycle_id'], $payload);
+        }
+
+        // --- Original logic for Owners or full_access Partners ---
+        
+        // 3. CHANGED: Use the effective (owner's) ID for all data operations.
+        $userId = $this->getEffectiveUserId();
 
         try {
             $transactionModel = new TransactionModel();
             $transactionId = $transactionModel->logTransaction(
                 $userId,
-                $this->request->getVar('budget_cycle_id'),
-                $this->request->getVar('type'),
-                $this->request->getVar('category_name'),
-                (float) $this->request->getVar('amount'),
-                $this->request->getVar('description')
+                $data['budget_cycle_id'],
+                $data['type'],
+                $data['category_name'],
+                (float) $data['amount'],
+                $data['description']
             );
 
             if ($transactionId === false) {
                 return $this->fail($transactionModel->errors());
             }
 
-            $data = $this->request->getJSON(true);
             $data['id'] = $transactionId;
             return $this->respondCreated($data, 'Transaction added successfully.');
 
         } catch (\Exception $e) {
             log_message('error', '[ERROR_LOG_TXN] {exception}', ['exception' => $e]);
-            // Provide a generic error but also a specific one if access is denied.
             if ($e->getMessage() === 'Budget cycle not found or access denied.') {
                 return $this->failNotFound($e->getMessage());
             }

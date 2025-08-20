@@ -2,7 +2,6 @@
 
 namespace App\Controllers\API;
 
-use App\Controllers\BaseController;
 use App\Models\ContentModel;
 use App\Models\UserContentViewsModel;
 use CodeIgniter\API\ResponseTrait;
@@ -11,7 +10,7 @@ class ContentController extends BaseAPIController
 {
     use ResponseTrait;
 
-    // Fetches all active help documents
+    // This method is compliant. It fetches public content and needs no changes.
     public function getAllContent()
     {
         $contentModel = new ContentModel();
@@ -21,21 +20,20 @@ class ContentController extends BaseAPIController
         foreach ($allContent as $item) {
             $keyedContent[$item['page_key']] = [
                 'title' => $item['title'],
-                // Storing content as an array of one item for consistency with the old static file
-                'content' => [$item['content']] 
+                'content' => [$item['content']]
             ];
         }
 
         return $this->respond($keyedContent);
     }
 
-    // Gets the latest unread announcement for the current user
     public function getLatestAnnouncement()
     {
-        $userId = $this->getEffectiveUserId();
+        // CHANGED: Use the individual user's ID, not the effective (owner's) ID.
+        // This ensures a partner and owner have separate "seen" histories for announcements.
+        $userId = session()->get('userId');
         $contentModel = new ContentModel();
 
-        // 1. Find the most recent, active announcement
         $latestAnnouncement = $contentModel
             ->where('is_active', 1)
             ->where('is_announcement', 1)
@@ -43,21 +41,19 @@ class ContentController extends BaseAPIController
             ->first();
 
         if (!$latestAnnouncement) {
-            return $this->respond(null); // No active announcements
+            return $this->respond(null);
         }
 
-        // 2. Check if the user has already seen this announcement
         $viewsModel = new UserContentViewsModel();
         $hasSeen = $viewsModel
-            ->where('user_id', $userId)
+            ->where('user_id', $userId) // Query uses the correct individual ID
             ->where('content_id', $latestAnnouncement['id'])
             ->first();
 
         if ($hasSeen) {
-            return $this->respond(null); // User has seen it
+            return $this->respond(null);
         }
 
-        // 3. User has not seen it, return the announcement
         return $this->respond([
             'id'      => $latestAnnouncement['id'],
             'title'   => $latestAnnouncement['title'],
@@ -65,10 +61,11 @@ class ContentController extends BaseAPIController
         ]);
     }
 
-    // Marks an announcement as seen by the current user
     public function markAsSeen()
     {
-        $userId = $this->getEffectiveUserId();
+        // CHANGED: Use the individual user's ID.
+        // This marks the announcement as seen for the logged-in user only.
+        $userId = session()->get('userId');
         $contentId = $this->request->getJSON()->content_id ?? null;
 
         if (!$contentId) {
@@ -77,14 +74,13 @@ class ContentController extends BaseAPIController
 
         $viewsModel = new UserContentViewsModel();
         
-        // Avoid duplicate entries
         $alreadyExists = $viewsModel->where('user_id', $userId)->where('content_id', $contentId)->first();
         if ($alreadyExists) {
             return $this->respond(['message' => 'Already marked as seen.']);
         }
 
         $viewsModel->insert([
-            'user_id'    => $userId,
+            'user_id'    => $userId, // The record is saved with the correct individual ID
             'content_id' => $contentId,
             'viewed_at'  => date('Y-m-d H:i:s'),
         ]);

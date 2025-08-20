@@ -148,7 +148,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                 const recurringData = { ...formState };
                 delete recurringData.amount;
                 
-                const response = await fetch('/api/account/add-expense', {
+                const response = await fetch('/api/budget-items/add-expense', {
                     method: 'POST',
                     headers: { 'Content-Type': 'application/json' },
                     credentials: 'include',

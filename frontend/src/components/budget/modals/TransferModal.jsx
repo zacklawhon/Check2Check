@@ -19,8 +19,8 @@ function TransferModal({ isOpen, onClose, onConfirm, accounts, budgetId, action 
         setError('');
         try {
             const url = action === 'from' 
-                ? `/api/budget/${budgetId}/transfer-from-account` 
-                : `/api/budget/${budgetId}/transfer-to-account`;
+                ? `/api/transfers/${budgetId}/from-account` 
+                : `/api/transfers/${budgetId}/to-account`;
             
             const body = {
                 account_id: selectedAccountId,

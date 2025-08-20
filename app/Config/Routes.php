@@ -7,8 +7,6 @@ use CodeIgniter\Router\RouteCollection;
  */
 $routes->get('/', 'Home::index');
 
-$routes->get('/admin', 'AdminController::index', ['filter' => 'sessionauth']);
-
 $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($routes) {
     // --- Unauthenticated Routes ---
     $routes->post('auth/request-link', 'AuthController::requestLink');
@@ -38,41 +36,37 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
 
         // Budget Routes
         $routes->group('budget', static function ($routes) {
-            $routes->post('spending-categories', 'BudgetController::createSpendingCategory');
-            $routes->get('expense-history', 'BudgetController::getExpenseHistory');
-            $routes->get('wizard-suggestions', 'BudgetController::getWizardSuggestions');
             $routes->post('create', 'BudgetController::createCycle');
-            $routes->post('add-transaction', 'BudgetController::addTransaction');
             $routes->get('cycles', 'BudgetController::getCycles');
+            $routes->get('wizard-suggestions', 'BudgetController::getWizardSuggestions');
             $routes->get('(:num)', 'BudgetController::getCycleDetails/$1');
-            $routes->get('transactions/(:num)', 'BudgetController::getTransactionsForCycle/$1');
-            $routes->post('update-variable-amount/(:num)', 'BudgetController::updateVariableExpenseAmount/$1');
-            $routes->post('mark-bill-paid/(:num)', 'BudgetController::markBillPaid/$1');
-            $routes->post('mark-bill-unpaid/(:num)', 'BudgetController::markBillUnpaid/$1');
-            $routes->post('add-expense/(:num)', 'BudgetController::addExpenseToCycle/$1');
-            $routes->post('(:num)/update-income', 'BudgetController::updateIncomeInCycle/$1');
-            $routes->post('add-income/(:num)', 'BudgetController::addIncomeToCycle/$1');
-            $routes->post('add-variable-expense/(:num)', 'BudgetController::addVariableExpense/$1');
-            $routes->post('remove-expense/(:num)', 'BudgetController::removeExpenseFromCycle/$1');
-            $routes->post('remove-income/(:num)', 'BudgetController::removeIncomeFromCycle/$1');
             $routes->post('update-dates/(:num)', 'BudgetController::updateBudgetDates/$1');
-            $routes->post('force-close/(:num)', 'BudgetController::forceCloseCycle/$1');
             $routes->post('close/(:num)', 'BudgetController::closeCycle/$1');
-            $routes->post('initialize-savings', 'BudgetController::initializeSavings');
-            $routes->post('log-savings', 'BudgetController::logSavings');
-            $routes->post('update-income-amount/(:num)', 'BudgetController::updateInitialIncomeAmount/$1');
-            $routes->post('(:num)/transfer-to-account', 'BudgetController::transferToAccount/$1');
-            $routes->post('(:num)/transfer-from-account', 'BudgetController::transferFromAccount/$1');
             $routes->post('project-income', 'BudgetController::projectIncome');
-            $routes->post('(:num)/receive-income', 'BudgetController::markIncomeReceived/$1');
-            $routes->put('recurring-expense/(:num)', 'BudgetController::updateRecurringExpenseInCycle/$1');
         });
 
-        $routes->group('expenses', static function ($routes) {
-            $routes->post('update-details/(:num)', 'BudgetController::updateExpenseDetails/$1');
+        $routes->group('budget-items', static function ($routes) {
+            $routes->get('transactions/(:num)', 'BudgetItemController::getTransactionsForCycle/$1');
+            $routes->get('expense-history', 'BudgetItemController::getExpenseHistory');
+            $routes->post('update-variable-amount/(:num)', 'BudgetItemController::updateVariableExpenseAmount/$1');
+            $routes->post('mark-bill-paid/(:num)', 'BudgetItemController::markBillPaid/$1');
+            $routes->post('mark-bill-unpaid/(:num)', 'BudgetItemController::markBillUnpaid/$1');
+            $routes->post('add-expense/(:num)', 'BudgetItemController::addExpenseToCycle/$1');
+            $routes->post('(:num)/update-income', 'BudgetItemController::updateIncomeInCycle/$1');
+            $routes->post('add-income/(:num)', 'BudgetItemController::addIncomeToCycle/$1');
+            $routes->post('add-variable-expense/(:num)', 'BudgetItemController::addVariableExpense/$1');
+            $routes->post('remove-expense/(:num)', 'BudgetItemController::removeExpenseFromCycle/$1');
+            $routes->post('remove-income/(:num)', 'BudgetItemController::removeIncomeFromCycle/$1');
+            $routes->post('(:num)/receive-income', 'BudgetItemController::markIncomeReceived/$1');
+            $routes->put('recurring-expense/(:num)', 'BudgetItemController::updateRecurringExpenseInCycle/$1');
+            $routes->post('update-income-amount/(:num)', 'BudgetItemController::updateInitialIncomeAmount/$1');
         });
 
-        // Transaction Routes
+        $routes->group('transfers', static function ($routes) {
+            $routes->post('(:num)/to-account', 'AccountTransferController::transferToAccount/$1');
+            $routes->post('(:num)/from-account', 'AccountTransferController::transferFromAccount/$1');
+        });
+
         $routes->group('transaction', static function ($routes) {
             $routes->post('add', 'TransactionController::addTransaction');
         });
@@ -94,6 +88,8 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         });
 
         $routes->group('account', static function ($routes) {
+            $routes->post('spending-categories', 'AccountController::createSpendingCategory');
+            $routes->put('expenses/update-details/(:num)', 'AccountController::updateExpenseDetails/$1');
             $routes->post('income-sources', 'AccountController::createIncomeSource');
             $routes->post('recurring-expenses', 'AccountController::createRecurringExpense');
             $routes->get('recurring-items', 'AccountController::getRecurringItems');

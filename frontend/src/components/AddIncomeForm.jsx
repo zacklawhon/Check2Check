@@ -13,7 +13,7 @@ function AddIncomeForm({ budgetId, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/add-income/${budgetId}`, {
+            const response = await fetch(`/api/budget-items/add-income/${budgetId}`, {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
