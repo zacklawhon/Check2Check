@@ -9,6 +9,7 @@ import AccountActions from '../components/account/AccountActions';
 import AccountManager from '../components/account/AccountManager';
 import GoalsDisplay from '../components/account/GoalsDisplay';
 import IntroGoalCard from '../components/account/IntroGoalCard'; 
+import SharedAccessCard from '../components/account/SharedAccessCard';
 import { getDayWithOrdinal } from '../components/utils/formatters';
 
 function AccountPage() {
@@ -22,15 +23,17 @@ function AccountPage() {
     const [itemToDelete, setItemToDelete] = useState(null);
     const [goalToDelete, setGoalToDelete] = useState(null);
     const [editingGoal, setEditingGoal] = useState(null);
+    const [invites, setInvites] = useState([]);
     const navigate = useNavigate();
 
     const fetchData = async () => {
         if (!loading) setLoading(true);
         try {
             // 3. Fetch goals and items at the same time
-            const [itemsRes, goalsRes] = await Promise.all([
+            const [itemsRes, goalsRes, invitesRes] = await Promise.all([
                 fetch('/api/account/recurring-items', { credentials: 'include' }),
-                fetch('/api/goals', { credentials: 'include' })
+                fetch('/api/goals', { credentials: 'include' }),
+                fetch('/api/sharing/invites', { credentials: 'include' }) 
             ]);
 
             if (!itemsRes.ok || !goalsRes.ok) throw new Error('Failed to fetch account data.');
@@ -38,6 +41,7 @@ function AccountPage() {
             const fetchedItems = await itemsRes.json();
             setItems(fetchedItems);
             setGoals(await goalsRes.json());
+            setInvites(await invitesRes.json());
 
 
         } catch (err) {
@@ -188,6 +192,7 @@ function AccountPage() {
                             ))}
                         </div>
                     </div>
+                    <SharedAccessCard invites={invites} onUpdate={fetchData} />
                     <AccountActions />
                 </div>
             </div>

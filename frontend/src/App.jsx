@@ -16,7 +16,9 @@ import GoalsPage from './pages/GoalsPage';
 import { GuidedWizard } from './components/wizard/GuidedWizard';
 import EmailChangeVerificationPage from './pages/EmailChangeVerificationPage';
 import RegisterPage from './pages/RegisterPage';
-import Footer from './components/common/Footer'; 
+import AcceptInvitePage from './pages/AcceptInvitePage';
+import PartnerRoute from './components/auth/PartnerRoute';
+import Footer from './components/common/Footer';
 
 
 function ProtectedRoute() {
@@ -25,7 +27,7 @@ function ProtectedRoute() {
   const [activeBudget, setActiveBudget] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [isNewUser, setIsNewUser] = useState(false);
-  
+
   // 2. Add state for the new content and announcement system
   const [helpContent, setHelpContent] = useState(null);
   const [announcement, setAnnouncement] = useState(null);
@@ -65,7 +67,7 @@ function ProtectedRoute() {
           setIsWhatsNewOpen(true);
         }
       }
-      
+
       let activeBudgetData = null;
       if (activeBudgetRes.ok) activeBudgetData = await activeBudgetRes.json();
 
@@ -88,19 +90,19 @@ function ProtectedRoute() {
 
   // 4. Create handler to mark announcement as seen
   const handleCloseWhatsNew = async () => {
-      if (announcement) {
-          try {
-              await fetch('/api/content/mark-as-seen', {
-                  method: 'POST',
-                  headers: { 'Content-Type': 'application/json' },
-                  credentials: 'include',
-                  body: JSON.stringify({ content_id: announcement.id })
-              });
-          } catch (err) {
-              console.error("Failed to mark announcement as seen:", err);
-          }
+    if (announcement) {
+      try {
+        await fetch('/api/content/mark-as-seen', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          credentials: 'include',
+          body: JSON.stringify({ content_id: announcement.id })
+        });
+      } catch (err) {
+        console.error("Failed to mark announcement as seen:", err);
       }
-      setIsWhatsNewOpen(false);
+    }
+    setIsWhatsNewOpen(false);
   };
 
   if (loadingUser) return <div className="text-center p-8 text-white">Loading...</div>;
@@ -112,44 +114,52 @@ function ProtectedRoute() {
   return (
     // 5. Wrap the entire authenticated layout in the ContentProvider
     <ContentProvider content={helpContent}>
-        <AuthenticatedLayout activeBudget={activeBudget}>
-            <Outlet context={contextData} />
-            <WhatsNewModal 
-                isOpen={isWhatsNewOpen}
-                onClose={handleCloseWhatsNew}
-                announcement={announcement}
-            />
-        </AuthenticatedLayout>
+      <AuthenticatedLayout activeBudget={activeBudget}>
+        <Outlet context={contextData} />
+        <WhatsNewModal
+          isOpen={isWhatsNewOpen}
+          onClose={handleCloseWhatsNew}
+          announcement={announcement}
+        />
+      </AuthenticatedLayout>
     </ContentProvider>
   );
 }
 
 function App() {
   const isStaging = window.location.hostname.includes('staging');
-  
+
   return (
     <div className="bg-gray-900 min-h-screen">
       <BrowserRouter>
         <Toaster position="top-center" toastOptions={{ style: { background: '#374151', color: '#fff' } }} />
         <Routes>
-          {/* Public Routes */}
+          {/* Public Routes (for non-logged-in users) */}
           <Route path="/" element={<LandingPage />} />
           <Route path="/register" element={<RegisterPage />} />
           <Route path="/verify-login" element={<VerificationPage />} />
           <Route path="/verify-email-change/:token" element={<EmailChangeVerificationPage />} />
+          <Route path="/accept-invite" element={<AcceptInvitePage />} />
 
-          {/* Protected Routes */}
-          {/* The ProtectedRoute component now handles everything internally */}
+          {/* --- Protected Routes (for all logged-in users) --- */}
           <Route element={<ProtectedRoute />}>
+
+            {/* Routes accessible by BOTH Owners and Partners */}
             <Route path="/dashboard" element={<DashboardPage />} />
-            {/* The 'user' prop is no longer needed here as it will be handled internally */}
             <Route path="/wizard" element={<GuidedWizard />} />
             <Route path="/budget/:budgetId" element={<BudgetPage />} />
             <Route path="/review/:budgetId" element={<BudgetReviewPage />} />
-            <Route path="/account" element={<AccountPage />} />
             <Route path="/goals" element={<GoalsPage />} />
+
+            {/* Routes accessible ONLY by Owners */}
+            <Route element={<PartnerRoute />}>
+              <Route path="/account" element={<AccountPage />} />
+              {/* You can add other owner-only routes here, like '/admin' */}
+            </Route>
+
           </Route>
 
+          {/* Catch-all for any other URL */}
           <Route path="*" element={<Navigate to="/" replace />} />
         </Routes>
         <Footer />
