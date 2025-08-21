@@ -1,7 +1,8 @@
 import React from 'react';
-import IncomeListItem from './IncomeListItem'; // The component we created in the last step
+import IncomeListItem from './IncomeListItem';
 
-function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, onRemoveItem }) {
+// 1. ADD 'onItemRequest' and 'pendingRequests' to the list of props here
+function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, onRemoveItem, onItemRequest, pendingRequests, budgetId, onUpdate }) {
   const canEdit = !user.is_partner || user.permission_level !== 'read_only';
 
   return (
@@ -22,10 +23,15 @@ function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, o
           <IncomeListItem
             key={`income-${index}`}
             item={item}
-            user={user} // Pass user permissions down to each item
+            user={user}
             onReceive={onReceiveItem}
             onEdit={onEditItem}
             onRemove={onRemoveItem}
+            budgetId={budgetId}
+            onUpdate={onUpdate}
+            // 2. PASS the new props down to each list item
+            onItemRequest={onItemRequest}
+            isPending={pendingRequests.includes(item.label)}
           />
         ))}
       </ul>

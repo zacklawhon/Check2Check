@@ -2,24 +2,47 @@ import React, { useState } from 'react';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import ExpenseDetailModal from './modals/ExpenseDetailModal';
 import { getDayWithOrdinal } from '../utils/formatters';
+import toast from 'react-hot-toast';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
+function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [amount, setAmount] = useState(item.estimated_amount || '');
 
+    const isReadOnly = user.is_partner && user.permission_level === 'read_only';
+    const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
+    const isOwner = !user.is_partner;
+
+    const handleApprove = async () => {
+        setLoading(true);
+        try {
+            const response = await fetch(`/api/sharing/approve/${item.pending_request.id}`, {
+                method: 'POST',
+                credentials: 'include',
+            });
+            if (!response.ok) throw new Error('Failed to approve request.');
+            toast.success('Request approved!');
+            onUpdate();
+        } catch (err) {
+            toast.error(err.message);
+        } finally {
+            setLoading(false);
+        }
+    };
+
     const handleSetAmount = async (e) => {
         e.preventDefault();
+
         setLoading(true);
         setError('');
         try {
             const response = await fetch(`/api/budget-items/recurring-expense/${budgetId}`, {
-                method: 'POST',
+                method: 'PUT',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({ id: item.id, amount: parseFloat(amount) })
+                body: JSON.stringify({ label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date })
             });
             if (!response.ok) throw new Error('Failed to set amount.');
             onUpdate();
@@ -32,6 +55,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
 
     const handleMarkPaid = async (e) => {
         e.stopPropagation();
+
         setLoading(true);
         setError('');
         try {
@@ -41,10 +65,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
                 credentials: 'include',
                 body: JSON.stringify({ label: item.label, amount: item.estimated_amount })
             });
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to mark as paid.');
-            }
+            if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Failed to mark as paid.'); }
             onUpdate();
         } catch (err) {
             setError(err.message);
@@ -55,6 +76,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
 
     const handleMarkUnpaid = async (e) => {
         e.stopPropagation();
+
         setLoading(true);
         setError('');
         try {
@@ -64,10 +86,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
                 credentials: 'include',
                 body: JSON.stringify({ label: item.label })
             });
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to undo payment.');
-            }
+            if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Failed to undo payment.'); }
             onUpdate();
         } catch (err) {
             setError(err.message);
@@ -85,22 +104,42 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
                 credentials: 'include',
                 body: JSON.stringify({ label: item.label })
             });
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to remove expense.');
-            }
+            if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Failed to remove expense.'); }
             onUpdate();
         } catch (err) {
             setError(err.message);
         }
     };
 
-    const handleDeleteClick = (e) => {
+    const handleDeleteClick = (e) => { e.stopPropagation(); setIsConfirmModalOpen(true); };
+
+    const handleEditClick = (e) => {
         e.stopPropagation();
-        setIsConfirmModalOpen(true);
-    };
+            onEditInBudget(item);
+    }
 
     // This section is for items that don't have an amount set yet.
+    if (item.pending_request) {
+        return (
+            <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
+                <div className="flex justify-between items-center">
+                    <div>
+                        <p className="font-semibold">{item.label}</p>
+                        <p className="text-sm text-yellow-300 italic">
+                            Pending approval: {item.pending_request.description}
+                        </p>
+                    </div>
+                    <div className="flex items-center gap-2">
+                        <button onClick={handleApprove} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg">
+                            Approve
+                        </button>
+                        {/* You would also add a handleDeny function and button here */}
+                    </div>
+                </div>
+            </li>
+        );
+    }
+
     if (!item.estimated_amount) {
         return (
             <li className="bg-gray-700 p-3 rounded-md">
@@ -125,7 +164,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
                             />
                         </div>
                     </div>
-                    <button type="submit" disabled={loading} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg disabled:bg-gray-500">
+                    <button type="submit" disabled={loading || isReadOnly} className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg disabled:bg-gray-500">
                         {loading ? '...' : 'Set'}
                     </button>
                 </form>
@@ -138,8 +177,8 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
     return (
         <>
             {/* 1. Add the onClick and interactive styles back to the list item */}
-            <li 
-                onClick={!item.is_paid ? onEditInBudget : undefined}
+            <li
+                onClick={!item.is_paid && isOwner ? () => onEditInBudget(item) : undefined}
                 className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : 'hover:bg-gray-600 cursor-pointer'}`}
             >
                 <div>
@@ -153,13 +192,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
                 </div>
                 <div className="flex items-center gap-2">
                     <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
-                    
+
                     {/* 2. The separate "Edit" button has been removed from here */}
-                    
+
                     {item.is_paid ? (
                         <button
                             onClick={handleMarkUnpaid}
-                            disabled={loading}
+                            disabled={loading || isReadOnly}
                             className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
                             Undo
@@ -167,38 +206,30 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget }) {
                     ) : (
                         <button
                             onClick={handleMarkPaid}
-                            disabled={loading}
+                            disabled={loading || isReadOnly}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
                             Pay
                         </button>
                     )}
 
-                    <button 
-                        onClick={handleDeleteClick} 
+                    <button
+                        onClick={handleDeleteClick}
                         className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed"
-                        disabled={item.is_paid || loading}
+                        disabled={item.is_paid || loading || isReadOnly}
                     >
                         &times;
                     </button>
                 </div>
-                 {error && <p className="text-red-500 text-xs w-full text-right mt-1">{error}</p>}
+                {error && <p className="text-red-500 text-xs w-full text-right mt-1">{error}</p>}
             </li>
-            
+
             <ConfirmationModal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}
                 onConfirm={handleDeleteConfirm}
                 title="Confirm Deletion"
                 message={`Are you sure you want to remove "${item.label}" from this budget?`}
-            />
-            
-            <ExpenseDetailModal 
-                item={item} 
-                isOpen={isDetailModalOpen} 
-                onClose={() => setIsDetailModalOpen(false)}
-                budgetId={budgetId}
-                onUpdate={onUpdate}
             />
         </>
     );

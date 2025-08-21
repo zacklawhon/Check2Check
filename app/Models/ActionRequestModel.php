@@ -17,9 +17,10 @@ class ActionRequestModel extends Model
         'action_type',
         'payload',
         'description',
-        'status'
+        'status',
+        'created_at'
     ];
-    protected $useTimestamps = true;
+    protected $useTimestamps = false;
     protected $createdField  = 'created_at';
     protected $updatedField  = null;
 }

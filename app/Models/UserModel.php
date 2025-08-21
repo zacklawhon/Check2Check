@@ -23,7 +23,9 @@ class UserModel extends Model
         'demographic_prompt_dismissed',
         'financial_tier',
         'status',
-        'has_seen_accounts_prompt'
+        'has_seen_accounts_prompt',
+        'owner_user_id',
+        'permission_level'
     ];
 
     // Dates - Your table has timestamps, so this should be true.

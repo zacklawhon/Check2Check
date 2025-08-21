@@ -34,24 +34,48 @@ function BudgetPage() {
     const [isClosing, setIsClosing] = useState(false);
     const [showNextSteps, setShowNextSteps] = useState(false);
     const [isAccelerateModalOpen, setIsAccelerateModalOpen] = useState(false);
+    const [actionRequests, setActionRequests] = useState([]);
+    const [pendingRequests, setPendingRequests] = useState([]);
 
 
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
-            const [budgetRes, transactionsRes, goalsRes] = await Promise.all([
+            const [budgetRes, transactionsRes, goalsRes, requestsRes] = await Promise.all([
                 fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
                 fetch(`/api/budget-items/transactions/${budgetId}`, { credentials: 'include' }),
-                fetch('/api/goals', { credentials: 'include' }) // This line was missing
+                fetch('/api/goals', { credentials: 'include' }),
+                fetch(`/api/sharing/requests/${budgetId}`, { credentials: 'include' }) // New API call
             ]);
 
-            if (!budgetRes.ok || !transactionsRes.ok || !goalsRes.ok) {
+            if (!budgetRes.ok || !transactionsRes.ok || !goalsRes.ok || !requestsRes.ok) {
                 throw new Error('Could not fetch all budget data.');
             }
 
-            setBudget(await budgetRes.json());
+            const budgetData = await budgetRes.json();
+            const requestsData = await requestsRes.json();
+            
+            // --- Merge pending requests into the budget items ---
+            if (requestsData.length > 0) {
+                // This logic attaches the pending request data directly to the item it affects
+                const mergeRequests = (items) => {
+                    return items.map(item => {
+                        const pendingRequest = requestsData.find(req => {
+                            const payload = JSON.parse(req.payload);
+                            return payload.label === item.label;
+                        });
+                        return pendingRequest ? { ...item, pending_request: pendingRequest } : item;
+                    });
+                };
+                
+                budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses);
+                budgetData.initial_income = mergeRequests(budgetData.initial_income);
+            }
+
+            setBudget(budgetData);
             setTransactions(await transactionsRes.json());
             setGoals(await goalsRes.json());
+            
 
         } catch (err) {
             setError(err.message);
@@ -147,6 +171,10 @@ function BudgetPage() {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
+    const handleRequestSent = (itemLabel) => {
+        setPendingRequests(prev => [...prev, itemLabel]);
+    };
+
     const handleBudgetEditSuccess = () => {
         setItemToEditInBudget(null);
         refreshBudget();
@@ -226,6 +254,9 @@ function BudgetPage() {
                         onReceiveItem={setItemToReceive}
                         onEditItem={setItemToEdit}
                         onRemoveItem={setItemToRemove}
+                        budgetId={budgetId}
+                        onItemRequest={handleRequestSent}
+                        pendingRequests={pendingRequests}
                     />
                     <ExpensesList
                         expenseItems={budget.initial_expenses}
@@ -235,6 +266,8 @@ function BudgetPage() {
                         onAddItem={(type) => setModalType(type)}
                         onEditItem={setItemToEdit}
                         onUpdate={refreshBudget}
+                        onItemRequest={handleRequestSent}
+                        pendingRequests={pendingRequests}
                     />
                 </div>
             </div>

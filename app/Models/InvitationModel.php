@@ -17,13 +17,12 @@ class InvitationModel extends Model
     protected $allowedFields    = [
         'inviter_user_id',
         'recipient_email',
-        'token', // Renamed from 'invite_token'
+        'invite_token', 
         'status',
         'claimed_by_user_id',
         'claimed_at',
-        'expires_at',       // Added this field
-        'invite_type',      // Added this field
-        'permission_level', // Added this field
+        'invite_type',      
+        'permission_level', 
     ];
 
     // Dates

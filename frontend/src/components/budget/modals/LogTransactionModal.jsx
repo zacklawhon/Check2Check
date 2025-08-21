@@ -1,36 +1,41 @@
 import React, { useState } from 'react';
+import toast from 'react-hot-toast';
 
-function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess }) {
+// 2. Accept the 'user' object as a prop
+function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user }) {
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
+
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
+
+        const transactionData = {
+            budget_cycle_id: budgetId,
+            category_name: categoryName,
+            type: 'expense',
+            amount: amount,
+            description: description
+        };
+
         try {
             const response = await fetch('/api/transaction/add', {
                 method: 'POST',
                 headers: { 'Content-Type': 'application/json' },
                 credentials: 'include',
-                body: JSON.stringify({
-                    budget_cycle_id: budgetId,
-                    category_name: categoryName,
-                    type: 'expense',
-                    amount: amount,
-                    description: description
-                })
+                body: JSON.stringify(transactionData)
             });
             
             if (!response.ok) {
                 const data = await response.json();
                 throw new Error(data.message || 'Failed to log transaction.');
             }
-
+            toast.success('Transaction logged!');
             onSuccess();
-
         } catch (err) {
             setError(err.message);
         } finally {

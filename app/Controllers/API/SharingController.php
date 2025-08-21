@@ -41,7 +41,7 @@ class SharingController extends BaseController
         $invitationModel->insert([
             'inviter_user_id' => $ownerId,
             'recipient_email' => $recipientEmail,
-            'token' => $token,
+            'invite_token' => $token,
             'status' => 'pending',
             'invite_type' => 'share',
             'permission_level' => $permissionLevel,
@@ -121,19 +121,17 @@ class SharingController extends BaseController
      */
     public function acceptInvite()
     {
-        $rules = ['token' => 'required|string'];
-        if (!$this->validate($rules)) {
-            return $this->fail($this->validator->getErrors());
+        $token = $this->request->getJSON()->token ?? null;
+        if (empty($token)) {
+            return $this->fail('Invitation token is required.');
         }
 
-        $token = $this->request->getVar('token');
         $invitationModel = new InvitationModel();
         $userModel = new UserModel();
 
-        // 1. Validate the invitation token
-        $invite = $invitationModel->where('token', $token)->first();
+        // 2. The rest of the validation logic will now work correctly
+        $invite = $invitationModel->where('invite_token', $token)->first();
 
-        // Check if invite exists, is a 'share' type, and is still pending
         if (!$invite || $invite['invite_type'] !== 'share' || $invite['status'] !== 'pending') {
             return $this->failNotFound('This invitation is invalid, has expired, or has already been accepted.');
         }
@@ -194,7 +192,7 @@ class SharingController extends BaseController
                 return $this->respond([
                     'message' => 'You already have an account. Please confirm you want to convert it to a partner account.',
                     'status' => 'existing_user_confirmation_required',
-                    'token' => $token // Send the token back for the next step
+                    'invite_token' => $token // Send the token back for the next step
                 ]);
             }
         } catch (\Exception $e) {
@@ -227,7 +225,7 @@ class SharingController extends BaseController
         $userModel = new UserModel();
 
         // 2. Re-validate the invitation token
-        $invite = $invitationModel->where('token', $token)->first();
+        $invite = $invitationModel->where('invite_token', $token)->first();
         if (!$invite || $invite['invite_type'] !== 'share' || $invite['status'] !== 'pending') {
             return $this->failNotFound('This invitation is invalid, has expired, or has already been accepted.');
         }
@@ -363,7 +361,7 @@ class SharingController extends BaseController
             ]);
 
             // 4. ADDED: Send the notification email.
-            $email = \Config\Services::email();
+            $email = Services::email();
             $emailData = [
                 'ownerName' => $owner['email'] // Or a name field if you have one
             ];
@@ -384,6 +382,49 @@ class SharingController extends BaseController
             log_message('error', '[REVOKE_ACCESS_ERROR] ' . $e->getMessage());
             return $this->failServerError('Could not revoke partner access.');
         }
+    }
+
+    /**
+     * Fetches all pending action requests for a given budget cycle.
+     * Only the owner of the budget can access these requests.
+     */
+    public function getActionRequests($budgetId)
+    {
+        // 1. This action is performed by the owner.
+        $ownerId = session()->get('userId');
+        
+        // Ensure the user is not a partner trying to access this.
+        if (session()->get('isPartner')) {
+            return $this->failForbidden('Only the budget owner can view pending requests.');
+        }
+
+        $actionRequestModel = new ActionRequestModel();
+
+        // 2. Find all 'pending' requests that belong to this owner and budget.
+        $requests = $actionRequestModel
+            ->where('owner_user_id', $ownerId)
+            ->where('budget_cycle_id', $budgetId)
+            ->where('status', 'pending')
+            ->findAll();
+
+        return $this->respond($requests);
+    }
+
+    public function denyActionRequest($requestId)
+    {
+        $ownerId = session()->get('userId');
+        $actionRequestModel = new ActionRequestModel();
+
+        $request = $actionRequestModel->find($requestId);
+
+        if (!$request || (int) $request['owner_user_id'] !== (int) $ownerId) {
+            return $this->failNotFound('Action request not found or you do not have permission to deny it.');
+        }
+
+        // Simply delete the request.
+        $actionRequestModel->delete($requestId);
+
+        return $this->respond(['message' => 'Action denied successfully.']);
     }
 
 

@@ -13,6 +13,11 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
     $routes->post('auth/verify-link', 'AuthController::verifyLink');
     $routes->post('auth/logout', 'AuthController::logout');
 
+    $routes->group('sharing', static function ($routes) {
+        $routes->post('accept', 'SharingController::acceptInvite');
+        $routes->post('transform-account', 'SharingController::transformAccount');
+    });
+
     // --- All Authenticated Routes ---
     $routes->group('', ['filter' => 'sessionauth'], static function ($routes) {
 
@@ -31,6 +36,10 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('invite', 'SharingController::sendInvite');
             $routes->get('invites', 'SharingController::getInvites');
             $routes->post('approve/(:num)', 'SharingController::approveActionRequest/$1');
+            $routes->get('requests/(:num)', 'SharingController::getActionRequests/$1');
+            $routes->put('update-permission/(:num)', 'SharingController::updatePermission/$1');
+            $routes->delete('invites/(:num)', 'SharingController::revokeAccess/$1');
+            $routes->post('deny/(:num)', 'SharingController::denyActionRequest/$1');
         });
         // ## END: NEW SHARING ROUTES ##
 
@@ -60,6 +69,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('(:num)/receive-income', 'BudgetItemController::markIncomeReceived/$1');
             $routes->put('recurring-expense/(:num)', 'BudgetItemController::updateRecurringExpenseInCycle/$1');
             $routes->post('update-income-amount/(:num)', 'BudgetItemController::updateInitialIncomeAmount/$1');
+            
         });
 
         $routes->group('transfers', static function ($routes) {

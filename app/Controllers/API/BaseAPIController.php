@@ -3,6 +3,7 @@
 namespace App\Controllers\API;
 
 use App\Controllers\BaseController;
+use App\Models\ActionRequestModel;
 use CodeIgniter\API\ResponseTrait;
 
 class BaseAPIController extends BaseController
@@ -40,15 +41,21 @@ class BaseAPIController extends BaseController
         $requesterId = $session->get('userId');
         $ownerId = $this->getEffectiveUserId();
 
-        $actionRequestModel = new \App\Models\ActionRequestModel();
-        $actionRequestModel->insert([
+        $actionRequestModel = new ActionRequestModel();
+        
+        // ADDED: Explicitly set the status field
+        $dataToInsert = [
             'requester_user_id' => $requesterId,
             'owner_user_id'     => $ownerId,
             'budget_cycle_id'   => $budgetId,
             'action_type'       => $actionType,
             'payload'           => json_encode($payload),
             'description'       => $description,
-        ]);
+            'status'            => 'pending', 
+            
+        ];
+
+        $actionRequestModel->insert($dataToInsert);
 
         return $this->respond(['message' => 'Your request has been sent to the budget owner for approval.']);
     }
