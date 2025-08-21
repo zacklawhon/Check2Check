@@ -15,15 +15,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
     const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
     const isOwner = !user.is_partner;
 
-    const handleApprove = async () => {
+    const handleApprove = async (action) => {
         setLoading(true);
         try {
-            const response = await fetch(`/api/sharing/approve/${item.pending_request.id}`, {
-                method: 'POST',
-                credentials: 'include',
-            });
-            if (!response.ok) throw new Error('Failed to approve request.');
-            toast.success('Request approved!');
+            const endpoint = `/api/sharing/${action}/${item.pending_request.id}`;
+            const response = await fetch(endpoint, { method: 'POST', credentials: 'include' });
+            if (!response.ok) throw new Error(`Failed to ${action} request.`);
+            toast.success(`Request ${action}d!`);
             onUpdate();
         } catch (err) {
             toast.error(err.message);
@@ -34,6 +32,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
 
     const handleSetAmount = async (e) => {
         e.preventDefault();
+
+        if (isUpdateByRequest) {
+            const payload = { label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date };
+            const description = `Set amount for '${item.label}' to $${parseFloat(amount).toFixed(2)}`;
+            sendApprovalRequest('update_recurring_expense', budgetId, payload, description);
+            return;
+        }
 
         setLoading(true);
         setError('');
@@ -56,6 +61,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
     const handleMarkPaid = async (e) => {
         e.stopPropagation();
 
+        if (isUpdateByRequest) {
+            const payload = { label: item.label, amount: item.estimated_amount };
+            const description = `Pay bill: '${item.label}' for $${item.estimated_amount}`;
+            sendApprovalRequest('mark_bill_paid', budgetId, payload, description);
+            return;
+        }
+
         setLoading(true);
         setError('');
         try {
@@ -77,6 +89,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
     const handleMarkUnpaid = async (e) => {
         e.stopPropagation();
 
+        if (isUpdateByRequest) {
+            const payload = { label: item.label };
+            const description = `Mark bill as unpaid: '${item.label}'.`;
+            sendApprovalRequest('mark_bill_unpaid', budgetId, payload, description);
+            return;
+        }
+
         setLoading(true);
         setError('');
         try {
@@ -97,6 +116,14 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
 
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
+
+        if (isUpdateByRequest) {
+            const payload = { label: item.label };
+            const description = `Remove expense: '${item.label}'`;
+            sendApprovalRequest('remove_expense', budgetId, payload, description);
+            return;
+        }
+
         try {
             const response = await fetch(`/api/budget-items/remove-expense/${budgetId}`, {
                 method: 'POST',
@@ -119,21 +146,19 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
     }
 
     // This section is for items that don't have an amount set yet.
-    if (item.pending_request) {
+    if (isOwner && item.pending_request) {
         return (
             <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
                 <div className="flex justify-between items-center">
                     <div>
                         <p className="font-semibold">{item.label}</p>
                         <p className="text-sm text-yellow-300 italic">
-                            Pending approval: {item.pending_request.description}
+                            Pending: {item.pending_request.description}
                         </p>
                     </div>
                     <div className="flex items-center gap-2">
-                        <button onClick={handleApprove} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg">
-                            Approve
-                        </button>
-                        {/* You would also add a handleDeny function and button here */}
+                        <button onClick={() => handleApprove('approve')} disabled={loading} className="bg-green-600 ...">Approve</button>
+                        <button onClick={() => handleApprove('deny')} disabled={loading} className="bg-red-600 ...">Deny</button>
                     </div>
                 </div>
             </li>
@@ -179,7 +204,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
             {/* 1. Add the onClick and interactive styles back to the list item */}
             <li
                 onClick={!item.is_paid && isOwner ? () => onEditInBudget(item) : undefined}
-                className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : 'hover:bg-gray-600 cursor-pointer'}`}
+                className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : isOwner ? 'hover:bg-gray-600 cursor-pointer' : ''}`}
             >
                 <div>
                     <span className={`${item.is_paid ? 'line-through' : ''}`}>{item.label}</span>
