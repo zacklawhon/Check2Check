@@ -1,7 +1,8 @@
-import React, { useState, useEffect } from 'react'; // 1. Correctly import useState and useEffect
+import React, { useState, useEffect } from 'react'; 
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import BudgetList from '../components/BudgetList';
-import AccountsCard from '../components/budget/AccountsCard'; // 2. Import the new AccountsCard
+import AccountsCard from '../components/budget/AccountsCard'; 
+import * as api from '../utils/api';
 
 function DashboardPage() {
     const navigate = useNavigate();
@@ -11,13 +12,14 @@ function DashboardPage() {
     const [loadingCycles, setLoadingCycles] = useState(true);
 
     useEffect(() => {
+        // 2. The fetch function is now cleaner and uses the API client
         const fetchCycles = async () => {
             try {
-                const cyclesRes = await fetch('/api/budget/cycles', { credentials: 'include' });
-                if (!cyclesRes.ok) throw new Error('Failed to load budgets.');
-                setBudgetCycles(await cyclesRes.json());
+                const cyclesData = await api.getCycles();
+                setBudgetCycles(cyclesData);
             } catch (err) {
                 console.error(err);
+                // The api client already shows a toast, so no extra error handling is needed here
             } finally {
                 setLoadingCycles(false);
             }
@@ -33,11 +35,6 @@ function DashboardPage() {
     if (loadingCycles) {
         return <div className="text-white p-8 text-center">Loading Budgets...</div>;
     }
-
-    // This logic is now handled by the redirect in ProtectedRoute
-    // if (budgetCycles.length === 0) {
-    //     return <GuidedWizard user={user} />;
-    // }
   
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">

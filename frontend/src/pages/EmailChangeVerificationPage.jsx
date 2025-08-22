@@ -1,9 +1,8 @@
 import React, { useState, useEffect } from 'react';
-// FIX: Import useNavigate for programmatic redirection
+import * as api from '../utils/api';
 import { useNavigate } from 'react-router-dom'; 
 
 function EmailChangeVerificationPage() {
-    // FIX: Use the useNavigate hook
     const navigate = useNavigate(); 
     const [message, setMessage] = useState('Verifying your email change...');
     const [isSuccess, setIsSuccess] = useState(false);
@@ -19,36 +18,22 @@ function EmailChangeVerificationPage() {
             }
 
             try {
-                // The GET method is fine as long as your route allows it.
-                const response = await fetch(`/api/account/verify-email-change/${token}`, {
-                    method: 'GET', // Or 'POST' if you changed the backend route
-                    credentials: 'include'
-                });
+                // 2. Use the new, clean API function
+                const data = await api.verifyEmailChange(token);
                 
-                const data = await response.json();
-
-                if (!response.ok) {
-                    throw new Error(data.messages?.error || 'Verification failed.');
-                }
-                
-                // Set success state and message
                 setMessage(data.message || 'Your email has been updated successfully!');
                 setIsSuccess(true);
 
-                // --- RECOMMENDED CHANGE ---
-                // Redirect to login after a delay so the user can read the message.
                 setTimeout(() => {
-                    // Pass the success message to the login page to be displayed.
                     navigate('/login', { state: { successMessage: data.message } });
                 }, 3000);
 
             } catch (err) {
-                setMessage(err.message);
+                setMessage(err.message); // The API client already shows a toast
             }
         };
 
         verifyToken();
-        // FIX: Add navigate to the dependency array
     }, [navigate]); 
 
     return (

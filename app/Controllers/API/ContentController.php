@@ -29,8 +29,6 @@ class ContentController extends BaseAPIController
 
     public function getLatestAnnouncement()
     {
-        // CHANGED: Use the individual user's ID, not the effective (owner's) ID.
-        // This ensures a partner and owner have separate "seen" histories for announcements.
         $userId = session()->get('userId');
         $contentModel = new ContentModel();
 
@@ -40,20 +38,23 @@ class ContentController extends BaseAPIController
             ->orderBy('created_at', 'DESC')
             ->first();
 
+        // If no announcement exists at all, return 204 No Content
         if (!$latestAnnouncement) {
-            return $this->respond(null);
+            return $this->respond(null, 204); // THE FIX
         }
 
         $viewsModel = new UserContentViewsModel();
         $hasSeen = $viewsModel
-            ->where('user_id', $userId) // Query uses the correct individual ID
+            ->where('user_id', $userId)
             ->where('content_id', $latestAnnouncement['id'])
             ->first();
 
+        // If the user has already seen the latest one, return 204 No Content
         if ($hasSeen) {
-            return $this->respond(null);
+            return $this->respond(null, 204); // THE FIX
         }
 
+        // Otherwise, return the announcement data with a 200 OK status
         return $this->respond([
             'id'      => $latestAnnouncement['id'],
             'title'   => $latestAnnouncement['title'],

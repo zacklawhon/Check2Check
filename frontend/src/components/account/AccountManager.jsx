@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../utils/api';
 import AccountModal from './modals/AccountModal';
 import AdjustBalanceModal from './modals/AdjustBalanceModal'; // 1. Import new modal
 import ConfirmationModal from '../common/ConfirmationModal';
@@ -14,11 +15,10 @@ function AccountManager() {
 
     const fetchAccounts = async () => {
         try {
-            const response = await fetch('/api/user-accounts', { credentials: 'include' });
-            if (!response.ok) throw new Error('Could not fetch accounts.');
-            setAccounts(await response.json());
+            const data = await api.getUserAccounts();
+            setAccounts(data);
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }
@@ -34,9 +34,10 @@ function AccountManager() {
     };
 
     const handleDelete = async () => {
+        if (!deletingAccount) return;
         try {
-            const response = await fetch(`/api/user-accounts/${deletingAccount.id}`, { method: 'DELETE', credentials: 'include' });
-            if (!response.ok) throw new Error('Could not delete account.');
+            // Use the new function name here
+            await api.deleteUserAccount(deletingAccount.id);
             setDeletingAccount(null);
             fetchAccounts();
         } catch (err) {

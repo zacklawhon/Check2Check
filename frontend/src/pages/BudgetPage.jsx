@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../utils/api';
 import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
 import VariableExpenseItem from '../components/budget/VariableExpenseItem';
 import RecurringExpenseItem from '../components/budget/RecurringExpenseItem';
@@ -41,19 +42,12 @@ function BudgetPage() {
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
-            const [budgetRes, transactionsRes, goalsRes, requestsRes] = await Promise.all([
-                fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
-                fetch(`/api/budget-items/transactions/${budgetId}`, { credentials: 'include' }),
-                fetch('/api/goals', { credentials: 'include' }),
-                fetch(`/api/sharing/requests/${budgetId}`, { credentials: 'include' }) // New API call
+            const [budgetData, transactionsData, goalsData, requestsData] = await Promise.all([
+                api.getBudgetDetails(budgetId),
+                api.getTransactionsForCycle(budgetId),
+                api.getGoals(),
+                api.getActionRequests(budgetId)
             ]);
-
-            if (!budgetRes.ok || !transactionsRes.ok || !goalsRes.ok || !requestsRes.ok) {
-                throw new Error('Could not fetch all budget data.');
-            }
-
-            const budgetData = await budgetRes.json();
-            const requestsData = await requestsRes.json();
             
             // --- Merge pending requests into the budget items ---
             if (requestsData.length > 0) {
@@ -73,8 +67,8 @@ function BudgetPage() {
             }
 
             setBudget(budgetData);
-            setTransactions(await transactionsRes.json());
-            setGoals(await goalsRes.json());
+            setTransactions(transactionsData);
+            setGoals(goalsData);
             
 
         } catch (err) {
@@ -120,13 +114,7 @@ function BudgetPage() {
     const handleRemoveIncome = async () => {
         if (!itemToRemove) return;
         try {
-            const response = await fetch(`/api/budget-items/remove-income/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: itemToRemove.label })
-            });
-            if (!response.ok) throw new Error('Failed to remove income.');
+            await api.removeIncomeItem(budgetId, itemToRemove.label);
             setItemToRemove(null);
             refreshBudget();
         } catch (err) {
@@ -142,16 +130,11 @@ function BudgetPage() {
     const handleCloseBudget = async () => {
         setIsClosing(true);
         try {
-            const response = await fetch(`/api/budget/close/${budgetId}`, {
-                method: 'POST',
-                credentials: 'include'
-            });
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to close budget.');
-            }
+            // Use the new, clean API function
+            await api.closeBudget(budgetId);
             window.location.href = `/review/${budgetId}`;
         } catch (err) {
+            // The API client will show the error toast
             setError(err.message);
             setIsClosing(false);
         }
@@ -180,7 +163,10 @@ function BudgetPage() {
         refreshBudget();
     };
 
-    if (loading) return <div className="text-white p-8 text-center">Loading your budget...</div>;
+    if (loading || !user) {
+        return <div className="text-white p-8 text-center">Loading your budget...</div>;
+    }
+
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
     if (!budget || !user) return <div className="text-white p-8 text-center">Budget or user data not found.</div>;
 

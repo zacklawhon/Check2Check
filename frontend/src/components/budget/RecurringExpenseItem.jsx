@@ -4,7 +4,7 @@ import ExpenseDetailModal from './modals/ExpenseDetailModal';
 import { getDayWithOrdinal } from '../utils/formatters';
 import toast from 'react-hot-toast';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }) {
+function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -13,7 +13,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
 
     const isReadOnly = user.is_partner && user.permission_level === 'read_only';
     const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
-    const isOwner = !user.is_partner;
+    const isOwner = !user.owner_user_id;
 
     const handleApprove = async (action) => {
         setLoading(true);
@@ -143,6 +143,20 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user }
     const handleEditClick = (e) => {
         e.stopPropagation();
             onEditInBudget(item);
+    }
+
+    if (isPending) {
+        return (
+            <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
+                <div>
+                    <p className="font-semibold text-gray-300">{item.label}</p>
+                    <p className="text-xs text-yellow-400">A request has been sent for this item.</p>
+                </div>
+                <button disabled className="bg-yellow-600 text-white text-xs font-bold py-1 px-2 rounded cursor-not-allowed">
+                    Requested
+                </button>
+            </li>
+        );
     }
 
     // This section is for items that don't have an amount set yet.

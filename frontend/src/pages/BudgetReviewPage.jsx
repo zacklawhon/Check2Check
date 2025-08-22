@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
 import AccelerateGoalModal from '../components/budget/AccelerateGoalModal';
+import * as api from '../utils/api';
 
 function BudgetReviewPage() {
     const { budgetId } = useParams();
@@ -14,30 +15,25 @@ function BudgetReviewPage() {
     const [isApplySurplusModalOpen, setIsApplySurplusModalOpen] = useState(false);
 
     useEffect(() => {
+        // 2. The fetch function is now cleaner and uses the API client
         const fetchData = async () => {
             try {
-                const [reviewRes, goalsRes] = await Promise.all([
-                    fetch(`/api/budget/${budgetId}`, { credentials: 'include' }),
-                    fetch('/api/goals', { credentials: 'include' })
+                const [budget, goals] = await Promise.all([
+                    api.getBudgetDetails(budgetId),
+                    api.getGoals()
                 ]);
 
-                if (!reviewRes.ok || !goalsRes.ok) {
-                    throw new Error('Could not load budget review data.');
-                }
-
-                const budget = await reviewRes.json();
                 if (budget.status !== 'completed' || !budget.final_summary) {
                     navigate(`/budget/${budgetId}`);
                     return;
                 }
                 setReviewData(budget);
 
-                const goals = await goalsRes.json();
                 const firstActiveGoal = goals.find(g => g.status === 'active');
                 setActiveGoal(firstActiveGoal);
 
             } catch (err) {
-                setError(err.message);
+                setError(err.message); // The API client already shows a toast
             } finally {
                 setLoading(false);
             }

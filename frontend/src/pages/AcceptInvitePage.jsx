@@ -1,43 +1,29 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import * as api from '../utils/api'; // 1. Import the API client
 
 function AcceptInvitePage() {
   const [searchParams] = useSearchParams();
   const navigate = useNavigate();
-
-  // State to manage the UI: loading, error, or confirmation required
   const [status, setStatus] = useState('loading');
   const [error, setError] = useState('');
-  
-  // The token is stored so the user can confirm the transformation
   const [token, setToken] = useState(searchParams.get('token'));
 
-  // This function is called when an existing user confirms the account transformation
+  // 2. The handler is now much simpler
   const handleTransformAccount = async () => {
     setStatus('loading');
     setError('');
     try {
-      const response = await fetch('/api/sharing/transform-account', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ token }),
-      });
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.messages?.error || 'Failed to transform account.');
-      }
-
+      await api.transformAccount(token);
       // On success, the backend has logged the user in. Redirect to the dashboard.
-      window.location.href = '/dashboard'; // Use a full page reload to refresh user context
+      window.location.href = '/dashboard';
     } catch (err) {
       setError(err.message);
       setStatus('error');
     }
   };
 
-  // This effect runs once when the page loads
+  // 3. The effect is also simpler
   useEffect(() => {
     if (!token) {
       setStatus('error');
@@ -47,27 +33,11 @@ function AcceptInvitePage() {
 
     const acceptInvite = async () => {
       try {
-        const response = await fetch('/api/sharing/accept', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ token }),
-        });
-        const data = await response.json();
+        const data = await api.acceptShareInvite(token);
 
-        if (!response.ok) {
-          throw new Error(data.messages?.error || 'Failed to accept invitation.');
-        }
-
-        // --- Handle the two possible success scenarios ---
-        
-        // Scenario 1: New user was created and logged in by the backend
         if (data.status === 'new_user_accepted') {
-          // Redirect them to the dashboard immediately
           navigate('/dashboard');
         } 
-        
-        // Scenario 2: User already exists and needs to confirm
         else if (data.status === 'existing_user_confirmation_required') {
           setStatus('confirmation_required');
         }
@@ -79,7 +49,7 @@ function AcceptInvitePage() {
     };
 
     acceptInvite();
-  }, [token, navigate]); // Dependency array ensures this runs only once
+  }, [token, navigate]);
 
   // --- Render UI based on the current status ---
 

@@ -1,6 +1,6 @@
 // Create new file: src/components/modals/EditGoalModal.jsx
-
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api'; // 1. Import the API client
 
 function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
     const [goalName, setGoalName] = useState('');
@@ -8,32 +8,21 @@ function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
     const [isSaving, setIsSaving] = useState(false);
 
     useEffect(() => {
-        // When the modal opens, populate the form with the goal's current name
         if (goal) {
             setGoalName(goal.goal_name);
         }
     }, [goal]);
 
+    // 2. The handler is now much simpler
     const handleSubmit = async (e) => {
         e.preventDefault();
         setError('');
         setIsSaving(true);
-
         try {
-            const response = await fetch(`/api/goals/${goal.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ goal_name: goalName }),
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to update goal.');
-            }
+            await api.updateGoal(goal.id, { goal_name: goalName });
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setIsSaving(false);
         }

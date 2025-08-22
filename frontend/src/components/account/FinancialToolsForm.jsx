@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../utils/api';
 
 function FinancialToolsForm({ financialTools, onUpdate }) {
     const [tools, setTools] = useState({});
@@ -30,16 +31,11 @@ function FinancialToolsForm({ financialTools, onUpdate }) {
         setLoading(true);
         setSuccess('');
         try {
-            await fetch('/api/account/financial-tools', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(tools)
-            });
+            await api.updateFinancialTools(tools);
             setSuccess('Settings saved!');
             onUpdate();
         } catch (err) {
-            // Handle error
+            // The API client already shows an error toast
         } finally {
             setLoading(false);
             setTimeout(() => setSuccess(''), 3000);

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function EditIncomeRuleModal({ isOpen, incomeSource, onClose, onSuccess }) {
     const [formState, setFormState] = useState({
@@ -34,16 +35,10 @@ function EditIncomeRuleModal({ isOpen, incomeSource, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/account/income-sources/${incomeSource.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(formState),
-            });
-            if (!response.ok) throw new Error('Failed to update income source.');
+            await api.updateIncomeSource(incomeSource.id, formState);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

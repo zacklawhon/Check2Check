@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from './utils/api';
 import { BrowserRouter, Routes, Route, Navigate, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Toaster } from 'react-hot-toast';
 
@@ -23,64 +24,50 @@ import Footer from './components/common/Footer';
 
 function ProtectedRoute() {
   const [user, setUser] = useState(null);
+  const [authError, setAuthError] = useState(false);
   const [loadingUser, setLoadingUser] = useState(true);
   const [activeBudget, setActiveBudget] = useState(null);
   const [accounts, setAccounts] = useState([]);
   const [isNewUser, setIsNewUser] = useState(false);
-
-  // 2. Add state for the new content and announcement system
   const [helpContent, setHelpContent] = useState(null);
   const [announcement, setAnnouncement] = useState(null);
   const [isWhatsNewOpen, setIsWhatsNewOpen] = useState(false);
-
   const location = useLocation();
   const navigate = useNavigate();
 
   const fetchInitialData = async (newBudgetId = null, isSilent = false) => {
     if (!isSilent) setLoadingUser(true);
+    setAuthError(false);
     try {
-      // 3. Add content and announcement fetches to the initial data load
-      const [profileRes, cyclesRes, accountsRes, activeBudgetRes, contentRes, announcementRes] = await Promise.all([
-        fetch('/api/user/profile', { credentials: 'include' }),
-        fetch('/api/budget/cycles', { credentials: 'include' }),
-        fetch('/api/user-accounts', { credentials: 'include' }),
-        fetch('/api/user/active-budget', { credentials: 'include' }),
-        fetch('/api/content/all', { credentials: 'include' }),
-        fetch('/api/content/latest-announcement', { credentials: 'include' })
+      const [userData, cyclesData, accountsData, activeBudgetData, contentData, announcementData] = await Promise.all([
+        api.getProfile(),
+        api.getCycles(),
+        api.getUserAccounts(),
+        api.getActiveBudget(),
+        api.getAllContent(),
+        api.getLatestAnnouncement()
       ]);
 
-      if (!profileRes.ok || !cyclesRes.ok || !accountsRes.ok || !contentRes.ok) {
-        throw new Error('Authentication check failed.');
+      if (activeBudgetData) {
+        activeBudgetData.user = userData;
       }
-
-      // Parse all data
-      const userData = await profileRes.json();
-      const cyclesData = await cyclesRes.json();
-      const accountsData = await accountsRes.json();
-      setHelpContent(await contentRes.json()); // Set help content
-
-      // Check for and set announcement
-      if (announcementRes.ok) {
-        const announcementData = await announcementRes.json();
-        if (announcementData) {
-          setAnnouncement(announcementData);
-          setIsWhatsNewOpen(true);
-        }
-      }
-
-      let activeBudgetData = null;
-      if (activeBudgetRes.ok) activeBudgetData = await activeBudgetRes.json();
 
       setUser(userData);
       setAccounts(accountsData);
       setIsNewUser(cyclesData.length === 0);
-      if (activeBudgetData) setActiveBudget(activeBudgetData);
+      setActiveBudget(activeBudgetData);
+      setHelpContent(contentData);
+
+      if (announcementData) {
+        setAnnouncement(announcementData);
+        setIsWhatsNewOpen(true);
+      }
+
       if (newBudgetId) navigate(`/budget/${newBudgetId}`);
 
-      return { user: userData, accounts: accountsData, activeBudget: activeBudgetData };
     } catch (err) {
       console.error("Failed to fetch initial data:", err);
-      setUser(null);
+      setAuthError(true);
     } finally {
       if (!isSilent) setLoadingUser(false);
     }
@@ -88,23 +75,31 @@ function ProtectedRoute() {
 
   useEffect(() => { fetchInitialData(); }, []);
 
-  // 4. Create handler to mark announcement as seen
   const handleCloseWhatsNew = async () => {
     if (announcement) {
       try {
-        await fetch('/api/content/mark-as-seen', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ content_id: announcement.id })
-        });
+        await api.markAnnouncementSeen(announcement.id);
       } catch (err) {
         console.error("Failed to mark announcement as seen:", err);
       }
     }
     setIsWhatsNewOpen(false);
   };
-
+  // The extra line has been removed
+  if (authError) {
+    return (
+      <div className="text-center p-8 text-white">
+        <h1 className="text-2xl font-bold text-red-400">Connection Error</h1>
+        <p className="mt-2 text-gray-300">Could not connect to the server. Please check your internet connection and try again.</p>
+        <button
+          onClick={() => fetchInitialData()}
+          className="mt-4 bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg"
+        >
+          Try Again
+        </button>
+      </div>
+    );
+  }
   if (loadingUser) return <div className="text-center p-8 text-white">Loading...</div>;
   if (!user) return <Navigate to="/" replace />;
   if (isNewUser && location.pathname !== '/wizard') return <Navigate to="/wizard" replace />;
@@ -112,7 +107,6 @@ function ProtectedRoute() {
   const contextData = { user, activeBudget, accounts, refreshData: fetchInitialData };
 
   return (
-    // 5. Wrap the entire authenticated layout in the ContentProvider
     <ContentProvider content={helpContent}>
       <AuthenticatedLayout activeBudget={activeBudget}>
         <Outlet context={contextData} />

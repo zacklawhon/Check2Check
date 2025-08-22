@@ -9,7 +9,7 @@ use App\Models\ActionRequestModel;
 use CodeIgniter\API\ResponseTrait;
 use Config\Services;
 
-class SharingController extends BaseController
+class SharingController extends BaseAPIController
 {
     use ResponseTrait;
 
@@ -391,16 +391,11 @@ class SharingController extends BaseController
     public function getActionRequests($budgetId)
     {
         // 1. This action is performed by the owner.
-        $ownerId = session()->get('userId');
-        
-        // Ensure the user is not a partner trying to access this.
-        if (session()->get('isPartner')) {
-            return $this->failForbidden('Only the budget owner can view pending requests.');
-        }
+        $ownerId = $this->getEffectiveUserId();
 
         $actionRequestModel = new ActionRequestModel();
 
-        // 2. Find all 'pending' requests that belong to this owner and budget.
+        // 2. Find all 'pending' requests that belong to this  budget.
         $requests = $actionRequestModel
             ->where('owner_user_id', $ownerId)
             ->where('budget_cycle_id', $budgetId)

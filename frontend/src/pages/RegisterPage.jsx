@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useSearchParams, useNavigate } from 'react-router-dom';
+import * as api from '../utils/api';
 import toast from 'react-hot-toast';
 
 export default function RegisterPage() {
@@ -25,22 +26,10 @@ export default function RegisterPage() {
         e.preventDefault();
         setLoading(true);
         try {
-            const response = await fetch('/api/auth/request-link', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ email, invite_token: inviteToken })
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'An unknown error occurred.');
-            }
-            
+            await api.requestLoginLink(email, inviteToken);
             setIsSubmitted(true);
-
         } catch (err) {
-            toast.error(err.message);
+            // The API client already shows the error toast
         } finally {
             setLoading(false);
         }

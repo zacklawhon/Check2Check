@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../utils/api';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import EditItemModal from '../components/account/modals/EditItemModal';
@@ -29,23 +30,16 @@ function AccountPage() {
     const fetchData = async () => {
         if (!loading) setLoading(true);
         try {
-            // 3. Fetch goals and items at the same time
-            const [itemsRes, goalsRes, invitesRes] = await Promise.all([
-                fetch('/api/account/recurring-items', { credentials: 'include' }),
-                fetch('/api/goals', { credentials: 'include' }),
-                fetch('/api/sharing/invites', { credentials: 'include' }) 
+            const [fetchedItems, fetchedGoals, fetchedInvites] = await Promise.all([
+                api.getRecurringItems(),
+                api.getGoals(),
+                api.getSharingInvites()
             ]);
-
-            if (!itemsRes.ok || !goalsRes.ok) throw new Error('Failed to fetch account data.');
-
-            const fetchedItems = await itemsRes.json();
             setItems(fetchedItems);
-            setGoals(await goalsRes.json());
-            setInvites(await invitesRes.json());
-
-
+            setGoals(fetchedGoals);
+            setInvites(fetchedInvites);
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }
@@ -63,16 +57,13 @@ function AccountPage() {
     const confirmDeleteGoal = async () => {
         if (!goalToDelete) return;
         try {
-            const response = await fetch(`/api/goals/${goalToDelete.id}`, {
-                method: 'DELETE',
-                credentials: 'include'
-            });
-            if (!response.ok) throw new Error('Failed to delete goal.');
+            await api.deleteGoal(goalToDelete.id);
+            // On success, manually filter the state to update the UI instantly
             setGoals(currentGoals => currentGoals.filter(g => g.id !== goalToDelete.id));
         } catch (err) {
-            setError(err.message);
+            // Error toast is handled by the client
         } finally {
-            setGoalToDelete(null); // Close the modal
+            setGoalToDelete(null);
         }
     };
 
@@ -93,17 +84,11 @@ function AccountPage() {
 
     const confirmDelete = async () => {
         if (!itemToDelete) return;
-        const { type, id } = itemToDelete;
-        const url = type === 'income' ? `/api/account/income-sources/${id}` : `/api/account/recurring-expenses/${id}`;
         try {
-            const response = await fetch(url, { method: 'DELETE', credentials: 'include' });
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || `Failed to deactivate ${type}.`);
-            }
-            fetchData(); // Refresh the list of items
+            await api.deleteRecurringItem(itemToDelete.type, itemToDelete.id);
+            fetchData(); // Refresh all data on success
         } catch (err) {
-            setError(err.message);
+            // Error toast is handled by the client
         } finally {
             setItemToDelete(null);
         }

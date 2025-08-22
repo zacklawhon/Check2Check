@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function AdjustBalanceModal({ isOpen, onClose, onSuccess, account }) {
     const [newBalance, setNewBalance] = useState('');
@@ -11,20 +12,15 @@ function AdjustBalanceModal({ isOpen, onClose, onSuccess, account }) {
         }
     }, [account]);
 
+    // 2. The handler is now much simpler
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/user-accounts/update-balance/${account.id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'credentials': 'include' },
-                body: JSON.stringify({ current_balance: newBalance })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to adjust balance.');
+            await api.updateAccountBalance(account.id, newBalance);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

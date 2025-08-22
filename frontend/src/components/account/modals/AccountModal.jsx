@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api'
 
 function AccountModal({ isOpen, onClose, onSuccess, account }) {
     const isEditing = !!account;
@@ -22,21 +23,19 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
         }
     }, [account, isEditing]);
 
+    // 2. The handler is now much simpler
     const handleSubmit = async () => {
         setLoading(true);
         setError('');
         try {
-            const url = isEditing ? `/api/user-accounts/${account.id}` : '/api/user-accounts';
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'credentials': 'include' },
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to save account.');
+            if (isEditing) {
+                await api.updateAccount(account.id, formData);
+            } else {
+                await api.createAccount(formData);
+            }
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

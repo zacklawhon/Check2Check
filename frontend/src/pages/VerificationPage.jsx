@@ -19,36 +19,23 @@ function VerificationPage() {
             }
 
             try {
-                const response = await fetch('/api/auth/verify-link', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    body: JSON.stringify({ token }),
-                });
+                // 2. Use the new, clean API function
+                await api.verifyLoginLink(token);
+                
+                // On success, force a full page refresh to the dashboard
+                window.location.assign('/dashboard');
 
-                if (response.ok) {
-                    // SUCCESS!
-                    // Instead of setting local messages, we immediately navigate.
-                    // Using window.location forces a full page refresh, which makes
-                    // App.jsx re-check your login status and load the dashboard correctly.
-                    window.location.assign('/dashboard');
-                } else {
-                    // If the API says the token is bad, set the error state.
-                    const data = await response.json();
-                    setStatusMessage(data.message || 'Failed to verify login link.');
-                    setError(true);
-                }
             } catch (err) {
-                // For network errors etc.
-                setStatusMessage('An unexpected error occurred. Please try again.');
+                // The API client already shows a toast, but we can set a message here too.
+                setStatusMessage(err.message || 'Failed to verify login link.');
                 setError(true);
             }
         };
 
-        // Add a small delay to allow the "Verifying..." message to be seen.
         const timer = setTimeout(verifyToken, 500);
-        return () => clearTimeout(timer); // Cleanup timer on unmount
+        return () => clearTimeout(timer);
 
-    }, []); // Empty dependency array ensures this runs only once
+    }, []);
 
     return (
         <div className="flex items-center justify-center text-white min-h-screen">

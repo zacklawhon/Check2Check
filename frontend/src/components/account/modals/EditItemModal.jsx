@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function EditItemModal({ isOpen, item, onClose, onSuccess }) {
     const [formData, setFormData] = useState({});
@@ -31,23 +32,15 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
         e.preventDefault();
         setLoading(true);
         setError('');
-
-        const url = itemType === 'income' 
-            ? `/api/account/income-sources/${item.id}` 
-            : `/api/account/recurring-expenses/${item.id}`;
-
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(formData)
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to update item.');
+            if (itemType === 'income') {
+                await api.updateIncomeSource(item.id, formData);
+            } else {
+                await api.updateRecurringExpense(item.id, formData);
+            }
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

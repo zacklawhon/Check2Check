@@ -39,51 +39,37 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
         setLoading(true);
         setError('');
 
-        let url = '';
-        let body = {};
-
-        // This logic now correctly handles all three item types
-        if (type === 'income') {
-            url = `/api/budget-items/add-income/${budgetId}`;
-            body = {
-                label: formData.label,
-                amount: formData.amount,
-                frequency: formData.frequency,
-                save_recurring: formData.save_recurring ? 1 : 0
-            };
-        } else if (type === 'variable') {
-            url = `/api/budget-items/add-variable-expense/${budgetId}`;
-            body = {
-                label: formData.label,
-                amount: formData.amount
-            };
-        } else { // Default to 'recurring'
-            url = `/api/budget-items/add-expense/${budgetId}`;
-            body = {
-                label: formData.label,
-                due_date: formData.due_date,
-                estimated_amount: formData.amount,
-                category: formData.category,
-                transfer_to_account_id: formData.transfer_to_account_id,
-                save_recurring: formData.save_recurring ? 1 : 0
-            };
-        }
-
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(body)
-            });
+            if (type === 'income') {
+                const body = {
+                    label: formData.label,
+                    amount: formData.amount,
+                    frequency: formData.frequency,
+                    save_recurring: formData.save_recurring
+                };
+                await api.addIncomeToCycle(budgetId, body);
 
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || `Failed to add ${type}.`);
+            } else if (type === 'variable') {
+                const body = {
+                    label: formData.label,
+                    amount: formData.amount
+                };
+                await api.addVariableExpense(budgetId, body);
+
+            } else { // 'recurring'
+                const body = {
+                    label: formData.label,
+                    due_date: formData.due_date,
+                    estimated_amount: formData.amount,
+                    category: formData.category,
+                    transfer_to_account_id: formData.transfer_to_account_id,
+                    save_recurring: formData.save_recurring
+                };
+                await api.addRecurringExpense(budgetId, body);
             }
-            onSuccess(); // This will close the modal and refresh the budget data
+            onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

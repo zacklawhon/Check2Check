@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as api from '../../utils/api';
 
 function SharedAccessCard({ invites, onUpdate }) {
   const [email, setEmail] = useState('');
@@ -10,51 +11,32 @@ function SharedAccessCard({ invites, onUpdate }) {
     setError('');
     setSuccess('');
     try {
-      const response = await fetch('/api/sharing/invite', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ email, permission_level: permission }),
-      });
-      const data = await response.json();
-      if (!response.ok) {
-        throw new Error(data.messages?.error || 'Failed to send invite.');
-      }
+      await api.sendShareInvite(email, permission);
       setSuccess('Invitation sent successfully!');
-      setEmail(''); // Clear the input on success
-      onUpdate(); // Refresh the main page's data
+      setEmail('');
+      onUpdate();
     } catch (err) {
-      setError(err.message);
+      setError(err.message); // The API client already shows a toast
     }
   };
 
   const handleRevoke = async (inviteId) => {
     if (window.confirm('Are you sure you want to revoke this access? This cannot be undone.')) {
       try {
-        const response = await fetch(`/api/sharing/invites/${inviteId}`, {
-          method: 'DELETE',
-          credentials: 'include',
-        });
-        if (!response.ok) throw new Error('Failed to revoke access.');
-        onUpdate(); // Refresh the data
+        await api.revokeAccess(inviteId);
+        onUpdate();
       } catch (err) {
-        setError(err.message);
+        setError(err.message); // The API client already shows a toast
       }
     }
   };
 
-  const handleUpdatePermission = async (inviteId, newPermission) => {
+   const handleUpdatePermission = async (partnerId, newPermission) => {
     try {
-        const response = await fetch(`/api/sharing/update-permission/${inviteId}`, {
-            method: 'PUT',
-            headers: { 'Content-Type': 'application/json', 'Accept': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify({ permission_level: newPermission }),
-        });
-        if (!response.ok) throw new Error('Failed to update permission.');
+        await api.updatePartnerPermission(partnerId, newPermission);
         onUpdate();
     } catch (err) {
-        setError(err.message);
+        setError(err.message); // The API client already shows a toast
     }
   };
 

@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as api from '../../utils/api';
 import ConfirmationModal from '../common/ConfirmationModal';
 
 function AccountActions() {
@@ -18,18 +19,11 @@ function AccountActions() {
         setError('');
         setSuccess('');
         try {
-            const response = await fetch('/api/account/request-email-change', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ new_email: newEmail })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.messages?.new_email || 'Failed to request email change.');
-            setSuccess('Verification link sent to your old email!');
+            const data = await api.requestEmailChange(newEmail);
+            setSuccess(data.message || 'Verification link sent!');
             setNewEmail('');
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
             setTimeout(() => setSuccess(''), 5000);
@@ -40,18 +34,12 @@ function AccountActions() {
         setIsConfirmDeleteOpen(false);
         setLoading(true);
         try {
-            await fetch('/api/account/delete', { 
-                method: 'DELETE', 
-                credentials: 'include' 
-            });
+            await api.deleteAccount();
         } catch (err) {
-            // We can safely ignore this error because we know the session 
-            // being destroyed causes it. The account is already deleted.
-            console.warn('Fetch failed during account deletion, likely due to session destruction. Navigating as planned.');
+            // This error is expected because the session is destroyed.
+            console.warn('Fetch failed during account deletion, as expected.');
         } finally {
-            // --- FIX: ALWAYS navigate after attempting deletion ---
-            // Whether the fetch 'succeeded' or 'failed', the user's session
-            // is gone, so we must redirect them.
+            // Always redirect after the attempt.
             window.location.href = '/';
         }
     };
@@ -63,16 +51,10 @@ function AccountActions() {
         setError('');
         setSuccess('');
         try {
-            const response = await fetch('/api/user/fresh-start', {
-                method: 'DELETE',
-                credentials: 'include'
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to reset account.');
-            // Reload the page to clear out any old state and show the fresh account
+            await api.freshStart();
             window.location.reload(); 
-        } catch (err) { // <-- This was the line with the error
-            setError(err.message);
+        } catch (err) {
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useOutletContext, useNavigate } from 'react-router-dom';
+import * as api from '../utils/api'; // 1. Import the new API client
 import EmergencyFundStep from '../components/goals/EmergencyFundStep';
 import StrategyStep from '../components/goals/StrategyStep';
 import TargetStep from '../components/goals/TargetStep';
@@ -15,43 +16,34 @@ function GoalsPage() {
     const [debts, setDebts] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
-
     const [goals, setGoals] = useState([]);
     const [hasEmergencyFundGoal, setHasEmergencyFundGoal] = useState(false);
-    const [goalPath, setGoalPath] = useState(null); // 'debt' or 'savings'
-
+    const [goalPath, setGoalPath] = useState(null);
     const [goalSetup, setGoalSetup] = useState({
         emergencyFund: null,
         strategy: null,
     });
 
     useEffect(() => {
+        // 2. The initial data fetch is refactored to use the API client
         const fetchData = async () => {
             try {
-                const [accRes, itemsRes, goalsRes] = await Promise.all([
-                    fetch('/api/user-accounts', { credentials: 'include' }),
-                    fetch('/api/account/recurring-items', { credentials: 'include' }),
-                    fetch('/api/goals', { credentials: 'include' })
+                const [accountsData, itemsData, goalsData] = await Promise.all([
+                    api.getUserAccounts(),
+                    api.getRecurringItems(),
+                    api.getGoals()
                 ]);
 
-                if (!accRes.ok || !itemsRes.ok || !goalsRes.ok) {
-                    throw new Error('Could not fetch required data.');
-                }
+                setAccounts(accountsData);
+                setGoals(goalsData);
 
-                setAccounts(await accRes.json());
-                const items = await itemsRes.json();
-                const existingGoals = await goalsRes.json();
-
-                // --- STEP 2: SAVE THE FETCHED GOALS TO STATE ---
-                setGoals(existingGoals);
-
-                const validDebts = items.recurring_expenses.filter(exp =>
+                const validDebts = itemsData.recurring_expenses.filter(exp =>
                     (exp.category === 'loan' || exp.category === 'credit-card') &&
                     exp.outstanding_balance && exp.interest_rate
                 );
                 setDebts(validDebts);
 
-                const hasEFGoal = existingGoals.some(goal => goal.goal_name === 'Build Emergency Fund');
+                const hasEFGoal = goalsData.some(goal => goal.goal_name === 'Build Emergency Fund');
                 setHasEmergencyFundGoal(hasEFGoal);
 
             } catch (err) {
@@ -68,20 +60,21 @@ function GoalsPage() {
 
     const handleEmergencyFundComplete = (result) => {
         setGoalSetup(prev => ({ ...prev, emergencyFund: result }));
-        setGoalPath('debt'); // After creating an EF, the next logical step is debt
-        nextStep(); // Go to step 2 (which will now be StrategyStep)
+        setGoalPath('debt');
+        nextStep();
     };
 
     const handleGoalTypeSelect = (path) => {
         setGoalPath(path);
-        nextStep(); // Go to step 2 (which will be StrategyStep or CustomSavingsStep)
+        nextStep();
     };
 
     const handleStrategyComplete = (strategy) => {
         setGoalSetup(prev => ({ ...prev, strategy }));
-        nextStep(); // Go to step 3 (TargetStep)
+        nextStep();
     };
 
+    // 3. The goal creation handlers are refactored to use the API client
     const handleCustomSavingsComplete = async (savingsData) => {
         setLoading(true);
         setError('');
@@ -91,16 +84,7 @@ function GoalsPage() {
                 goal_type: 'savings',
                 strategy: 'savings',
             };
-
-            const response = await fetch('/api/goals', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            });
-
-            if (!response.ok) throw new Error('Failed to create savings goal.');
-
+            await api.createGoal(payload);
             navigate('/account');
         } catch (err) {
             setError(err.message);
@@ -108,16 +92,11 @@ function GoalsPage() {
         }
     };
 
-    // 3. Create the final handler that creates the goal
     const handleTargetSelection = async (selectedDebt) => {
         setLoading(true);
         setError('');
-
         try {
-            // Check if the user chose the Hybrid strategy
             if (goalSetup.strategy === 'hybrid') {
-
-                // --- Payload 1: The Debt Goal ---
                 const debtPayload = {
                     goal_name: `Pay Off: ${selectedDebt.label}`,
                     goal_type: 'debt_reduction',
@@ -125,42 +104,18 @@ function GoalsPage() {
                     target_amount: selectedDebt.outstanding_balance,
                     current_amount: selectedDebt.outstanding_balance,
                 };
-
-                // --- Payload 2: The Emergency Fund Savings Goal ---
                 const savingsPayload = {
                     goal_name: 'Build Emergency Fund',
                     goal_type: 'savings',
-                    strategy: 'hybrid', // Mark this as part of the hybrid plan
+                    strategy: 'hybrid',
                     target_amount: 2000.00,
-                    // Use the linked account ID saved from Step 1
                     linked_account_id: goalSetup.emergencyFund?.linkedAccountId || null,
                 };
-
-                // --- Send both requests to the backend in parallel ---
-                const responses = await Promise.all([
-                    fetch('/api/goals', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify(debtPayload)
-                    }),
-                    fetch('/api/goals', {
-                        method: 'POST',
-                        headers: { 'Content-Type': 'application/json' },
-                        credentials: 'include',
-                        body: JSON.stringify(savingsPayload)
-                    })
+                await Promise.all([
+                    api.createGoal(debtPayload),
+                    api.createGoal(savingsPayload)
                 ]);
-
-                // Check if either of the goal creations failed
-                for (const response of responses) {
-                    if (!response.ok) {
-                        const data = await response.json();
-                        throw new Error(data.message || 'Failed to create the hybrid plan.');
-                    }
-                }
             } else {
-                // --- This is the original logic for Avalanche or Snowball goals ---
                 const payload = {
                     goal_name: `Pay Off: ${selectedDebt.label}`,
                     goal_type: 'debt_reduction',
@@ -168,30 +123,15 @@ function GoalsPage() {
                     target_amount: selectedDebt.outstanding_balance,
                     current_amount: selectedDebt.outstanding_balance,
                 };
-
-                const response = await fetch('/api/goals', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(payload)
-                });
-
-                if (!response.ok) {
-                    const data = await response.json();
-                    throw new Error(data.message || 'Failed to create goal.');
-                }
+                await api.createGoal(payload);
             }
-
-            // On success, navigate the user to their account page
             navigate('/account');
-
         } catch (err) {
             setError(err.message);
         } finally {
             setLoading(false);
         }
     };
-
     const renderStep = () => {
         switch (step) {
             case 1:
