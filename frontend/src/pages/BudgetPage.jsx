@@ -42,34 +42,54 @@ function BudgetPage() {
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
+            // We only call getActionRequests for the owner. For partners, the requests
+            // are expected to be part of the main budget details payload.
+            const isOwner = user && !user.is_partner;
+
             const [budgetData, transactionsData, goalsData, requestsData] = await Promise.all([
                 api.getBudgetDetails(budgetId),
                 api.getTransactionsForCycle(budgetId),
                 api.getGoals(),
-                api.getActionRequests(budgetId)
+                isOwner ? api.getActionRequests(budgetId) : Promise.resolve([]) // <-- CHANGE HERE
             ]);
-            
-            // --- Merge pending requests into the budget items ---
-            if (requestsData.length > 0) {
-                // This logic attaches the pending request data directly to the item it affects
+
+            // --- This block is for OWNERS ---
+            if (isOwner && requestsData.length > 0) {
                 const mergeRequests = (items) => {
                     return items.map(item => {
                         const pendingRequest = requestsData.find(req => {
-                            const payload = JSON.parse(req.payload);
-                            return payload.label === item.label;
+                            try {
+                                const payload = JSON.parse(req.payload);
+                                return payload.label === item.label;
+                            } catch { return false; }
                         });
                         return pendingRequest ? { ...item, pending_request: pendingRequest } : item;
                     });
                 };
-                
+
                 budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses);
                 budgetData.initial_income = mergeRequests(budgetData.initial_income);
             }
 
+            // --- ADD THIS BLOCK FOR PARTNERS ---
+            // This initializes the partner's pending view when the page loads.
+            if (!isOwner && budgetData.action_requests && budgetData.action_requests.length > 0) {
+                const pendingLabels = budgetData.action_requests.map(req => {
+                    try {
+                        const payload = JSON.parse(req.payload);
+                        return payload.label;
+                    } catch (e) {
+                        console.error("Failed to parse request payload:", req.payload);
+                        return null;
+                    }
+                }).filter(Boolean); // This removes any nulls if parsing fails.
+                setPendingRequests(pendingLabels);
+            }
+            // --- END OF NEW BLOCK ---
+
             setBudget(budgetData);
             setTransactions(transactionsData);
             setGoals(goalsData);
-            
 
         } catch (err) {
             setError(err.message);
@@ -265,7 +285,7 @@ function BudgetPage() {
             <ConfirmationModal isOpen={!!itemToRemove} onClose={() => setItemToRemove(null)} onConfirm={handleRemoveIncome} title="Confirm Removal" message={`Are you sure you want to remove "${itemToRemove?.label}"?`} />
             <ReceiveIncomeModal isOpen={!!itemToReceive} item={itemToReceive} budgetId={budgetId} onClose={() => setItemToReceive(null)} onSuccess={handleReceiveSuccess} />
             <EditBudgetItemModal isOpen={!!itemToEdit} onClose={() => setItemToEdit(null)} onSuccess={handleEditSuccess} item={itemToEdit} budgetId={budgetId} />
-            {goals.length > 0 && <AccelerateGoalModal isOpen={isAccelerateModalOpen} onClose={() => setIsAccelerateModalOpen(false)} onSuccess={()=>{setIsAccelerateModalOpen(false); refreshBudget();}} goal={goals.find(g=>g.status === 'active')} surplus={budget.initial_income.reduce((s,i)=>s+parseFloat(i.amount||0),0) - budget.initial_expenses.reduce((s,e)=>s+parseFloat(e.estimated_amount||0),0)} budgetId={budgetId} />}
+            {goals.length > 0 && <AccelerateGoalModal isOpen={isAccelerateModalOpen} onClose={() => setIsAccelerateModalOpen(false)} onSuccess={() => { setIsAccelerateModalOpen(false); refreshBudget(); }} goal={goals.find(g => g.status === 'active')} surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)} budgetId={budgetId} />}
         </div>
     );
 }

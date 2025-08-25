@@ -8,6 +8,7 @@ namespace App\Controllers\API;
 use App\Controllers\API\BaseAPIController;
 use App\Services\BudgetService;
 use App\Services\UserService;
+use App\Models\ActionRequestModel;
 use CodeIgniter\API\ResponseTrait;
 use DateTime;
 use Exception;
@@ -24,10 +25,10 @@ class BudgetController extends BaseAPIController
         }
 
         $rules = [
-            'start_date'          => 'required|valid_date[Y-m-d]',
-            'end_date'            => 'required|valid_date[Y-m-d]',
-            'income_sources'      => 'required|string',
-            'recurring_expenses'  => 'required|string',
+            'start_date' => 'required|valid_date[Y-m-d]',
+            'end_date' => 'required|valid_date[Y-m-d]',
+            'income_sources' => 'required|string',
+            'recurring_expenses' => 'required|string',
             'spending_categories' => 'required|string'
         ];
         if (!$this->validate($rules)) {
@@ -38,12 +39,12 @@ class BudgetController extends BaseAPIController
         try {
             $cycleData = [
                 'start_date' => $this->request->getVar('start_date'),
-                'end_date'   => $this->request->getVar('end_date'),
+                'end_date' => $this->request->getVar('end_date'),
             ];
             $incomeSources = json_decode($this->request->getVar('income_sources'), true);
             $recurringExpenses = json_decode($this->request->getVar('recurring_expenses'), true);
             $spendingCategories = json_decode($this->request->getVar('spending_categories'), true);
-            
+
             // 3. Controller calls the service to do the work.
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
@@ -83,7 +84,20 @@ class BudgetController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetCycle = $budgetService->getCycleDetails($userId, (int)$id);
+            $budgetCycle = $budgetService->getCycleDetails($userId, (int) $id);
+
+            // --- ADD THIS BLOCK ---
+            $user = session()->get('user');
+            if ($user && isset($user['permission_level']) && $user['permission_level'] === 'update_by_request') {
+                $actionRequestModel = new ActionRequestModel();
+                $requests = $actionRequestModel
+                    ->where('requester_user_id', $user['id'])
+                    ->where('budget_cycle_id', $id)
+                    ->where('status', 'pending')
+                    ->findAll();
+                $budgetCycle['action_requests'] = $requests;
+            }
+            // --- END BLOCK ---
 
             return $this->respond($budgetCycle);
 
@@ -118,8 +132,8 @@ class BudgetController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->closeCycle($userId, (int)$id);
-            
+            $budgetService->closeCycle($userId, (int) $id);
+
             // 3. Controller returns the response.
             return $this->respond(['message' => 'Budget closed successfully.']);
 
@@ -142,7 +156,7 @@ class BudgetController extends BaseAPIController
 
         $rules = [
             'start_date' => 'required|valid_date[Y-m-d]',
-            'end_date'   => 'required|valid_date[Y-m-d]',
+            'end_date' => 'required|valid_date[Y-m-d]',
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
@@ -150,19 +164,19 @@ class BudgetController extends BaseAPIController
 
         $startDate = $this->request->getVar('start_date');
         $endDate = $this->request->getVar('end_date');
-        
+
         // Handle partner requests.
         if ($permission === 'update_by_request') {
             $payload = ['start_date' => $startDate, 'end_date' => $endDate];
             $description = "Change budget dates to {$startDate} through {$endDate}";
             return $this->handlePartnerAction('update_budget_dates', $description, $budgetId, $payload);
         }
-        
+
         // 2. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->updateBudgetDates($userId, (int)$budgetId, $startDate, $endDate);
+            $budgetService->updateBudgetDates($userId, (int) $budgetId, $startDate, $endDate);
 
             // 3. Controller returns the response.
             return $this->respondUpdated(['message' => 'Budget dates updated successfully.']);
@@ -221,7 +235,7 @@ class BudgetController extends BaseAPIController
             $userId = $this->getEffectiveUserId();
             $userService = new UserService();
             $categoryId = $userService->createSpendingCategory($userId, $name);
-            
+
             // 3. Controller returns the response.
             return $this->respondCreated(['id' => $categoryId, 'message' => 'Spending category saved.']);
 
