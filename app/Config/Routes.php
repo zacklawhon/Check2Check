@@ -98,23 +98,30 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         });
 
         $routes->group('account', static function ($routes) {
+            //Creation Routes
             $routes->post('spending-categories', 'AccountController::createSpendingCategory');
-            $routes->put('expenses/update-details/(:num)', 'AccountController::updateExpenseDetails/$1');
             $routes->post('income-sources', 'AccountController::createIncomeSource');
             $routes->post('recurring-expenses', 'AccountController::createRecurringExpense');
-            $routes->get('recurring-items', 'AccountController::getRecurringItems');
-            $routes->delete('income-sources/(:num)', 'AccountController::deleteIncomeSource/$1');
-            $routes->delete('recurring-expenses/(:num)', 'AccountController::deleteRecurringExpense/$1');
+            
+            //Update Methods
+            $routes->put('expenses/update-details/(:num)', 'AccountController::updateExpenseDetails/$1');
             $routes->post('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');
+            $routes->post('request-email-change', 'AccountController::requestEmailChange');
             $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
             $routes->post('profile', 'AccountController::updateProfile');
             $routes->post('financial-tools', 'AccountController::updateFinancialTools');
-            $routes->get('financial-tools', 'AccountController::getFinancialTools');
-            $routes->post('request-email-change', 'AccountController::requestEmailChange');
-            $routes->get('verify-email-change/(:segment)', 'AccountController::verifyEmailChange/$1');
-            $routes->delete('delete', 'AccountController::deleteAccount');
             $routes->put('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');
             $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
+            
+            //Getters
+            $routes->get('recurring-items', 'AccountController::getRecurringItems');
+            $routes->get('financial-tools', 'AccountController::getFinancialTools');
+            $routes->get('verify-email-change/(:segment)', 'AccountController::verifyEmailChange/$1');
+
+            //Deleters
+            $routes->delete('income-sources/(:num)', 'AccountController::deleteIncomeSource/$1');
+            $routes->delete('recurring-expenses/(:num)', 'AccountController::deleteRecurringExpense/$1');
+            $routes->delete('delete', 'AccountController::deleteAccount');
         });
 
         $routes->group('feedback', static function ($routes) {

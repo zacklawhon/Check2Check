@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import * as api from '../../../utils/api';
 
 function AccelerateGoalModal({ isOpen, onClose, onSuccess, goal, surplus, budgetId }) {
     const [debtPayment, setDebtPayment] = useState('');
@@ -30,20 +31,10 @@ function AccelerateGoalModal({ isOpen, onClose, onSuccess, goal, surplus, budget
         try {
             const promises = [];
             if (debtAmount > 0) {
-                promises.push(fetch(`/api/goals/${goal.id}/log-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ amount: debtAmount, budgetId, paymentType: 'debt' })
-                }));
+                promises.push(api.logGoalPayment(goal.id, { amount: debtAmount, budgetId, paymentType: 'debt' }));
             }
             if (savingsAmount > 0) {
-                promises.push(fetch(`/api/goals/${goal.id}/log-payment`, {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({ amount: savingsAmount, budgetId, paymentType: 'savings' })
-                }));
+                promises.push(api.logGoalPayment(goal.id, { amount: savingsAmount, budgetId, paymentType: 'savings' }));
             }
 
             await Promise.all(promises);
@@ -51,7 +42,7 @@ function AccelerateGoalModal({ isOpen, onClose, onSuccess, goal, surplus, budget
             onSuccess();
 
         } catch (err) {
-            toast.error('Failed to apply surplus.');
+            // The API client already shows a toast
         } finally {
             setLoading(false);
         }

@@ -1,24 +1,22 @@
 import React from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as api from '../../utils/api'
 
 function NextStepsPrompt({ onDismiss }) {
     const navigate = useNavigate();
 
     const handleDismiss = async () => {
         try {
-            await fetch('/api/user/dismiss-accounts-prompt', { 
-                method: 'POST', 
-                credentials: 'include' 
-            });
+            await api.dismissAccountsPrompt();
         } catch (err) {
+            // The API client already shows a toast, but we can log the error
             console.error("Failed to dismiss prompt:", err);
         }
-        // Tell the parent page to hide the prompt and refresh data
         onDismiss(); 
     };
 
     const handleNavigate = () => {
-        handleDismiss(); // Also dismiss the prompt when navigating
+        handleDismiss();
         navigate('/account');
     };
 

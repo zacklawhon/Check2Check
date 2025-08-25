@@ -37,6 +37,7 @@ function EditIncomeRuleModal({ isOpen, incomeSource, onClose, onSuccess }) {
         try {
             await api.updateIncomeSource(incomeSource.id, formState);
             onSuccess();
+            onUpdate();
         } catch (err) {
             setError(err.message); // The API client already shows a toast
         } finally {

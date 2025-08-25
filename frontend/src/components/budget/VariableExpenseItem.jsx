@@ -1,6 +1,7 @@
 import React, { useState } from 'react';
 import LogTransactionModal from './modals/LogTransactionModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
+import * as api from '../../utils/api';
 
 function VariableExpenseItem({ item, budgetId, onUpdate, transactions, user }) {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -20,20 +21,8 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions, user }) {
     setLoading(true);
     setError('');
     try {
-      const response = await fetch(`/api/budget-items/update-variable-amount/${budgetId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ label: item.label, amount: budgetedAmount })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to update amount.');
-      }
-
+      await api.updateVariableExpenseAmount(budgetId, { label: item.label, amount: budgetedAmount });
       onUpdate();
-
     } catch (err) {
       setError(err.message);
     } finally {
@@ -48,19 +37,8 @@ function VariableExpenseItem({ item, budgetId, onUpdate, transactions, user }) {
 
   const handleDeleteConfirm = async () => {
     setIsConfirmModalOpen(false);
-    
     try {
-      const response = await fetch(`/api/budget-items/remove-expense/${budgetId}`, {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        credentials: 'include',
-        body: JSON.stringify({ label: item.label })
-      });
-
-      if (!response.ok) {
-        const data = await response.json();
-        throw new Error(data.message || 'Failed to remove expense.');
-      }
+      await api.removeExpenseItem(budgetId, item.label);
       onUpdate();
     } catch (err) {
       setError(err.message);

@@ -35,8 +35,10 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
         try {
             if (itemType === 'income') {
                 await api.updateIncomeSource(item.id, formData);
+                onUpdate();
             } else {
                 await api.updateRecurringExpense(item.id, formData);
+                onUpdate();
             }
             onSuccess();
         } catch (err) {

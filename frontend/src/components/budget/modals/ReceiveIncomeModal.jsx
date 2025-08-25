@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function ReceiveIncomeModal({ isOpen, item, budgetId, onClose, onSuccess }) {
     const [amount, setAmount] = useState('');
@@ -19,19 +20,14 @@ function ReceiveIncomeModal({ isOpen, item, budgetId, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/${budgetId}/receive-income`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    label: item.label,
-                    amount: parseFloat(amount),
-                }),
-            });
-            if (!response.ok) throw new Error('Failed to mark income as received.');
+            const payload = {
+                label: item.label,
+                amount: parseFloat(amount),
+            };
+            await api.markIncomeReceived(budgetId, payload);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

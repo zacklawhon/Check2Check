@@ -28,7 +28,7 @@ function AccountPage() {
     const navigate = useNavigate();
 
     const fetchData = async () => {
-        if (!loading) setLoading(true);
+        setLoading(true); 
         try {
             const [fetchedItems, fetchedGoals, fetchedInvites] = await Promise.all([
                 api.getRecurringItems(),

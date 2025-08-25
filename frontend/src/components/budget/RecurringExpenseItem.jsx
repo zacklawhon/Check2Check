@@ -3,6 +3,7 @@ import ConfirmationModal from '../../components/common/ConfirmationModal';
 import ExpenseDetailModal from './modals/ExpenseDetailModal';
 import { getDayWithOrdinal } from '../utils/formatters';
 import toast from 'react-hot-toast';
+import * as api from '../../utils/api';
 
 function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending }) {
     const [loading, setLoading] = useState(false);
@@ -18,13 +19,15 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
     const handleApprove = async (action) => {
         setLoading(true);
         try {
-            const endpoint = `/api/sharing/${action}/${item.pending_request.id}`;
-            const response = await fetch(endpoint, { method: 'POST', credentials: 'include' });
-            if (!response.ok) throw new Error(`Failed to ${action} request.`);
+            if (action === 'approve') {
+                await api.approveRequest(item.pending_request.id);
+            } else {
+                await api.denyRequest(item.pending_request.id);
+            }
             toast.success(`Request ${action}d!`);
             onUpdate();
         } catch (err) {
-            toast.error(err.message);
+            // API client shows toast
         } finally {
             setLoading(false);
         }
@@ -32,24 +35,18 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleSetAmount = async (e) => {
         e.preventDefault();
-
+        const payload = { label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date };
         if (isUpdateByRequest) {
-            const payload = { label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date };
             const description = `Set amount for '${item.label}' to $${parseFloat(amount).toFixed(2)}`;
-            sendApprovalRequest('update_recurring_expense', budgetId, payload, description);
+            const data = await api.handlePartnerAction('update_recurring_expense', description, budgetId, payload);
+            toast.success(data.message);
+            onItemRequest(item.label);
             return;
         }
-
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/recurring-expense/${budgetId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date })
-            });
-            if (!response.ok) throw new Error('Failed to set amount.');
+            await api.updateRecurringExpenseInCycle(budgetId, payload);
             onUpdate();
         } catch (err) {
             setError(err.message);
@@ -60,24 +57,18 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleMarkPaid = async (e) => {
         e.stopPropagation();
-
+        const payload = { label: item.label, amount: item.estimated_amount };
         if (isUpdateByRequest) {
-            const payload = { label: item.label, amount: item.estimated_amount };
             const description = `Pay bill: '${item.label}' for $${item.estimated_amount}`;
-            sendApprovalRequest('mark_bill_paid', budgetId, payload, description);
+            const data = await api.handlePartnerAction('mark_bill_paid', description, budgetId, payload);
+            toast.success(data.message);
+            onItemRequest(item.label);
             return;
         }
-
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/mark-bill-paid/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: item.label, amount: item.estimated_amount })
-            });
-            if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Failed to mark as paid.'); }
+            await api.markBillPaid(budgetId, payload);
             onUpdate();
         } catch (err) {
             setError(err.message);
@@ -88,24 +79,18 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleMarkUnpaid = async (e) => {
         e.stopPropagation();
-
+        const payload = { label: item.label };
         if (isUpdateByRequest) {
-            const payload = { label: item.label };
             const description = `Mark bill as unpaid: '${item.label}'.`;
-            sendApprovalRequest('mark_bill_unpaid', budgetId, payload, description);
+            const data = await api.handlePartnerAction('mark_bill_unpaid', description, budgetId, payload);
+            toast.success(data.message);
+            onItemRequest(item.label);
             return;
         }
-
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/mark-bill-unpaid/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: item.label })
-            });
-            if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Failed to undo payment.'); }
+            await api.markBillUnpaid(budgetId, payload);
             onUpdate();
         } catch (err) {
             setError(err.message);
@@ -116,22 +101,16 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
-
+        const payload = { label: item.label };
         if (isUpdateByRequest) {
-            const payload = { label: item.label };
             const description = `Remove expense: '${item.label}'`;
-            sendApprovalRequest('remove_expense', budgetId, payload, description);
+            const data = await api.handlePartnerAction('remove_expense', description, budgetId, payload);
+            toast.success(data.message);
+            onItemRequest(item.label);
             return;
         }
-
         try {
-            const response = await fetch(`/api/budget-items/remove-expense/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: item.label })
-            });
-            if (!response.ok) { const data = await response.json(); throw new Error(data.message || 'Failed to remove expense.'); }
+            await api.removeExpenseItem(budgetId, item.label);
             onUpdate();
         } catch (err) {
             setError(err.message);

@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useMemo, useRef } from 'react';
 import { getDayWithOrdinal } from '../utils/formatters';
+import * as api from '../../utils/api';
 
 function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {}, onNewExpenseAdded, accounts = [] }) {
     const [formState, setFormState] = useState({
@@ -84,15 +85,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             const recurringData = { ...formState };
             delete recurringData.amount;
             
-            const response = await fetch('/api/account/recurring-expenses', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(recurringData) 
-            });
-            
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add expense.');
+            const data = await api.createRecurringExpense(recurringData);
             
             const newExpense = {
                 id: data.id,
@@ -148,14 +141,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                 const recurringData = { ...formState };
                 delete recurringData.amount;
                 
-                const response = await fetch('/api/budget-items/add-expense', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify(recurringData)
-                });
-                const data = await response.json();
-                if (!response.ok) throw new Error(data.message || 'Failed to add final expense.');
+                const data = await api.createRecurringExpense(recurringData);
                 
                 const newExpense = {
                     id: data.id,

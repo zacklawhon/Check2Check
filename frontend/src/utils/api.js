@@ -1,14 +1,16 @@
 import toast from 'react-hot-toast';
-import * as api from '../utils/api';
 
 /**
  * A centralized function for making API requests.
- * @param {string} endpoint - The API endpoint (e.g., '/api/budget/1').
+ * @param {string} endpoint - The API endpoint.
  * @param {string} [method='GET'] - The HTTP method.
- * @param {object} [body=null] - The request body for POST/PUT requests.
+ * @param {object} [body=null] - The request body.
+ * @param {boolean} [showToast=true] - Whether to show a toast on error.
  * @returns {Promise<any>} - The JSON response from the server.
  */
-const apiRequest = async (endpoint, method = 'GET', body = null) => {
+
+
+const apiRequest = async (endpoint, method = 'GET', body = null, showToast = true) => {
     try {
         const options = {
             method,
@@ -21,24 +23,27 @@ const apiRequest = async (endpoint, method = 'GET', body = null) => {
 
         const response = await fetch(endpoint, options);
         
+        if (response.status === 204) {
+            return null;
+        }
+
         if (!response.ok) {
             const errorData = await response.json().catch(() => ({ messages: { error: 'An unexpected error occurred.' } }));
-            throw new Error(errorData.messages?.error || 'API request failed.');
+            // Add a status code to the error object for more specific handling
+            const error = new Error(errorData.messages?.error || 'API request failed.');
+            error.status = response.status;
+            throw error;
         }
 
-        // --- THIS IS THE FIX ---
-        // Check if there's any content to parse. If not, return null.
-        const contentLength = response.headers.get('content-length');
-        if (response.status === 204 || contentLength === '0') {
-            return null; // Return null for "No Content" responses
-        }
-        // --- END OF FIX ---
-
-        // If there is content, parse it as JSON.
         return await response.json();
 
     } catch (err) {
-        toast.error(err.message);
+        // --- THIS IS THE FIX ---
+        // Only show the toast if the showToast flag is true
+        if (showToast) {
+            toast.error(err.message);
+        }
+        // --- END OF FIX ---
         throw err;
     }
 };
@@ -53,14 +58,21 @@ export const requestLoginLink = (email, inviteToken = null) => {
     return apiRequest('/api/auth/request-link', 'POST', payload);
 };
 export const verifyLoginLink = (token) => apiRequest('/api/auth/verify-link', 'POST', { token });
+export const logout = () => apiRequest('/api/auth/logout', 'POST');
 
 // User & Account Data
-export const getProfile = () => apiRequest('/api/user/profile');
+export const getProfile = (showToast = true) => apiRequest('/api/user/profile', 'GET', null, showToast);
 export const getCycles = () => apiRequest('/api/budget/cycles');
 export const getUserAccounts = () => apiRequest('/api/user-accounts');
 export const getActiveBudget = () => apiRequest('/api/user/active-budget');
 export const updateAccountBalance = (accountId, newBalance) => apiRequest(`/api/user-accounts/update-balance/${accountId}`, 'POST', { current_balance: newBalance });
 export const deleteUserAccount = (accountId) => apiRequest(`/api/user-accounts/${accountId}`, 'DELETE');
+export const dismissAccountsPrompt = () => apiRequest('/api/user/dismiss-accounts-prompt', 'POST');
+export const updateProfile = (profileData) => apiRequest('/api/account/profile', 'POST', profileData);
+export const createAccount = (accountData) => apiRequest('/api/user-accounts', 'POST', accountData);
+export const updateAccount = (accountId, accountData) => apiRequest(`/api/user-accounts/${accountId}`, 'POST', accountData);
+
+
 
 // Content
 export const getAllContent = () => apiRequest('/api/content/all');
@@ -86,6 +98,7 @@ export const getTransactionsForCycle = (budgetId) => apiRequest(`/api/budget-ite
 export const getActionRequests = (budgetId) => apiRequest(`/api/sharing/requests/${budgetId}`);
 export const removeIncomeItem = (budgetId, label) => apiRequest(`/api/budget-items/remove-income/${budgetId}`, 'POST', { label });
 export const closeBudget = (budgetId) => apiRequest(`/api/budget/close/${budgetId}`, 'POST');
+export const updateBudgetDates = (budgetId, dates) => apiRequest(`/api/budget/update-dates/${budgetId}`, 'POST', dates);
 
 // Sharing
 export const acceptShareInvite = (token) => apiRequest('/api/sharing/accept', 'POST', { token });
@@ -93,11 +106,17 @@ export const transformAccount = (token) => apiRequest('/api/sharing/transform-ac
 export const sendShareInvite = (email, permissionLevel) => apiRequest('/api/sharing/invite', 'POST', { email, permission_level: permissionLevel });
 export const revokeAccess = (inviteId) => apiRequest(`/api/sharing/invites/${inviteId}`, 'DELETE');
 export const updatePartnerPermission = (partnerId, newPermission) => apiRequest(`/api/sharing/update-permission/${partnerId}`, 'PUT', { permission_level: newPermission });
+export const approveRequest = (requestId) => apiRequest(`/api/sharing/approve/${requestId}`, 'POST');
+export const denyRequest = (requestId) => apiRequest(`/api/sharing/deny/${requestId}`, 'POST');
+export const getSharingInvites = () => apiRequest('/api/sharing/invites');
+
+
 
 // Goals
 export const getGoals = () => apiRequest('/api/goals');
 export const createGoal = (goalData) => apiRequest('/api/goals', 'POST', goalData);
 export const updateGoal = (goalId, goalData) => apiRequest(`/api/goals/${goalId}`, 'PUT', goalData);
+export const logGoalPayment = (goalId, data) => apiRequest(`/api/goals/${goalId}/log-payment`, 'POST', data);
 
 //Account Actions
 export const requestEmailChange = (newEmail) => apiRequest('/api/account/request-email-change', 'POST', { new_email: newEmail });
@@ -109,3 +128,51 @@ export const updateFinancialTools = (toolsData) => apiRequest('/api/account/fina
 export const addIncomeToCycle = (budgetId, data) => apiRequest(`/api/budget-items/add-income/${budgetId}`, 'POST', data);
 export const addVariableExpense = (budgetId, data) => apiRequest(`/api/budget-items/add-variable-expense/${budgetId}`, 'POST', data);
 export const addRecurringExpense = (budgetId, data) => apiRequest(`/api/budget-items/add-expense/${budgetId}`, 'POST', data);
+
+// Budget Item Actions
+export const updateRecurringExpenseInCycle = (budgetId, data) => apiRequest(`/api/budget-items/recurring-expense/${budgetId}`, 'PUT', data);
+export const updateIncomeInCycle = (budgetId, data) => apiRequest(`/api/budget-items/${budgetId}/update-income`, 'POST', data);
+export const getExpenseHistory = (label) => apiRequest(`/api/budget-items/expense-history?label=${encodeURIComponent(label)}`);
+export const updateExpenseDetails = (expenseId, data) => apiRequest(`/api/account/expenses/update-details/${expenseId}`, 'PUT', data);
+export const markBillPaid = (budgetId, data) => apiRequest(`/api/budget-items/mark-bill-paid/${budgetId}`, 'POST', data);
+export const markIncomeReceived = (budgetId, data) => apiRequest(`/api/budget-items/${budgetId}/receive-income`, 'POST', data);
+export const markBillUnpaid = (budgetId, data) => apiRequest(`/api/budget-items/mark-bill-unpaid/${budgetId}`, 'POST', data);
+export const removeExpenseItem = (budgetId, label) => apiRequest(`/api/budget-items/remove-expense/${budgetId}`, 'POST', { label });
+export const updateVariableExpenseAmount = (budgetId, data) => apiRequest(`/api/budget-items/update-variable-amount/${budgetId}`, 'POST', data);
+
+
+// Transactions
+export const logTransaction = (transactionData) => apiRequest('/api/transaction/add', 'POST', transactionData);
+
+// Account Transfers
+export const transferToAccount = (budgetId, data) => apiRequest(`/api/transfers/${budgetId}/to-account`, 'POST', data);
+export const transferFromAccount = (budgetId, data) => apiRequest(`/api/transfers/${budgetId}/from-account`, 'POST', data);
+
+// Feedback
+export const submitFeedback = (feedbackData) => apiRequest('/api/feedback/submit', 'POST', feedbackData);
+
+// "Join the App" Invitations
+export const getUserInvitations = () => apiRequest('/api/invitations');
+export const sendJoinInvite = (email) => apiRequest('/api/invitations/send', 'POST', { recipient_email: email });
+
+// Account Item Creation
+export const createRecurringExpense = (expenseData) => apiRequest('/api/account/recurring-expenses', 'POST', expenseData);
+export const createIncomeSource = (incomeData) => apiRequest('/api/account/income-sources', 'POST', incomeData);
+
+// Wizard
+export const getWizardSuggestions = () => apiRequest('/api/budget/wizard-suggestions');
+export const createBudgetCycle = (budgetData) => apiRequest('/api/budget/create', 'POST', budgetData);
+
+// Projections
+export const projectIncome = (dates, incomeRules) => apiRequest('/api/budget/project-income', 'POST', {
+    start_date: dates.startDate,
+    end_date: dates.endDate,
+    income_rules: incomeRules,
+});
+
+// Categories
+export const createSpendingCategory = (name) => apiRequest('/api/account/spending-categories', 'POST', { name });
+
+// Savings Actions
+export const addSavings = (budgetId, data) => apiRequest(`/api/budget/savings/add/${budgetId}`, 'POST', data);
+export const withdrawSavings = (budgetId, data) => apiRequest(`/api/budget/savings/withdraw/${budgetId}`, 'POST', data);

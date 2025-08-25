@@ -1,18 +1,20 @@
 import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom'; // 1. Import the useNavigate hook
+import { useNavigate } from 'react-router-dom'; 
+import * as api from '../../../utils/api'
 
 function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
-    const navigate = useNavigate(); // 2. Initialize the navigate function
+    const navigate = useNavigate(); 
     const [amount, setAmount] = useState('');
     const [dueDate, setDueDate] = useState('');
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    
 
     useEffect(() => {
         if (item) {
             setAmount(item.estimated_amount || '');
             setDueDate(item.due_date || '');
-            setError(''); // Clear previous errors when a new item is selected
+            setError(''); 
         }
     }, [item]);
 
@@ -23,23 +25,14 @@ function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
         }
         setLoading(true);
         setError('');
-
         try {
-            const response = await fetch(`/api/budget-items/recurring-expense/${budgetId}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    label: item.label,
-                    estimated_amount: amount,
-                    due_date: dueDate
-                })
-            });
-
-            if (!response.ok) throw new Error((await response.json()).message || 'Failed to update expense.');
-            
+            const payload = {
+                label: item.label,
+                estimated_amount: amount,
+                due_date: dueDate
+            };
+            await api.updateRecurringExpenseInCycle(budgetId, payload);
             onSuccess();
-
         } catch (err) {
             setError(err.message);
         } finally {

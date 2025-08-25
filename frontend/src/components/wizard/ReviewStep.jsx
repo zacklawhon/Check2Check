@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../utils/api';
 
 function ReviewStep({ onBack, onComplete, dates, incomeRules }) {
     const [projection, setProjection] = useState(null);
@@ -6,23 +7,13 @@ function ReviewStep({ onBack, onComplete, dates, incomeRules }) {
     const [error, setError] = useState('');
 
     useEffect(() => {
+        // 2. The fetch function is now cleaner
         const fetchProjection = async () => {
             try {
-                const response = await fetch('/api/budget/project-income', {
-                    method: 'POST',
-                    headers: { 'Content-Type': 'application/json' },
-                    credentials: 'include',
-                    body: JSON.stringify({
-                        start_date: dates.startDate,
-                        end_date: dates.endDate,
-                        income_rules: incomeRules,
-                    }),
-                });
-                if (!response.ok) throw new Error('Could not calculate projection.');
-                const data = await response.json();
+                const data = await api.projectIncome(dates, incomeRules);
                 setProjection(data);
             } catch (err) {
-                setError(err.message);
+                setError(err.message); // The API client already shows a toast
             } finally {
                 setLoading(false);
             }

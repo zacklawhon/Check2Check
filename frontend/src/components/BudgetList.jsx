@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as api from '../utils/api'; 
 
 // The 'user' prop is no longer needed
 function BudgetList({ budgetCycles, onRefresh }) {
@@ -9,10 +10,8 @@ function BudgetList({ budgetCycles, onRefresh }) {
     const handleCloseBudget = async (budgetId) => {
         setLoadingId(budgetId);
         try {
-            const response = await fetch(`/api/budget/close/${budgetId}`, {
-                method: 'POST', credentials: 'include'
-            });
-            if (!response.ok) throw new Error('Failed to close budget.');
+            await api.closeBudget(budgetId);
+            // The API client will show a toast on error
             window.location.href = `/review/${budgetId}`;
         } catch (err) {
             console.error(err);

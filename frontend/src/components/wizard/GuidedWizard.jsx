@@ -5,6 +5,7 @@ import IncomeStep from './IncomeStep';
 import ReviewStep from './ReviewStep';
 import ExpenseStep from './ExpenseStep';
 import SpendingStep from './SpendingStep';
+import * as api from '../../utils/api';
 
 
 export function GuidedWizard() {
@@ -27,10 +28,8 @@ export function GuidedWizard() {
     useEffect(() => {
         const fetchSuggestions = async () => {
             try {
-                const response = await fetch('/api/budget/wizard-suggestions', { credentials: 'include' });
-                if (!response.ok) throw new Error('Could not load setup data.');
-                const data = await response.json();
-                
+                const data = await api.getWizardSuggestions();
+
                 const suggestions = {
                     proposedStartDate: data.proposedStartDate,
                     suggestedIncome: data.suggestedIncome || [],
@@ -117,32 +116,20 @@ export function GuidedWizard() {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('/api/budget/create', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({
-                    start_date: wizardData.confirmedDates.startDate,
-                    end_date: wizardData.confirmedDates.endDate,
-                    income_sources: JSON.stringify(wizardData.projectedIncome),
-                    recurring_expenses: JSON.stringify(wizardData.confirmedExpenses),
-                    spending_categories: JSON.stringify(finalSpendingCategories)
-                })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to create budget cycle.');
-
-            // --- 2. THIS IS THE NEW LOGIC ---
-            // Call refreshData and pass the new budget ID to it.
-            // It will handle the state update and the navigation.
+            const payload = {
+                start_date: wizardData.confirmedDates.startDate,
+                end_date: wizardData.confirmedDates.endDate,
+                income_sources: JSON.stringify(wizardData.projectedIncome),
+                recurring_expenses: JSON.stringify(wizardData.confirmedExpenses),
+                spending_categories: JSON.stringify(finalSpendingCategories)
+            };
+            const data = await api.createBudgetCycle(payload);
             await refreshData(data.id);
-
         } catch (err) {
             setError(err.message);
             setLoading(false);
         }
     };
-
 
 
     if (loading) return <div className="text-center p-8 text-white">Loading your setup...</div>;

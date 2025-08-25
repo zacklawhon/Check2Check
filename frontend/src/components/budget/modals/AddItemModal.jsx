@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function AddItemModal({ type, budgetId, onClose, onSuccess }) {
     const [formData, setFormData] = useState({

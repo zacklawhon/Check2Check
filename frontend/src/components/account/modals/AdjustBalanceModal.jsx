@@ -19,6 +19,7 @@ function AdjustBalanceModal({ isOpen, onClose, onSuccess, account }) {
         try {
             await api.updateAccountBalance(account.id, newBalance);
             onSuccess();
+            onUpdate();
         } catch (err) {
             setError(err.message); // The API client already shows a toast
         } finally {

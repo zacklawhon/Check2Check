@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../utils/api';
 
 // --- The Modal Component ---
 // We pass `budgetId` down to this component to control its options.
@@ -99,32 +100,19 @@ export default function SavingsCard({ balance, budgetId, onUpdate }) {
 
         setLoading(true);
         setError('');
-
-        const url = `/api/budget/savings/${modalAction}/${budgetId}`;
-        
-        const body = { amount: parseFloat(amount) };
-        if (modalAction === 'withdraw') {
-            body.withdrawal_type = withdrawalType;
-        }
-
         try {
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(body)
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'An unknown error occurred.');
+            const body = { amount: parseFloat(amount) };
+            if (modalAction === 'withdraw') {
+                body.withdrawal_type = withdrawalType;
+                await api.withdrawSavings(budgetId, body);
+            } else {
+                await api.addSavings(budgetId, body);
             }
             
             setModalAction(null);
             onUpdate();
-
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 // A simple sub-component to render the bar chart
 function BarChart({ data }) {
@@ -53,15 +54,11 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
 
         const isHistoryNeeded = ['utilities', 'other', 'housing', 'subscription', 'insurance'].includes(item.category);
 
-        if (isHistoryNeeded) {
+        if (['utilities', 'other', 'housing', 'subscription', 'insurance'].includes(item.category)) {
             const fetchHistory = async () => {
                 setLoadingHistory(true);
                 try {
-                    const response = await fetch(`/api/budget-items/expense-history?label=${encodeURIComponent(item.label)}`, {
-                        credentials: 'include'
-                    });
-                    if (!response.ok) throw new Error('Could not fetch history.');
-                    const data = await response.json();
+                    const data = await api.getExpenseHistory(item.label);
                     setHistory(data);
                 } catch (err) {
                     console.error(err);
@@ -83,13 +80,7 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/expenses/update-details/${item.id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(formData)
-            });
-            if (!response.ok) throw new Error('Failed to save changes.');
+            await api.updateExpenseDetails(item.id, formData);
             setIsEditing(false);
             onUpdate();
         } catch (err) {
@@ -103,13 +94,7 @@ function ExpenseDetailModal({ item, isOpen, onClose, budgetId, onUpdate }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/mark-bill-paid/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label: item.label, amount: item.estimated_amount })
-            });
-            if (!response.ok) throw new Error('Failed to mark as paid.');
+            await api.markBillPaid(budgetId, { label: item.label, amount: item.estimated_amount });
             onUpdate();
             onClose();
         } catch (err) {

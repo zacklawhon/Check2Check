@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as api from '../../utils/api';
 
 function AddVariableForm({ budgetId, onSuccess }) {
     const [label, setLabel] = useState('');
@@ -10,17 +11,12 @@ function AddVariableForm({ budgetId, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/add-expense/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label, amount: 0, category: 'variable' })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add category.');
+            // This endpoint can handle both recurring and variable expenses
+            const payload = { label, amount: 0, category: 'variable' };
+            await api.addRecurringExpense(budgetId, payload);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

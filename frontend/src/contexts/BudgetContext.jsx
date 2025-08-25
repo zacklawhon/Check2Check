@@ -1,4 +1,5 @@
 import React, { createContext, useState, useEffect, useContext } from 'react';
+import * as api from '../utils/api';
 
 const BudgetContext = createContext();
 
@@ -8,15 +9,10 @@ export const BudgetProvider = ({ children }) => {
     const [activeBudget, setActiveBudget] = useState(null);
     const [loading, setLoading] = useState(true);
 
-    const fetchActiveBudget = async () => {
+     const fetchActiveBudget = async () => {
         try {
-            const response = await fetch('/api/user/active-budget', { credentials: 'include' });
-            if (response.ok) {
-                const data = await response.json();
-                setActiveBudget(data);
-            } else {
-                setActiveBudget(null);
-            }
+            const data = await api.getActiveBudget();
+            setActiveBudget(data);
         } catch (error) {
             console.error("Failed to fetch active budget", error);
             setActiveBudget(null);

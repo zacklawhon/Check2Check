@@ -2,6 +2,7 @@
 // FILE: /frontend/src/components/AuthModal.jsx
 // =================================================================
 import React, { useState } from 'react';
+import * as api from '../../utils/api';
 
 function AuthModal({ onClose }) {
   const [email, setEmail] = useState('');
@@ -16,21 +17,10 @@ function AuthModal({ onClose }) {
     setMessage('');
 
     try {
-      const response = await fetch('/api/auth/request-link', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ email }),
-      });
-
-      const data = await response.json();
-
-      if (!response.ok) {
-        throw new Error(data.message || 'An error occurred.');
-      }
-
+      const data = await api.requestLoginLink(email);
       setMessage(data.message);
     } catch (err) {
-      setError(err.message);
+      setError(err.message); // The API client already shows a toast
     } finally {
       setLoading(false);
     }

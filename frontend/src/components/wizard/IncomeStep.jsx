@@ -20,17 +20,8 @@ function IncomeRuleEditor({ source, onSaveSuccess }) {
                 frequency_date_1: frequencyDate1,
                 frequency_date_2: frequencyDate2,
             };
-            // This endpoint will need to handle updates
-            const response = await fetch(`/api/account/income-sources/${source.id}`, {
-                method: 'PUT',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            });
-            if (!response.ok) throw new Error('Failed to update rule.');
-
-            onSaveSuccess(payload); // Update the parent state
-
+            await api.updateIncomeSource(source.id, payload);
+            onSaveSuccess(payload);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -154,15 +145,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
             frequency_date_2: formState.frequencyDate2,
         };
 
-        // FIX: Update this URL to the new endpoint
-        const response = await fetch('/api/account/income-sources', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(payload)
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.message || 'Failed to add income source.');
+        const data = await api.createIncomeSource(payload);
 
         const newIncomeSource = {
             id: data.id,

@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as api from '../../utils/api';
 
 function AddIncomeForm({ budgetId, onSuccess }) {
     const [label, setLabel] = useState('');
@@ -13,17 +14,11 @@ function AddIncomeForm({ budgetId, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget-items/add-income/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ label, amount, frequency, save_recurring: saveRecurring })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add income.');
+            const payload = { label, amount, frequency, save_recurring: saveRecurring };
+            await api.addIncomeToCycle(budgetId, payload);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

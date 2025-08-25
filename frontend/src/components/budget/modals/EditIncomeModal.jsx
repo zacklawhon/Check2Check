@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
     const [formData, setFormData] = useState({ label: '', amount: '' });
@@ -26,31 +27,15 @@ function EditIncomeModal({ item, budgetId, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            // --- 1. THIS IS THE CORRECTED URL ---
-            const url = `/api/budget-items/${budgetId}/update-income`;
-
-            // --- 2. THIS IS THE CORRECTED BODY PAYLOAD ---
-            // The backend expects 'original_label', 'label', and 'amount'.
             const body = {
-                original_label: item.label, // The original name to find the item
-                label: formData.label,      // The new name
-                amount: formData.amount       // The new amount
+                original_label: item.label,
+                label: formData.label,
+                amount: formData.amount
             };
-            
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(body)
-            });
-
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.messages.error || 'Failed to update income.');
-            }
+            await api.updateIncomeInCycle(budgetId, body);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); 
         } finally {
             setLoading(false);
         }

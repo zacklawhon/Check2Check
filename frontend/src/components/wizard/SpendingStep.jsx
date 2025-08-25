@@ -1,19 +1,15 @@
 // frontend/src/components/wizard/SpendingStep.jsx
 
 import React, { useState, useEffect } from 'react';
+import * as api from '../../utils/api';
 
 function SpendingStep({ onBack, onComplete, updateSpending, existingCategories = [] }) {
-    // State for the "add new" form
     const [categoryName, setCategoryName] = useState('');
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
 
-    // State to manage the list of selected categories
     const [selectedCategories, setSelectedCategories] = useState([]);
 
-    // --- THIS IS THE FIX ---
-    // This hook now initializes the selected categories to an empty list,
-    // ensuring the checkboxes are unchecked by default when the component loads.
     useEffect(() => {
         setSelectedCategories([]);
     }, [existingCategories]);
@@ -32,22 +28,14 @@ function SpendingStep({ onBack, onComplete, updateSpending, existingCategories =
         setLoading(true);
         setError('');
         try {
-            const response = await fetch('/api/budget/spending-categories', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ name: categoryName })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add category.');
-            
+            const data = await api.createSpendingCategory(categoryName);
             const newCategory = { id: data.id, name: categoryName };
-            // Add to the main list and automatically select it
+            
             updateSpending(newCategory);
             setSelectedCategories(prev => [...prev, newCategory]);
             setCategoryName('');
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

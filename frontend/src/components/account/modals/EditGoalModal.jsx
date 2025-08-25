@@ -21,6 +21,7 @@ function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
         try {
             await api.updateGoal(goal.id, { goal_name: goalName });
             onSuccess();
+            onUpdate();
         } catch (err) {
             setError(err.message); // The API client already shows a toast
         } finally {

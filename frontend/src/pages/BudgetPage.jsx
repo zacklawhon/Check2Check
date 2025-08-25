@@ -10,7 +10,7 @@ import ConfirmationModal from '../components/common/ConfirmationModal';
 import EditDatesModal from '../components/budget/modals/EditDatesModal';
 import AccountsCard from '../components/budget/AccountsCard';
 import NextStepsPrompt from '../components/budget/NextStepsPrompt';
-import AccelerateGoalModal from '../components/budget/AccelerateGoalModal';
+import AccelerateGoalModal from '../components/budget/modals/AccelerateGoalModal';
 import ReceiveIncomeModal from '../components/budget/modals/ReceiveIncomeModal';
 import EditBudgetItemModal from '../components/budget/modals/EditBudgetItemModal';
 import BudgetSummaryCard from '../components/budget/BudgetSummaryCard';

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
+import * as api from '../../utils/api';
 
 function ProfileForm({ user, onUpdate }) {
     const [formData, setFormData] = useState({});
@@ -24,26 +25,30 @@ function ProfileForm({ user, onUpdate }) {
         e.preventDefault();
         setLoading(true);
 
-        const promise = fetch('/api/account/profile', {
-            method: 'POST',
-            headers: { 'Content-Type': 'application/json' },
-            credentials: 'include',
-            body: JSON.stringify(formData)
-        }).then(response => {
-            if (!response.ok) {
-                return response.json().then(data => Promise.reject(data.message || 'Failed to update.'));
-            }
-            return response.json();
-        });
+        try {
+            // The toast.promise will automatically handle showing loading, success, and error toasts.
+            await toast.promise(
+                api.updateProfile(formData),
+                {
+                    loading: 'Saving Profile...',
+                    success: 'Profile updated successfully!',
+                    error: (err) => `Error: ${err.toString()}`,
+                }
+            );
+            
+            // --- THIS IS THE FIX ---
+            // On success, immediately call onUpdate to trigger the live refresh.
+            onUpdate();
+            // --- END OF FIX ---
 
-        await toast.promise(promise, {
-            loading: 'Saving Profile...',
-            success: 'Profile updated successfully!',
-            error: (err) => `Error: ${err.toString()}`,
-        });
-        
-        onUpdate();
-        setLoading(false);
+        } catch (err) {
+            // The toast will have already displayed the error from the API client.
+            // We can log it here for debugging if needed.
+            console.error("Failed to update profile:", err);
+        } finally {
+            // This block will run regardless of whether the try or catch block ran.
+            setLoading(false);
+        }
     };
 
     return (

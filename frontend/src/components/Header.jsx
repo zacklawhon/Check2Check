@@ -2,6 +2,7 @@ import React, { useState, useMemo } from 'react';
 import { useNavigate, useLocation } from 'react-router-dom';
 import HelpFeedbackModal from './common/HelpFeedbackModal';
 import logo from '../assets/c2c-logo-2.png';
+import * as api from '../utils/api';
 
 function Header({ activeBudget }) {
   const navigate = useNavigate();
@@ -20,11 +21,15 @@ function Header({ activeBudget }) {
   }, [location]);
 
   const handleLogout = async () => {
-    await fetch('/api/auth/logout', { 
-        method: 'POST',
-        credentials: 'include' 
-    });
-    navigate('/');
+    try {
+        await api.logout();
+    } catch (err) {
+        // The API client will show a toast, but we can log the error
+        console.error("Logout failed, navigating to homepage.", err);
+    } finally {
+        // Always navigate to the homepage after attempting to log out
+        navigate('/');
+    }
   };
 
   const handleNavClick = (path) => {

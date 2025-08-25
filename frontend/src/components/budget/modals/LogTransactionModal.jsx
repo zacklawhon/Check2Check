@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import * as api from '../../../utils/api';
 
 // 2. Accept the 'user' object as a prop
 function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user }) {
@@ -23,21 +24,11 @@ function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user 
         };
 
         try {
-            const response = await fetch('/api/transaction/add', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(transactionData)
-            });
-            
-            if (!response.ok) {
-                const data = await response.json();
-                throw new Error(data.message || 'Failed to log transaction.');
-            }
+            await api.logTransaction(transactionData);
             toast.success('Transaction logged!');
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

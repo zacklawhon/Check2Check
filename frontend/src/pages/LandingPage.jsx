@@ -13,23 +13,20 @@ function LandingPage() {
   useEffect(() => {
     const checkAuthStatus = async () => {
       try {
-        await api.getProfile();
+        await api.getProfile(false);
         // If the above line succeeds, the user is logged in.
         navigate('/dashboard');
       } catch (err) {
-        // --- THIS IS THE FIX ---
-        // The apiRequest helper throws an error with a message.
-        // If the user is simply not logged in, the message will contain "401".
+
         if (err.message.includes('401') || err.message.includes('Authentication')) {
-          // This is an expected "error" for a logged-out user, so we show the page.
+
           setIsCheckingAuth(false);
         } else {
-          // For any other error (e.g., server down), we can handle it differently.
-          // For now, we'll also just show the page, but you could show an error message.
+
           console.error("Auth check failed with an unexpected error:", err);
           setIsCheckingAuth(false);
         }
-        // --- END OF FIX ---
+
       }
     };
 

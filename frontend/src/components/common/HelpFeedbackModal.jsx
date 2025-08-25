@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useContent } from '../../contexts/ContentContext';
+import * as api from '../../utils/api';
 
 // --- Feedback Tab Component (Your existing code, unchanged) ---
 const FeedbackTab = ({ onClose }) => {
@@ -17,29 +18,15 @@ const FeedbackTab = ({ onClose }) => {
         setLoading(true);
         setError('');
         setSuccess('');
-
         try {
             const payload = {
                 ...formData,
                 page_url: window.location.href,
                 user_agent: navigator.userAgent
             };
-
-            const response = await fetch('/api/feedback/submit', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(payload)
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.messages.error || 'Failed to submit feedback.');
-            }
-
+            const data = await api.submitFeedback(payload);
             setSuccess(data.message);
-            setFormData({ type: 'general', subject: '', message: '' }); // Clear form
-
+            setFormData({ type: 'general', subject: '', message: '' });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -99,9 +86,7 @@ const InviteTab = () => {
 
     const fetchInvitations = async () => {
         try {
-            const response = await fetch('/api/invitations', { credentials: 'include' });
-            if (!response.ok) throw new Error('Could not fetch invitations.');
-            const data = await response.json();
+            const data = await api.getUserInvitations();
             setInvitations(data);
         } catch (err) {
             console.error(err.message);
@@ -117,24 +102,11 @@ const InviteTab = () => {
         setLoading(true);
         setError('');
         setSuccess('');
-
         try {
-            const response = await fetch('/api/invitations/send', {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ recipient_email: email })
-            });
-
-            const data = await response.json();
-            if (!response.ok) {
-                throw new Error(data.message || 'Failed to send invitation.');
-            }
-
+            const data = await api.sendJoinInvite(email);
             setSuccess(data.message);
             setEmail('');
-            fetchInvitations(); // Refresh the list
-
+            fetchInvitations();
         } catch (err) {
             setError(err.message);
         } finally {

@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import * as api from '../utils/api';
 
 function VerificationPage() {
     const navigate = useNavigate();

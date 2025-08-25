@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useParams, useNavigate, useOutletContext } from 'react-router-dom';
-import AccelerateGoalModal from '../components/budget/AccelerateGoalModal';
+import AccelerateGoalModal from '../components/budget/modals/AccelerateGoalModal';
 import * as api from '../utils/api';
 
 function BudgetReviewPage() {

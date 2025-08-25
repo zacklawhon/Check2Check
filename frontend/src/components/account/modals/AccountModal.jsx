@@ -38,6 +38,7 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
             setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
+            onUpdate();
         }
     };
 

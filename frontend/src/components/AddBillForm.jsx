@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as api from '../../utils/api';
 
 function AddBillForm({ budgetId, onSuccess }) {
     // State now includes all possible fields, plus the amount for this specific cycle
@@ -30,18 +31,10 @@ function AddBillForm({ budgetId, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            // The formState contains all the data the controller needs
-            const response = await fetch(`/api/budget-items/add-expense/${budgetId}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify(formState)
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to add bill.');
+            await api.addRecurringExpense(budgetId, formState);
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

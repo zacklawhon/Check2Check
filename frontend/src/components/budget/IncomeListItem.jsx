@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import toast from 'react-hot-toast';
+import * as api from '../../utils/api';
 
 function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending }) {
   const [loading, setLoading] = useState(false);
@@ -11,17 +12,16 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   // --- Handlers for Owner's Approval ---
   const handleApproval = async (action) => {
     setLoading(true);
-    const endpoint = `/api/sharing/${action}/${item.pending_request.id}`;
     try {
-      const response = await fetch(endpoint, {
-        method: 'POST',
-        credentials: 'include',
-      });
-      if (!response.ok) throw new Error(`Failed to ${action} request.`);
+      if (action === 'approve') {
+        await api.approveRequest(item.pending_request.id);
+      } else {
+        await api.denyRequest(item.pending_request.id);
+      }
       toast.success(`Request ${action}d!`);
       onUpdate();
     } catch (err) {
-      toast.error(err.message);
+      // API client shows toast
     } finally {
       setLoading(false);
     }
@@ -31,26 +31,16 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   const handleRemoveClick = async () => {
     if (window.confirm(`Are you sure you want to remove "${item.label}"?`)) {
       try {
-        const response = await fetch(`/api/budget-items/remove-income/${budgetId}`, {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          credentials: 'include',
-          body: JSON.stringify({ label: item.label }),
-        });
-        const data = await response.json();
-        if (!response.ok) throw new Error(data.messages?.error);
+        const data = await api.removeIncomeItem(budgetId, item.label);
         toast.success(data.message);
 
-        // 2. ADD THIS LOGIC BLOCK
         if (isUpdateByRequest) {
-          // Tell the parent page to update the UI to "Requested"
           onItemRequest(item.label);
         } else {
-          // Owners get a full data refresh
           onUpdate();
         }
       } catch (err) {
-        toast.error(err.message);
+        // API client shows toast
       }
     }
   };

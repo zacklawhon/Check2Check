@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../../utils/api';
 
 function TransferModal({ isOpen, onClose, onConfirm, accounts, budgetId, action }) {
     const [amount, setAmount] = useState('');
@@ -18,28 +19,21 @@ function TransferModal({ isOpen, onClose, onConfirm, accounts, budgetId, action 
         setLoading(true);
         setError('');
         try {
-            const url = action === 'from' 
-                ? `/api/transfers/${budgetId}/from-account` 
-                : `/api/transfers/${budgetId}/to-account`;
-            
             const body = {
                 account_id: selectedAccountId,
                 amount: parseFloat(amount),
                 transfer_type: transferType
             };
 
-            const response = await fetch(url, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json', 'credentials': 'include' },
-                body: JSON.stringify(body)
-            });
-
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Transfer failed.');
+            if (action === 'from') {
+                await api.transferFromAccount(budgetId, body);
+            } else {
+                await api.transferToAccount(budgetId, body);
+            }
             onConfirm();
 
         } catch (err) {
-            setError(err.message);
+            setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
         }

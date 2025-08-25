@@ -1,4 +1,5 @@
 import React, { useState } from 'react';
+import * as api from '../../../utils/api';
 
 function EditDatesModal({ budget, onClose, onSuccess }) {
     // Helper to format date for input field
@@ -16,17 +17,10 @@ function EditDatesModal({ budget, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            const response = await fetch(`/api/budget/update-dates/${budget.id}`, {
-                method: 'POST',
-                headers: { 'Content-Type': 'application/json' },
-                credentials: 'include',
-                body: JSON.stringify({ start_date: startDate, end_date: endDate })
-            });
-            const data = await response.json();
-            if (!response.ok) throw new Error(data.message || 'Failed to update dates.');
+            await api.updateBudgetDates(budget.id, { start_date: startDate, end_date: endDate });
             onSuccess();
         } catch (err) {
-            setError(err.message);
+            setError(err.message); 
         } finally {
             setLoading(false);
         }
