@@ -422,5 +422,24 @@ class SharingController extends BaseAPIController
         return $this->respond(['message' => 'Action denied successfully.']);
     }
 
+    public function cancelActionRequest($requestId)
+    {
+        // 1. This action is performed by the partner who made the request.
+        $requesterId = session()->get('userId');
+        $actionRequestModel = new ActionRequestModel();
+
+        $request = $actionRequestModel->find($requestId);
+
+        // 2. Security Check: Ensure the request exists and that the logged-in user is the one who created it.
+        if (!$request || (int) $request['requester_user_id'] !== (int) $requesterId) {
+            return $this->failNotFound('Action request not found or you do not have permission to cancel it.');
+        }
+
+        // 3. Simply delete the request.
+        $actionRequestModel->delete($requestId);
+
+        return $this->respond(['message' => 'Request cancelled successfully.']);
+    }
+
 
 }

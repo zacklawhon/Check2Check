@@ -4,14 +4,12 @@ import HelpFeedbackModal from './common/HelpFeedbackModal';
 import logo from '../assets/c2c-logo-2.png';
 import * as api from '../utils/api';
 
-// 1. Accept the 'user' object as a prop
 function Header({ activeBudget, user }) {
   const navigate = useNavigate();
   const location = useLocation();
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-  // 2. Determine if the user is an owner
   const isOwner = user && !user.owner_user_id;
 
   const pageKey = useMemo(() => {
@@ -25,11 +23,13 @@ function Header({ activeBudget, user }) {
 
   const handleLogout = async () => {
     try {
-        await api.logout();
+      await api.logout();
     } catch (err) {
-        console.error("Logout failed, navigating to homepage.", err);
+      // The API client will show a toast, but we can log the error
+      console.error("Logout failed, navigating to homepage.", err);
     } finally {
-        navigate('/');
+      // Always navigate to the homepage after attempting to log out
+      navigate('/');
     }
   };
 
@@ -39,38 +39,46 @@ function Header({ activeBudget, user }) {
   };
 
   return (
-    <>
-      <header className="bg-gray-800 text-white shadow-md sticky top-0 z-30">
-        <div className="container mx-auto flex justify-between items-center p-4">
-          <div className="flex items-center">
-            <img src={logo} alt="Check2Check" className="h-10 w-auto mr-4"/>
-            <nav className="hidden md:flex items-center space-x-4">
-              <button onClick={() => navigate('/dashboard')} className="text-gray-300 hover:text-white">Dashboard</button>
-              
-              {/* 3. Conditionally render the "Account" link for desktop */}
-              {isOwner && (
-                <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
-              )}
+    <header className="bg-gray-800 shadow-md relative">
+      <div className="container mx-auto flex justify-between items-center p-4 text-white">
+        <img
+          src={logo} // 2. Use the imported variable here
+          alt="Check2Check Logo"
+          className="h-8 w-auto cursor-pointer"
+          onClick={() => handleNavClick('/dashboard')}
+        />
 
-              <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
-            </nav>
-          </div>
-          <div className="hidden md:flex items-center space-x-4">
-            {activeBudget && (
-              <button
-                onClick={() => navigate(`/budget/${activeBudget.id}`)}
-                className="bg-green-600 hover:bg-green-700 text-white font-bold rounded-lg text-sm py-2 px-4"
-              >
-                Active Budget
-              </button>
+        <nav className="hidden md:flex items-center gap-4 md:gap-6">
+          {activeBudget && (
+            <button
+              onClick={() => handleNavClick(`/budget/${activeBudget.id}`)}
+              className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-4 rounded-lg text-sm shadow-md"
+            >
+              Active Budget
+            </button>
+          )}
+          <button onClick={() => handleNavClick('/dashboard')} className="text-gray-300 hover:text-white">Dashboard</button>
+          {isOwner && (
+            <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
+          )}
+          <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
+          <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Logout</button>
+        </nav>
+
+        <div className="md:hidden">
+          <button onClick={() => setIsMenuOpen(!isMenuOpen)}>
+            {isMenuOpen ? (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg xmlns="http://www.w3.org/2000/svg" className="h-6 w-6" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16m-7 6h7" />
+              </svg>
             )}
-            <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm py-2 px-4">Logout</button>
-          </div>
-          <button className="md:hidden" onClick={() => setIsMenuOpen(!isMenuOpen)}>
-            {/* Hamburger/Close Icon */}
           </button>
         </div>
-      </header>
+      </div>
 
       {isMenuOpen && (
         <div className="md:hidden absolute top-full left-0 w-full bg-gray-800 shadow-lg z-20">
@@ -84,20 +92,22 @@ function Header({ activeBudget, user }) {
               </button>
             )}
             <button onClick={() => handleNavClick('/dashboard')} className="text-left text-gray-300 hover:text-white py-2">Dashboard</button>
-
-            {/* 4. Conditionally render the "Account" link for mobile */}
             {isOwner && (
-              <button onClick={() => handleNavClick('/account')} className="text-left text-gray-300 hover:text-white py-2">Account</button>
+              <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
             )}
-
             <button onClick={() => { setIsHelpModalOpen(true); setIsMenuOpen(false); }} className="text-left text-gray-300 hover:text-white py-2">Help & Feedback</button>
             <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm py-2 px-3 mt-2">Logout</button>
           </nav>
         </div>
       )}
-      
-      <HelpFeedbackModal isOpen={isHelpModalOpen} onClose={() => setIsHelpModalOpen(false)} />
-    </>
+
+      {/* 4. Pass the pageKey prop to the modal */}
+      <HelpFeedbackModal
+        isOpen={isHelpModalOpen}
+        onClose={() => setIsHelpModalOpen(false)}
+        pageKey={pageKey}
+      />
+    </header>
   );
 }
 

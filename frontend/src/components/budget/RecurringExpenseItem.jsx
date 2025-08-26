@@ -5,7 +5,7 @@ import { getDayWithOrdinal } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending }) {
+function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending, onItemRequest, onItemRequestCancel }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -35,19 +35,19 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleSetAmount = async (e) => {
         e.preventDefault();
-        const payload = { label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date };
-        if (isUpdateByRequest) {
-            const description = `Set amount for '${item.label}' to $${parseFloat(amount).toFixed(2)}`;
-            const data = await api.handlePartnerAction('update_recurring_expense', description, budgetId, payload);
-            toast.success(data.message);
-            onItemRequest(item.label);
-            return;
-        }
         setLoading(true);
         setError('');
         try {
+            const payload = { label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date };
             await api.updateRecurringExpenseInCycle(budgetId, payload);
-            onUpdate();
+
+            if (isUpdateByRequest) {
+                toast.success("Request to set amount has been sent.");
+                onItemRequest(item.label);
+                onUpdate();
+            } else {
+                onUpdate();
+            }
         } catch (err) {
             setError(err.message);
         } finally {
@@ -57,19 +57,19 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleMarkPaid = async (e) => {
         e.stopPropagation();
-        const payload = { label: item.label, amount: item.estimated_amount };
-        if (isUpdateByRequest) {
-            const description = `Pay bill: '${item.label}' for $${item.estimated_amount}`;
-            const data = await api.handlePartnerAction('mark_bill_paid', description, budgetId, payload);
-            toast.success(data.message);
-            onItemRequest(item.label);
-            return;
-        }
         setLoading(true);
         setError('');
         try {
+            const payload = { label: item.label, amount: item.estimated_amount };
             await api.markBillPaid(budgetId, payload);
-            onUpdate();
+
+            if (isUpdateByRequest) {
+                toast.success("Request to pay bill has been sent.");
+                onItemRequest(item.label);
+                onUpdate();
+            } else {
+                onUpdate();
+            }
         } catch (err) {
             setError(err.message);
         } finally {
@@ -79,19 +79,19 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleMarkUnpaid = async (e) => {
         e.stopPropagation();
-        const payload = { label: item.label };
-        if (isUpdateByRequest) {
-            const description = `Mark bill as unpaid: '${item.label}'.`;
-            const data = await api.handlePartnerAction('mark_bill_unpaid', description, budgetId, payload);
-            toast.success(data.message);
-            onItemRequest(item.label);
-            return;
-        }
         setLoading(true);
         setError('');
         try {
+            const payload = { label: item.label };
             await api.markBillUnpaid(budgetId, payload);
-            onUpdate();
+
+            if (isUpdateByRequest) {
+                toast.success("Request to mark as unpaid has been sent.");
+                onItemRequest(item.label);
+                onUpdate();
+            } else {
+                onUpdate();
+            }
         } catch (err) {
             setError(err.message);
         } finally {
@@ -101,19 +101,21 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
-        const payload = { label: item.label };
-        if (isUpdateByRequest) {
-            const description = `Remove expense: '${item.label}'`;
-            const data = await api.handlePartnerAction('remove_expense', description, budgetId, payload);
-            toast.success(data.message);
-            onItemRequest(item.label);
-            return;
-        }
+        setLoading(true);
         try {
             await api.removeExpenseItem(budgetId, item.label);
-            onUpdate();
+
+            if (isUpdateByRequest) {
+                toast.success("Request to remove expense has been sent.");
+                onItemRequest(item.label);
+                onUpdate();
+            } else {
+                onUpdate();
+            }
         } catch (err) {
             setError(err.message);
+        } finally {
+            setLoading(false);
         }
     };
 
@@ -121,41 +123,72 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleEditClick = (e) => {
         e.stopPropagation();
-            onEditInBudget(item);
+        onEditInBudget(item);
     }
 
-    if (isPending) {
-        return (
-            <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
-                <div>
-                    <p className="font-semibold text-gray-300">{item.label}</p>
-                    <p className="text-xs text-yellow-400">A request has been sent for this item.</p>
-                </div>
-                <button disabled className="bg-yellow-600 text-white text-xs font-bold py-1 px-2 rounded cursor-not-allowed">
-                    Requested
-                </button>
-            </li>
-        );
-    }
+    const handleCancelRequest = async () => {
+        if (!item.pending_request) return;
+        setLoading(true);
+        try {
+            await api.cancelRequest(item.pending_request.id);
+            toast.success("Request cancelled!");
 
-    // This section is for items that don't have an amount set yet.
-    if (isOwner && item.pending_request) {
-        return (
-            <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
-                <div className="flex justify-between items-center">
+            // --- THIS IS THE FIX ---
+            // Call the correct function to REMOVE the item from the pending list
+            if (onItemRequestCancel) {
+                onItemRequestCancel(item.label);
+            } else {
+                // Fallback to a full refresh
+                onUpdate();
+            }
+        } catch (err) {
+            // API client will show an error toast
+        } finally {
+            setLoading(false);
+        }
+    };
+
+    if (item.pending_request) {
+        // Partner's View for a pending item
+        if (isUpdateByRequest) {
+            return (
+                <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
                     <div>
-                        <p className="font-semibold">{item.label}</p>
-                        <p className="text-sm text-yellow-300 italic">
-                            Pending: {item.pending_request.description}
+                        <p className="font-semibold text-gray-300">{item.label}</p>
+                        <p className="text-xs text-yellow-400 italic">
+                            {item.pending_request.description}
                         </p>
                     </div>
-                    <div className="flex items-center gap-2">
-                        <button onClick={() => handleApprove('approve')} disabled={loading} className="bg-green-600 ...">Approve</button>
-                        <button onClick={() => handleApprove('deny')} disabled={loading} className="bg-red-600 ...">Deny</button>
+                    <button
+                        onClick={handleCancelRequest}
+                        disabled={loading}
+                        className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1 px-2 rounded"
+                    >
+                        {loading ? '...' : 'Cancel'}
+                    </button>
+                </li>
+            );
+        }
+
+        // Owner's View for a pending item
+        if (isOwner) {
+            return (
+                <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
+                    <div className="flex justify-between items-center">
+                        <div>
+                            <p className="font-semibold">{item.label}</p>
+                            <p className="text-sm text-yellow-300 italic">
+                                Pending: {item.pending_request.description}
+                            </p>
+                        </div>
+                        <div className="flex items-center gap-2">
+                            <button onClick={() => handleApprove('approve')} disabled={loading} className="bg-green-600 ...">Approve</button>
+                            <button onClick={() => handleApprove('deny')} disabled={loading} className="bg-red-600 ...">Deny</button>
+                        </div>
                     </div>
-                </div>
-            </li>
-        );
+                </li>
+            );
+        }
     }
 
     if (!item.estimated_amount) {

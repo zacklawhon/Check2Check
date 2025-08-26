@@ -40,6 +40,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->put('update-permission/(:num)', 'SharingController::updatePermission/$1');
             $routes->delete('invites/(:num)', 'SharingController::revokeAccess/$1');
             $routes->post('deny/(:num)', 'SharingController::denyActionRequest/$1');
+            $routes->delete('request/(:num)', 'SharingController::cancelActionRequest/$1');
         });
         // ## END: NEW SHARING ROUTES ##
 

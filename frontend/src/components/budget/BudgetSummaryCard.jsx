@@ -1,6 +1,6 @@
 import React from 'react';
 
-function BudgetSummaryCard({ budget, transactions, goals, onOpenAccelerateModal, onCloseBudget, isClosing }) {
+function BudgetSummaryCard({ budget, transactions, goals, onOpenAccelerateModal, onCloseBudget, isClosing, user }) {
   // --- All calculation logic is now contained within this component ---
   const totalExpectedIncome = budget.initial_income.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
   const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
@@ -13,9 +13,12 @@ function BudgetSummaryCard({ budget, transactions, goals, onOpenAccelerateModal,
   const activeGoal = goals.find(g => g.status === 'active');
   const isClosable = budget.status === 'active' && new Date(`${budget.end_date}T00:00:00`) < new Date();
 
+  const canAccelerateGoal = !user.owner_user_id || user.permission_level === 'full_access';
+
   return (
     <div className="flex flex-col gap-8">
-      {expectedSurplus > 0 && activeGoal && (
+      
+      {canAccelerateGoal && expectedSurplus > 0 && activeGoal && (
         <div className="bg-indigo-800 p-6 rounded-lg shadow-xl border border-indigo-500">
           <h2 className="text-2xl font-bold mb-3 text-center">Accelerate Your Goal!</h2>
           <p className="text-indigo-200 text-center mb-4">

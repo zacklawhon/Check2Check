@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending }) {
+function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel }) {
   const [loading, setLoading] = useState(false);
   const isReceived = item.is_received === true;
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
@@ -36,6 +36,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
 
         if (isUpdateByRequest) {
           onItemRequest(item.label);
+          onUpdate();
         } else {
           onUpdate();
         }
@@ -51,40 +52,70 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
     return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
   };
 
+  const handleCancelRequest = async () => {
+    if (!item.pending_request) return;
+    setLoading(true);
+    try {
+      await api.cancelRequest(item.pending_request.id);
+      toast.success("Request cancelled!");
+
+      // --- THIS IS THE FIX ---
+      // Call the correct function to REMOVE the item from the pending list
+      if (onItemRequestCancel) {
+        onItemRequestCancel(item.label);
+      } else {
+        // Fallback to a full refresh if the cancel handler isn't available
+        onUpdate();
+      }
+    } catch (err) {
+      // API client will show an error toast
+    } finally {
+      setLoading(false);
+    }
+  };
   // --- RENDER LOGIC ---
 
-  if (isPending) {
-        return (
-            <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
-                <div>
-                    <p className="font-semibold text-gray-300">{item.label}</p>
-                    <p className="text-xs text-yellow-400">A request has been sent for this item.</p>
-                </div>
-                <button disabled className="bg-yellow-600 text-white text-xs font-bold py-1 px-2 rounded cursor-not-allowed">
-                    Requested
-                </button>
-            </li>
-        );
-    }
-
-  // SCENARIO 1: The item has a pending request (Owner's View)
-  if (isOwner && item.pending_request) {
-    return (
-      <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
-        <div className="flex justify-between items-center">
+  if (item.pending_request) {
+    // Partner's View for a pending item
+    if (isUpdateByRequest) {
+      return (
+        <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
           <div>
-            <p className="font-semibold">{item.label} <span className="text-gray-400 line-through">${parseFloat(item.amount).toFixed(2)}</span></p>
-            <p className="text-sm text-yellow-300 italic">
-              Pending: {item.pending_request.description}
+            <p className="font-semibold text-gray-300">{item.label}</p>
+            <p className="text-xs text-yellow-400 italic">
+              {item.pending_request.description}
             </p>
           </div>
-          <div className="flex items-center gap-2">
-            <button onClick={() => handleApproval('approve')} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Approve</button>
-            <button onClick={() => handleApproval('deny')} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Deny</button>
+          <button
+            onClick={handleCancelRequest}
+            disabled={loading}
+            className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1 px-2 rounded"
+          >
+            {loading ? '...' : 'Cancel'}
+          </button>
+        </li>
+      );
+    }
+
+    // Owner's View for a pending item
+    if (isOwner) {
+      return (
+        <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="font-semibold">{item.label} <span className="text-gray-400 line-through">${parseFloat(item.amount).toFixed(2)}</span></p>
+              <p className="text-sm text-yellow-300 italic">
+                Pending: {item.pending_request.description}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handleApproval('approve')} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Approve</button>
+              <button onClick={() => handleApproval('deny')} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Deny</button>
+            </div>
           </div>
-        </div>
-      </li>
-    );
+        </li>
+      );
+    }
   }
 
   // SCENARIO 2: Default view for Owners and Partners

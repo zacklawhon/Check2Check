@@ -2,7 +2,7 @@ import React from 'react';
 import IncomeListItem from './IncomeListItem';
 
 // 1. ADD 'onItemRequest' and 'pendingRequests' to the list of props here
-function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, onRemoveItem, onItemRequest, pendingRequests, budgetId, onUpdate }) {
+function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, onRemoveItem, onItemRequest, pendingRequests, budgetId, onUpdate, onItemRequestCancel }) {
   const canEdit = !user.is_partner || user.permission_level !== 'read_only';
 
   return (
@@ -29,7 +29,7 @@ function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, o
             onRemove={onRemoveItem}
             budgetId={budgetId}
             onUpdate={onUpdate}
-            // 2. PASS the new props down to each list item
+            onItemRequestCancel={onItemRequestCancel}
             onItemRequest={onItemRequest}
             isPending={pendingRequests.includes(item.label)}
           />
