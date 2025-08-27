@@ -171,7 +171,8 @@ function BudgetPage() {
     };
 
     const handleRequestSent = (itemLabel) => {
-        setPendingRequests(prev => [...prev, itemLabel]);
+        const uniqueId = `${item.label}-${item.date}`;
+        setPendingRequests(prev => [...prev, uniqueId]);
     };
 
     const handleBudgetEditSuccess = () => {
@@ -180,7 +181,8 @@ function BudgetPage() {
     };
 
      const handleRequestCancelled = (itemLabel) => {
-        setPendingRequests(prev => prev.filter(label => label !== itemLabel));
+        const uniqueId = `${item.label}-${item.date}`;
+        setPendingRequests(prev => prev.filter(id => id !== uniqueId));
         refreshBudget();
     };
 
@@ -258,6 +260,7 @@ function BudgetPage() {
                     <IncomeList
                         incomeItems={budget.initial_income}
                         user={user}
+                        setBudget={setBudget} 
                         onAddItem={() => setModalType('income')}
                         onReceiveItem={setItemToReceive}
                         onEditItem={setItemToEdit}
@@ -269,6 +272,7 @@ function BudgetPage() {
                     />
                     <ExpensesList
                         expenseItems={budget.initial_expenses}
+                        setBudget={setBudget} 
                         transactions={transactions}
                         budgetId={budgetId}
                         user={user}

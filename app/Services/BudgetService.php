@@ -23,7 +23,7 @@ class BudgetService
      * @return bool
      * @throws Exception
      */
-    public function markBillPaid(int $userId, int $cycleId, string $labelToPay, float $amount): bool
+    public function markBillPaid(int $userId, int $cycleId, string $labelToPay, float $amount): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -71,7 +71,7 @@ class BudgetService
             throw $e; // Re-throw the exception to be caught by the controller
         }
 
-        return true;
+        return $budgetCycleModel->find($cycleId);
     }
 
     /**
@@ -154,7 +154,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function markIncomeReceived(int $userId, int $budgetId, string $label, float $actualAmount): bool
+    public function markIncomeReceived(int $userId, int $budgetId, string $label, float $actualAmount, string $date): bool
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budget = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -166,12 +166,13 @@ class BudgetService
         $itemFound = false;
 
         foreach ($incomeItems as &$item) {
-            if ($item['label'] === $label) {
-                $item['is_received'] = true;
-                $itemFound = true;
-                break;
-            }
+        if ($item['label'] === $label && $item['date'] === $date && empty($item['is_received'])) {
+            $item['is_received'] = true;
+            $item['amount'] = $actualAmount; // Optionally update the amount to the actual received amount
+            $itemFound = true;
+            break; // Stop after finding and updating the first match
         }
+    }
 
         if (!$itemFound) {
             throw new \Exception('The planned income item was not found in this budget.');
@@ -928,22 +929,20 @@ class BudgetService
         }
 
         $initialIncome = json_decode($budgetCycle['initial_income'] ?? '[]', true);
-        if (!empty($receivedIncomeDescriptions)) {
-            foreach ($initialIncome as &$item) {
-                if (!isset($item['is_received'])) {
-                    $isReceived = false;
-                    foreach ($receivedIncomeDescriptions as $desc) {
-                        if (strpos($desc, $item['label']) !== false) {
-                            $isReceived = true;
-                            break;
-                        }
-                    }
-                    if ($isReceived) {
-                        $item['is_received'] = true;
-                    }
+        if (!empty($receivedIncomeCounts)) {
+        foreach ($initialIncome as &$item) {
+            // Only process items that haven't already been explicitly marked
+            if (empty($item['is_received'])) {
+                $label = $item['label'];
+                // If there's a transaction for this label and we haven't used it up yet
+                if (isset($receivedIncomeCounts[$label]) && $receivedIncomeCounts[$label] > 0) {
+                    $item['is_received'] = true;
+                    // Decrement the count so this transaction doesn't mark another item
+                    $receivedIncomeCounts[$label]--;
                 }
             }
         }
+    }
         // --- End of Business Logic ---
 
         // Prepare the final, complete object for the controller
@@ -1133,5 +1132,51 @@ class BudgetService
         // This service method acts as a clean wrapper around the ProjectionService
         $projectionService = new ProjectionService();
         return $projectionService->projectIncome($startDate, $endDate, $incomeRules);
+    }
+
+    public function getActiveBudgetForUser(int $userId): ?array
+    {
+        $budgetCycleModel = new BudgetCycleModel();
+
+        return $budgetCycleModel
+            ->where('user_id', $userId)
+            ->where('status', 'active')
+            ->first();
+    }
+
+    /**
+     * Creates a new learned spending category for a user.
+     *
+     * @param int    $userId The user's ID.
+     * @param string $name   The name of the new category.
+     * @return int The ID of the new or existing category.
+     * @throws \Exception
+     */
+    public function createSpendingCategory(int $userId, string $name): int
+    {
+        $model = new LearnedSpendingCategoryModel();
+
+        // Check if a category with this name already exists for the user.
+        $exists = $model->where('user_id', $userId)->where('name', $name)->first();
+        if ($exists) {
+            return $exists['id'];
+        }
+        
+        $data = [
+            'user_id' => $userId,
+            'name'    => $name,
+        ];
+
+        try {
+            if ($model->save($data)) {
+                return $model->getInsertID();
+            }
+        } catch (\Exception $e) {
+            log_message('error', '[SERVICE_ERROR_CREATE_SPENDING_CATEGORY] ' . $e->getMessage());
+            throw $e;
+        }
+
+        // This line should ideally not be reached if exceptions are handled correctly.
+        throw new \Exception('Could not save spending category.');
     }
 }

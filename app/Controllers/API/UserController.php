@@ -58,20 +58,24 @@ class UserController extends BaseAPIController
      * Retrieves the user’s active budget cycle.
      */
     public function getActiveBudget()
-    {
-        // 3. USE THE EFFECTIVE USER ID to get the owner's budget if the user is a partner
+{
+    try {
         $userId = $this->getEffectiveUserId();
-        if (!$userId) {
-            return $this->failUnauthorized('Not logged in.');
-        }
+        
+        // 1. Instantiate the BudgetService
+        $budgetService = new \App\Services\BudgetService();
 
-        $budgetModel = new BudgetCycleModel();
-        $activeBudget = $budgetModel->where('user_id', $userId)
-            ->where('status', 'active')
-            ->first();
+        // 2. Call the new service method to get the active budget
+        $activeBudget = $budgetService->getActiveBudgetForUser($userId);
 
-        return $this->respond($activeBudget);
+        // 3. This ensures a valid JSON response (the budget object or 'null') is always sent
+        return $this->response->setJSON($activeBudget);
+
+    } catch (\Exception $e) {
+        log_message('error', '[CONTROLLER_ERROR_GET_ACTIVE_BUDGET] ' . $e->getMessage());
+        return $this->failServerError('Could not retrieve active budget.');
     }
+}
 
     public function freshStart()
     {

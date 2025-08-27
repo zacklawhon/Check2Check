@@ -216,33 +216,7 @@ class BudgetController extends BaseAPIController
         }
     }
 
-    public function createSpendingCategory()
-    {
-        // 1. Controller handles permissions and validation.
-        $permission = $this->getPermissionLevel();
-        if ($permission === 'read_only') {
-            return $this->failForbidden('You do not have permission to perform this action.');
-        }
-
-        $data = $this->request->getJSON(true);
-        $name = $data['name'] ?? null;
-        if (empty($name)) {
-            return $this->failValidationErrors('Category name is required.');
-        }
-
-        // 2. Controller calls the service to do the work.
-        try {
-            $userId = $this->getEffectiveUserId();
-            $userService = new UserService();
-            $categoryId = $userService->createSpendingCategory($userId, $name);
-
-            // 3. Controller returns the response.
-            return $this->respondCreated(['id' => $categoryId, 'message' => 'Spending category saved.']);
-
-        } catch (\Exception $e) {
-            return $this->failServerError('Could not save spending category.');
-        }
-    }
+    
 
 
 

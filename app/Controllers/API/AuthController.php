@@ -54,9 +54,11 @@ class AuthController extends BaseController
                 }
 
                 $invitationModel = new InvitationModel();
-                $invitation = $invitationModel->where('invite_token', $inviteToken)->first();
+                $invitation = $invitationModel->where('invite_token', $inviteToken)
+                    ->where('status', 'pending')
+                    ->first();
 
-                if (!$invitation || $invitation['status'] !== 'sent') {
+                if (!$invitation) {
                     return $this->fail('This invitation is invalid or has already been claimed.', 403);
                 }
                 // --- End of new invitation logic ---

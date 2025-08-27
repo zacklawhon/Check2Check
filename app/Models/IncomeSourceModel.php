@@ -43,6 +43,9 @@ class IncomeSourceModel extends Model
             'user_id' => $userId,
             'label' => $data['label'],
             'frequency' => $data['frequency'] ?: 'one-time',
+            'frequency_day' => $data['frequency_day'],
+            'frequency_date_1' => $data['frequency_date_1'],
+            'frequency_date_2' => $data['frequency_date_2'],
         ];
 
         return $this->insert($newData);

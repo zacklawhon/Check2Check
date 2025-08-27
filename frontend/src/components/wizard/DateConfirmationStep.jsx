@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import * as api from '../../utils/api';
 
 // FIX: Add a new prop `buttonText`
 function DateConfirmationStep({ proposedStartDate, proposedEndDate, onComplete, buttonText }) {

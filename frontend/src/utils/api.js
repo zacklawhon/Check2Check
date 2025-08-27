@@ -172,7 +172,7 @@ export const projectIncome = (dates, incomeRules) => apiRequest('/api/budget/pro
 });
 
 // Categories
-export const createSpendingCategory = (name) => apiRequest('/api/account/spending-categories', 'POST', { name });
+export const createSpendingCategory = (name) => apiRequest('/api/budget-items/spending-categories', 'POST', { name });
 
 // Savings Actions
 export const addSavings = (budgetId, data) => apiRequest(`/api/budget/savings/add/${budgetId}`, 'POST', data);

@@ -76,37 +76,18 @@ const FeedbackTab = ({ onClose }) => {
     );
 };
 
-// --- Invite Tab Component (Your existing code, unchanged) ---
-const InviteTab = () => {
-    const [email, setEmail] = useState('');
-    const [invitations, setInvitations] = useState([]);
-    const [loading, setLoading] = useState(false);
-    const [error, setError] = useState('');
-    const [success, setSuccess] = useState('');
 
-    const fetchInvitations = async () => {
+const InviteTab = () => {
+    const [invitations, setInvitations] = useState([]);
+    const [loading, setLoading] = useState(true);
+    const [error, setError] = useState('');
+    const [email, setEmail] = useState('');
+    const [sending, setSending] = useState(false);
+
+    const fetchInvites = async () => {
         try {
             const data = await api.getUserInvitations();
             setInvitations(data);
-        } catch (err) {
-            console.error(err.message);
-        }
-    };
-
-    useEffect(() => {
-        fetchInvitations();
-    }, []);
-
-    const handleSubmit = async (e) => {
-        e.preventDefault();
-        setLoading(true);
-        setError('');
-        setSuccess('');
-        try {
-            const data = await api.sendJoinInvite(email);
-            setSuccess(data.message);
-            setEmail('');
-            fetchInvitations();
         } catch (err) {
             setError(err.message);
         } finally {
@@ -114,39 +95,65 @@ const InviteTab = () => {
         }
     };
 
+    useEffect(() => {
+        fetchInvites();
+    }, []);
+
+    const handleSendInvite = async (e) => {
+        e.preventDefault();
+        setSending(true);
+        setError('');
+        try {
+            await api.sendJoinInvite(email);
+            setEmail('');
+            toast.success('Invitation sent!');
+            fetchInvites();
+        } catch (err) {
+            // Error is handled by the api client toast
+        } finally {
+            setSending(false);
+        }
+    };
+
     return (
-        <div className="space-y-6">
-            <form onSubmit={handleSubmit} className="space-y-4">
-                <div>
-                    <label htmlFor="recipient_email" className="block text-sm font-semibold mb-1">Friend's Email Address</label>
-                    <input
-                        id="recipient_email" type="email" value={email}
-                        onChange={e => setEmail(e.target.value)}
-                        className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600" required
-                    />
-                </div>
-                {error && <p className="text-red-400 text-sm">{error}</p>}
-                {success && <p className="text-green-400 text-sm">{success}</p>}
-                <div className="flex justify-end pt-2">
-                    <button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500">
-                        {loading ? 'Sending...' : 'Send Invite'}
-                    </button>
-                </div>
+        <div>
+            <form onSubmit={handleSendInvite} className="flex gap-2 mb-4">
+                <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="friend@example.com"
+                    className="flex-grow bg-gray-700 text-white rounded-lg p-2 border border-gray-600 focus:ring-2 focus:ring-indigo-500 focus:outline-none"
+                    required
+                />
+                <button type="submit" disabled={sending} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg disabled:bg-gray-500">
+                    {sending ? 'Sending...' : 'Send'}
+                </button>
             </form>
 
-            <div>
-                <h4 className="font-semibold text-gray-300 border-b border-gray-600 pb-2 mb-3">Your Invitations</h4>
-                <ul className="space-y-2 max-h-48 overflow-y-auto">
-                    {invitations.length > 0 ? invitations.map(invite => (
-                        <li key={invite.id} className="text-sm bg-gray-900/50 p-2 rounded flex justify-between">
-                            <span>{invite.recipient_email}</span>
-                            <span className={`font-semibold ${invite.status === 'claimed' ? 'text-green-400' : 'text-yellow-400'}`}>
-                                {invite.status.charAt(0).toUpperCase() + invite.status.slice(1)}
-                            </span>
-                        </li>
-                    )) : <li className="text-sm text-gray-400">You haven't sent any invitations yet.</li>}
-                </ul>
-            </div>
+            <h4 className="font-semibold text-lg mb-2">Sent Invitations</h4>
+            {loading && <p>Loading invitations...</p>}
+            {error && <p className="text-red-400">{error}</p>}
+            {!loading && invitations.length === 0 && <p className="text-gray-400">You haven't sent any invitations yet.</p>}
+            <ul className="space-y-2">
+                {invitations
+                    .filter(invite => invite.invite_type === 'join')
+                    .map(invite => {
+                        const status = invite.status || 'pending';
+                        const isPending = status === 'pending';
+
+                        return (
+                            <li key={invite.id} className="bg-gray-700/50 p-3 rounded-md">
+                                <div className="flex justify-between items-center">
+                                    <span className="font-semibold">{invite.recipient_email}</span>
+                                    <span className={`text-xs font-bold py-1 px-2 rounded-full capitalize ${isPending ? 'bg-yellow-500 text-gray-900' : 'bg-green-500 text-white'}`}>
+                                        {status}
+                                    </span>
+                                </div>
+                            </li>
+                        );
+                 })}
+            </ul>
         </div>
     );
 };

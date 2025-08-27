@@ -4,7 +4,7 @@ import * as api from '../../utils/api';
 
 function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel }) {
   const [loading, setLoading] = useState(false);
-  const isReceived = item.is_received === true;
+ const isReceived = !!item.is_received;
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
   const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
   const isOwner = !user.owner_user_id;
@@ -35,7 +35,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
         toast.success(data.message);
 
         if (isUpdateByRequest) {
-          onItemRequest(item.label);
+          onItemRequest(item);
           onUpdate();
         } else {
           onUpdate();
@@ -59,16 +59,14 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       await api.cancelRequest(item.pending_request.id);
       toast.success("Request cancelled!");
 
-      // --- THIS IS THE FIX ---
-      // Call the correct function to REMOVE the item from the pending list
+
       if (onItemRequestCancel) {
-        onItemRequestCancel(item.label);
+        onItemRequestCancel(item);
       } else {
-        // Fallback to a full refresh if the cancel handler isn't available
         onUpdate();
       }
     } catch (err) {
-      // API client will show an error toast
+
     } finally {
       setLoading(false);
     }
@@ -142,7 +140,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
           {/* SVG for Edit */}
         </button>
         <button onClick={handleRemoveClick} disabled={isReceived || isReadOnly} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed">
-          &times;
+          {loading ? '...' : '×'}
         </button>
       </div>
     </li>

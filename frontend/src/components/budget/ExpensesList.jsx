@@ -2,7 +2,7 @@ import React from 'react';
 import RecurringExpenseItem from './RecurringExpenseItem';
 import VariableExpenseItem from './VariableExpenseItem';
 
-function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, onEditItem, onUpdate, onItemRequest, pendingRequests, onItemRequestCancel }) {
+function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, onEditItem, onUpdate, onItemRequest, pendingRequests, onItemRequestCancel, setBudget }) {
   const canEdit = !user.is_partner || user.permission_level !== 'read_only';
 
   const recurringExpenses = expenseItems.filter(exp => exp.type === 'recurring');
@@ -40,6 +40,7 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
                     key={`rec-exp-${item.id || index}`}
                     item={item}
                     budgetId={budgetId}
+                    setBudget={setBudget}
                     user={user}
                     onUpdate={onUpdate}
                     onEditInBudget={() => onEditItem(item)}
@@ -72,6 +73,7 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
               key={`var-exp-${item.label}-${index}`}
               item={item}
               budgetId={budgetId}
+              setBudget={setBudget}
               user={user}
               onUpdate={onUpdate}
               transactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}

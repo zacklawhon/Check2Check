@@ -19,21 +19,27 @@ function IncomeList({ incomeItems, user, onAddItem, onReceiveItem, onEditItem, o
         )}
       </div>
       <ul className="space-y-2">
-        {incomeItems.map((item, index) => (
-          <IncomeListItem
-            key={`income-${index}`}
-            item={item}
-            user={user}
-            onReceive={onReceiveItem}
-            onEdit={onEditItem}
-            onRemove={onRemoveItem}
-            budgetId={budgetId}
-            onUpdate={onUpdate}
-            onItemRequestCancel={onItemRequestCancel}
-            onItemRequest={onItemRequest}
-            isPending={pendingRequests.includes(item.label)}
-          />
-        ))}
+        {incomeItems.map((item, index) => {
+          // --- UPDATED: Create the unique ID here ---
+          const uniqueId = `${item.label}-${item.date}`;
+          return (
+            <IncomeListItem
+              // Use a more specific key to prevent React warnings
+              key={`${uniqueId}-${index}`}
+              item={item}
+              user={user}
+              onReceive={onReceiveItem}
+              onEdit={onEditItem}
+              onRemove={onRemoveItem}
+              budgetId={budgetId}
+              onUpdate={onUpdate}
+              onItemRequestCancel={onItemRequestCancel}
+              onItemRequest={onItemRequest}
+              // Check for pending status using the unique ID
+              isPending={pendingRequests.includes(uniqueId)}
+            />
+          );
+        })}
       </ul>
     </div>
   );

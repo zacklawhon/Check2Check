@@ -66,7 +66,8 @@ class InvitationController extends BaseController
         $invitationModel->insert([
             'inviter_user_id' => $inviterId,
             'recipient_email' => $recipientEmail,
-            'invite_token'    => $token
+            'invite_token'    => $token,
+            'status'          => 'pending'
         ]);
 
         $this->sendInvitationEmail($recipientEmail, $inviter['email'], $token);

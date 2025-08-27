@@ -70,6 +70,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('(:num)/receive-income', 'BudgetItemController::markIncomeReceived/$1');
             $routes->put('recurring-expense/(:num)', 'BudgetItemController::updateRecurringExpenseInCycle/$1');
             $routes->post('update-income-amount/(:num)', 'BudgetItemController::updateInitialIncomeAmount/$1');
+            $routes->post('spending-categories', 'BudgetItemController::createSpendingCategory');
             
         });
 
@@ -100,7 +101,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
 
         $routes->group('account', static function ($routes) {
             //Creation Routes
-            $routes->post('spending-categories', 'AccountController::createSpendingCategory');
+            
             $routes->post('income-sources', 'AccountController::createIncomeSource');
             $routes->post('recurring-expenses', 'AccountController::createRecurringExpense');
             

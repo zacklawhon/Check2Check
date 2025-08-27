@@ -1,4 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
+import * as api from '../../utils/api';
 
 // --- NEW SUB-COMPONENT FOR IN-LINE EDITS ---
 function IncomeRuleEditor({ source, onSaveSuccess }) {

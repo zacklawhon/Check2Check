@@ -5,7 +5,7 @@ import { getDayWithOrdinal } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending, onItemRequest, onItemRequestCancel }) {
+function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending, onItemRequest, onItemRequestCancel, setBudget }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -57,23 +57,19 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
 
     const handleMarkPaid = async (e) => {
         e.stopPropagation();
-        setLoading(true);
-        setError('');
+        setLoading(true); // Provide instant "processing" feedback
+
         try {
             const payload = { label: item.label, amount: item.estimated_amount };
-            await api.markBillPaid(budgetId, payload);
 
-            if (isUpdateByRequest) {
-                toast.success("Request to pay bill has been sent.");
-                onItemRequest(item.label);
-                onUpdate();
-            } else {
-                onUpdate();
-            }
+            const updatedBudget = await api.markBillPaid(budgetId, payload);
+            setBudget(updatedBudget);
+
         } catch (err) {
-            setError(err.message);
+            // Handle any errors from the API
+            console.error(err);
         } finally {
-            setLoading(false);
+            setLoading(false); // Stop the loading indicator
         }
     };
 
@@ -252,7 +248,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
                             disabled={loading || isReadOnly}
                             className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
-                            Undo
+                            {loading ? '...' : 'Undo'}
                         </button>
                     ) : (
                         <button
@@ -260,7 +256,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
                             disabled={loading || isReadOnly}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
-                            Pay
+                            {loading ? 'Paying...' : 'Pay'}
                         </button>
                     )}
 

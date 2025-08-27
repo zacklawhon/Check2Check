@@ -266,6 +266,34 @@ class BudgetItemController extends BaseAPIController
         }
     }
 
+    public function createSpendingCategory()
+    {
+        // 1. Controller handles permissions and validation.
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+
+        $data = $this->request->getJSON(true);
+        $name = $data['name'] ?? null;
+        if (empty($name)) {
+            return $this->failValidationErrors('Category name is required.');
+        }
+
+        // 2. Controller calls the service to do the work.
+        try {
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $categoryId = $budgetService->createSpendingCategory($userId, $name);
+
+            // 3. Controller returns the response.
+            return $this->respondCreated(['id' => $categoryId, 'message' => 'Spending category saved.']);
+
+        } catch (\Exception $e) {
+            return $this->failServerError('Could not save spending category.');
+        }
+    }
+
 
     /***********************************************************
      * 
@@ -540,11 +568,11 @@ class BudgetItemController extends BaseAPIController
         // 2. Controller calls the service to do the actual work.
         try {
             $userId = $this->getEffectiveUserId();
-            $budgetService = new \App\Services\BudgetService();
-            $budgetService->markBillPaid($userId, $cycleId, $labelToPay, $amount);
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->markBillPaid($userId, $cycleId, $labelToPay, $amount);
 
             // 3. Controller returns the web response.
-            return $this->respondUpdated(['message' => 'Bill marked as paid and transaction logged.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             // If the service throws an error, the controller formats the HTTP error response.
@@ -599,6 +627,7 @@ class BudgetItemController extends BaseAPIController
         $rules = [
             'label'  => 'required|string',
             'amount' => 'required|decimal',
+            'date'   => 'required|valid_date[Y-m-d]'
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
@@ -606,10 +635,11 @@ class BudgetItemController extends BaseAPIController
 
         $label = $this->request->getVar('label');
         $actualAmount = (float) $this->request->getVar('amount');
+        $date = $this->request->getVar('date');
 
         // Handle partner requests.
         if ($permission === 'update_by_request') {
-            $payload = ['label' => $label, 'amount' => $actualAmount];
+            $payload = ['label' => $label, 'amount' => $actualAmount, 'date' => $date]; 
             $description = "Mark income '{$label}' as received for $" . number_format($actualAmount, 2);
             return $this->handlePartnerAction('mark_income_received', $description, $budgetId, $payload);
         }
@@ -617,8 +647,8 @@ class BudgetItemController extends BaseAPIController
         // 2. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
-            $budgetService = new \App\Services\BudgetService();
-            $budgetService->markIncomeReceived($userId, $budgetId, $label, $actualAmount);
+            $budgetService = new BudgetService();
+            $budgetService->markIncomeReceived($userId, $budgetId, $label, $actualAmount, $date);
 
             // 3. Controller returns the response.
             return $this->respondUpdated(['message' => 'Income marked as received.']);

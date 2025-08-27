@@ -23,6 +23,7 @@ function ReceiveIncomeModal({ isOpen, item, budgetId, onClose, onSuccess }) {
             const payload = {
                 label: item.label,
                 amount: parseFloat(amount),
+                date: item.date,
             };
             await api.markIncomeReceived(budgetId, payload);
             onSuccess();
