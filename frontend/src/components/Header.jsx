@@ -10,7 +10,11 @@ function Header({ activeBudget, user }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-const canViewAccount = user && user.id && (!user.owner_user_id || user.permissionLevel === 'full_access');
+const canViewAccount = user && user.id && (
+  user.owner_user_id === null || 
+  user.owner_user_id === undefined || 
+  user.permission_level === 'full_access'
+);
 
   const pageKey = useMemo(() => {
     const { pathname } = location;

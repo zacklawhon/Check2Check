@@ -39,7 +39,7 @@ function ProtectedRoute() {
     if (!isSilent) setLoadingUser(true);
     setAuthError(false);
     try {
-      const [userData, cyclesData, accountsData, activeBudgetData, contentData, announcementData] = await Promise.all([
+      const [user, cyclesData, accountsData, activeBudgetData, contentData, announcementData] = await Promise.all([
         api.getProfile(),
         api.getCycles(),
         api.getUserAccounts(),
@@ -49,10 +49,10 @@ function ProtectedRoute() {
       ]);
 
       if (activeBudgetData) {
-        activeBudgetData.user = userData;
+        activeBudgetData.user = user;
       }
 
-      setUser(userData);
+      setUser(user);
       setAccounts(accountsData);
       setIsNewUser(cyclesData.length === 0);
       setActiveBudget(activeBudgetData);
@@ -108,7 +108,7 @@ function ProtectedRoute() {
 
   return (
     <ContentProvider content={helpContent}>
-      <AuthenticatedLayout activeBudget={activeBudget}>
+      <AuthenticatedLayout activeBudget={activeBudget} user={user}>
         <Outlet context={contextData} />
         <WhatsNewModal
           isOpen={isWhatsNewOpen}

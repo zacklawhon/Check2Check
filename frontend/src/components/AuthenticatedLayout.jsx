@@ -4,7 +4,7 @@ import Header from './Header';
 function AuthenticatedLayout({ children, activeBudget, user }) {
   return (
     <div>
-      <Header activeBudget={activeBudget}/>
+      <Header activeBudget={activeBudget} user={user}/>
       <main>
         {children}
       </main>
