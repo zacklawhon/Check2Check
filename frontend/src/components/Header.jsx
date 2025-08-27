@@ -10,7 +10,7 @@ function Header({ activeBudget, user }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-  const isOwner = user && !user.owner_user_id;
+const canViewAccount = user && user.id && (!user.owner_user_id || user.permissionLevel === 'full_access');
 
   const pageKey = useMemo(() => {
     const { pathname } = location;
@@ -58,7 +58,7 @@ function Header({ activeBudget, user }) {
             </button>
           )}
           <button onClick={() => handleNavClick('/dashboard')} className="text-gray-300 hover:text-white">Dashboard</button>
-          {isOwner && (
+          {canViewAccount && (
             <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
           )}
           <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
@@ -92,7 +92,7 @@ function Header({ activeBudget, user }) {
               </button>
             )}
             <button onClick={() => handleNavClick('/dashboard')} className="text-left text-gray-300 hover:text-white py-2">Dashboard</button>
-            {isOwner && (
+            {canViewAccount && (
               <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
             )}
             <button onClick={() => { setIsHelpModalOpen(true); setIsMenuOpen(false); }} className="text-left text-gray-300 hover:text-white py-2">Help & Feedback</button>

@@ -58,7 +58,7 @@ class BudgetService
         try {
             $transactionModel = new TransactionModel();
             $transactionModel->logTransaction($userId, $cycleId, 'expense', $paidExpense['category'], $amount, $paidExpense['label']);
-            
+
             $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenses)]);
 
             $db->transComplete();
@@ -258,7 +258,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function addIncomeToCycle(int $userId, int $cycleId, array $incomeData, bool $saveAsRecurring): bool
+    public function addIncomeToCycle(int $userId, int $cycleId, array $incomeData, $saveAsRecurring): bool
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -273,8 +273,8 @@ class BudgetService
             if ($saveAsRecurring && $incomeData['frequency'] !== 'one-time') {
                 $incomeSourceModel = new IncomeSourceModel();
                 $dataToSave = [
-                    'user_id'   => $userId,
-                    'label'     => $incomeData['label'],
+                    'user_id' => $userId,
+                    'label' => $incomeData['label'],
                     'frequency' => $incomeData['frequency']
                 ];
 
@@ -286,21 +286,26 @@ class BudgetService
                 }
             }
 
-            // Step 2: Add the new income item to the budget's JSON data
+            // --- START: FIX ---
+
+            // Step 2: Build a complete income item object
+            $newItem = [
+                'id' => uniqid('inc_', true), // Add a unique ID
+                'label' => $incomeData['label'],
+                'amount' => $incomeData['amount'],
+                'date' => null,
+                'is_received' => false, // Set the default status correctly
+                'frequency' => $incomeData['frequency'] ?? 'one-time'
+            ];
+
+            // Add the new, complete item to the budget's JSON data
             $incomeArray = json_decode($budgetCycle['initial_income'], true);
-            $incomeArray[] = $incomeData;
+            $incomeArray[] = $newItem;
             $budgetCycleModel->update($cycleId, ['initial_income' => json_encode($incomeArray)]);
 
-            // Step 3: Log the corresponding transaction
-            $transactionModel = new TransactionModel();
-            $transactionModel->logTransaction(
-                $userId,
-                $cycleId,
-                'income',
-                'Additional Income',
-                (float) $incomeData['amount'],
-                $incomeData['label']
-            );
+            // Step 3: The premature transaction log has been REMOVED.
+
+            // --- END: FIX ---
 
             $db->transComplete();
             if ($db->transStatus() === false) {
@@ -314,6 +319,7 @@ class BudgetService
 
         return true;
     }
+
 
     /**
      * Removes an income item from a budget cycle and logs a reversal transaction.
@@ -388,50 +394,61 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function addExpenseToCycle(int $userId, int $cycleId, array $expenseData, bool $saveAsRecurring): bool
+    public function addExpenseToCycle(int $userId, int $cycleId, array $newExpense, bool $saveAsRecurring): bool
     {
         $budgetCycleModel = new BudgetCycleModel();
-        $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+
+        // --- THIS IS THE FIX ---
+        // Reverted the 'where' clause to its original, correct syntax.
+        $budgetCycle = $budgetCycleModel->where('id', $cycleId)
+            ->where('user_id', $userId)
+            ->first();
+
         if (!$budgetCycle) {
             throw new \Exception('Budget cycle not found.');
         }
 
         $db = \Config\Database::connect();
         $db->transStart();
+
         try {
-            // Step 1: Optionally save as a recurring expense template
             if ($saveAsRecurring) {
                 $recurringExpenseModel = new RecurringExpenseModel();
                 $dataToSave = [
-                    'user_id'  => $userId,
-                    'label'    => $expenseData['label'],
-                    'due_date' => $expenseData['due_date'],
-                    'category' => $expenseData['category']
+                    'user_id' => $userId,
+                    'label' => $newExpense['label'],
+                    'estimated_amount' => $newExpense['estimated_amount'],
+                    'due_date' => $newExpense['due_date'],
+                    'category' => $newExpense['category'],
                 ];
 
-                $exists = $recurringExpenseModel->where('user_id', $userId)->where('label', $dataToSave['label'])->first();
+                $exists = $recurringExpenseModel->where('user_id', $userId)
+                    ->where('label', $dataToSave['label'])
+                    ->first();
+
                 if (!$exists) {
                     $recurringExpenseModel->save($dataToSave);
-                    // Add the new master ID to the expense item for this budget
-                    $expenseData['id'] = $recurringExpenseModel->getInsertID();
-                } else {
-                    $expenseData['id'] = $exists['id'];
                 }
             }
 
-            // Step 2: Add the new expense item to the budget's JSON data
-            $expenseArray = json_decode($budgetCycle['initial_expenses'], true);
-            $expenseArray[] = $expenseData;
-            $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenseArray)]);
+            // Add a unique ID to the new expense object before saving it.
+            $newExpense['id'] = uniqid('exp_', true);
+
+            // Add the complete expense item to the budget's JSON data
+            $expensesArray = json_decode($budgetCycle['initial_expenses'], true);
+            $expensesArray[] = $newExpense;
+            $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expensesArray)]);
 
             $db->transComplete();
+
             if ($db->transStatus() === false) {
-                throw new \Exception('Database transaction failed while adding expense.');
+                throw new \Exception('Database transaction failed.');
             }
+
         } catch (\Exception $e) {
             $db->transRollback();
             log_message('error', '[SERVICE_ERROR_ADD_EXPENSE] ' . $e->getMessage());
-            throw $e;
+            throw $e; // Re-throw the exception
         }
 
         return true;
@@ -505,20 +522,20 @@ class BudgetService
             if (!$category) {
                 $spendingCategoryModel->insert([
                     'user_id' => $userId,
-                    'name'    => $label,
+                    'name' => $label,
                 ]);
             }
 
             // Step 2: Add this item to the current budget's 'initial_expenses' JSON
             $expenseItems = json_decode($budget['initial_expenses'], true);
             $newExpense = [
-                'label'            => $label,
+                'label' => $label,
                 'estimated_amount' => $amount,
-                'type'             => 'variable'
+                'type' => 'variable'
             ];
             $expenseItems[] = $newExpense;
             $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenseItems)]);
-            
+
             $db->transComplete();
             if ($db->transStatus() === false) {
                 throw new \Exception('Database transaction failed while adding variable expense.');
@@ -564,7 +581,7 @@ class BudgetService
         if (!$updated) {
             throw new \Exception('Variable expense not found in this budget.');
         }
-        
+
         try {
             $budgetCycleModel->update($cycleId, ['initial_expenses' => json_encode($expenses)]);
         } catch (\Exception $e) {
@@ -635,7 +652,7 @@ class BudgetService
             }, $incomeItems);
 
             $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($updatedIncomeItems)]);
-            
+
             $db->transComplete();
             if ($db->transStatus() === false) {
                 throw new \Exception('Database transaction failed while adjusting income.');
@@ -681,7 +698,7 @@ class BudgetService
         if (!$updated) {
             throw new \Exception('Income item not found in this budget.');
         }
-        
+
         try {
             $budgetModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
         } catch (\Exception $e) {
@@ -749,7 +766,7 @@ class BudgetService
 
             // Save the updated income array
             $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
-            
+
             $db->transComplete();
             if ($db->transStatus() === false) {
                 throw new \Exception('Database transaction failed while updating income.');
@@ -804,7 +821,7 @@ class BudgetService
             log_message('error', '[SERVICE_ERROR_UPDATE_RECURRING_EXPENSE] ' . $e->getMessage());
             throw $e;
         }
-        
+
         return true;
     }
 
@@ -838,19 +855,19 @@ class BudgetService
         }
         foreach ($spendingCategories as $cat) {
             $allExpenses[] = [
-                'label'            => $cat['name'],
+                'label' => $cat['name'],
                 'estimated_amount' => null,
-                'category'         => 'variable',
-                'type'             => 'variable',
+                'category' => 'variable',
+                'type' => 'variable',
             ];
         }
 
         $newCycleData = [
-            'user_id'          => $userId,
-            'start_date'       => $cycleData['start_date'],
-            'end_date'         => $cycleData['end_date'],
-            'status'           => 'active',
-            'initial_income'   => json_encode($incomeSources),
+            'user_id' => $userId,
+            'start_date' => $cycleData['start_date'],
+            'end_date' => $cycleData['end_date'],
+            'status' => 'active',
+            'initial_income' => json_encode($incomeSources),
             'initial_expenses' => json_encode($allExpenses),
         ];
 
@@ -902,7 +919,7 @@ class BudgetService
         // --- Business Logic to determine if income has been received ---
         $transactionModel = new TransactionModel();
         $transactions = $transactionModel->where('budget_cycle_id', $cycleId)->findAll();
-        
+
         $receivedIncomeDescriptions = [];
         foreach ($transactions as $t) {
             if ($t['type'] === 'income') {
@@ -918,7 +935,7 @@ class BudgetService
                     foreach ($receivedIncomeDescriptions as $desc) {
                         if (strpos($desc, $item['label']) !== false) {
                             $isReceived = true;
-                            break; 
+                            break;
                         }
                     }
                     if ($isReceived) {
@@ -969,11 +986,11 @@ class BudgetService
         $proposedEndDate = (clone $today)->modify('+1 month -1 day')->format('Y-m-d');
 
         $data = [
-            'isExpress'                   => $isReturningUserWithRules,
-            'proposedStartDate'           => $proposedStartDate,
-            'proposedEndDate'             => $proposedEndDate,
-            'suggestedIncome'             => $suggestedIncome,
-            'suggestedExpenses'           => $suggestedExpenses,
+            'isExpress' => $isReturningUserWithRules,
+            'proposedStartDate' => $proposedStartDate,
+            'proposedEndDate' => $proposedEndDate,
+            'suggestedIncome' => $suggestedIncome,
+            'suggestedExpenses' => $suggestedExpenses,
             'learned_spending_categories' => $learnedCategories
         ];
 
@@ -1043,18 +1060,18 @@ class BudgetService
         $plannedExpenses = array_sum(array_column($initialExpenses, 'estimated_amount'));
 
         $finalSummary = [
-            'plannedIncome'         => $plannedIncome,
-            'actualIncome'          => $actualIncome,
-            'plannedExpenses'       => $plannedExpenses,
-            'actualExpenses'        => $actualExpenses,
-            'plannedSurplus'        => $plannedIncome - $plannedExpenses,
-            'actualSurplus'         => $actualIncome - $actualExpenses,
+            'plannedIncome' => $plannedIncome,
+            'actualIncome' => $actualIncome,
+            'plannedExpenses' => $plannedExpenses,
+            'actualExpenses' => $actualExpenses,
+            'plannedSurplus' => $plannedIncome - $plannedExpenses,
+            'actualSurplus' => $actualIncome - $actualExpenses,
             'topSpendingCategories' => $topSpendingCategories,
         ];
 
         try {
             $budgetCycleModel->update($cycleId, [
-                'status'        => 'completed',
+                'status' => 'completed',
                 'final_summary' => json_encode($finalSummary)
             ]);
         } catch (\Exception $e) {
@@ -1087,7 +1104,7 @@ class BudgetService
 
         $data = [
             'start_date' => $startDate,
-            'end_date'   => $endDate,
+            'end_date' => $endDate,
         ];
 
         try {

@@ -51,9 +51,6 @@ class UserController extends BaseAPIController
         $user['permission_level'] = $this->getPermissionLevel();
         $user['is_partner'] = !empty($user['owner_user_id']);
 
-
-        unset($user['password_hash']);
-
         return $this->respond($user);
     }
     

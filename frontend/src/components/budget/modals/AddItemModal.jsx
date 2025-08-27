@@ -34,43 +34,55 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
         }));
     };
 
-    // --- FIX: This is the corrected handleSubmit function for your file ---
     const handleSubmit = async (e) => {
         e.preventDefault();
         setLoading(true);
         setError('');
 
         try {
-            if (type === 'income') {
-                const body = {
-                    label: formData.label,
-                    amount: formData.amount,
-                    frequency: formData.frequency,
-                    save_recurring: formData.save_recurring
-                };
-                await api.addIncomeToCycle(budgetId, body);
+            let apiCall;
+            let body;
 
-            } else if (type === 'variable') {
-                const body = {
-                    label: formData.label,
-                    amount: formData.amount
-                };
-                await api.addVariableExpense(budgetId, body);
+            // --- THIS IS THE FIX ---
+            // Convert the boolean to an integer (1 or 0) before sending.
+            const saveRecurringValue = formData.save_recurring ? 1 : 0;
 
-            } else { // 'recurring'
-                const body = {
-                    label: formData.label,
-                    due_date: formData.due_date,
-                    estimated_amount: formData.amount,
-                    category: formData.category,
-                    transfer_to_account_id: formData.transfer_to_account_id,
-                    save_recurring: formData.save_recurring
-                };
-                await api.addRecurringExpense(budgetId, body);
+            switch (type) {
+                case 'income':
+                    body = {
+                        label: formData.label,
+                        amount: formData.amount,
+                        frequency: formData.frequency,
+                        save_recurring: saveRecurringValue
+                    };
+                    apiCall = api.addIncomeToCycle(budgetId, body);
+                    break;
+                case 'recurring':
+                    body = {
+                        label: formData.label,
+                        estimated_amount: formData.amount,
+                        due_date: formData.due_date,
+                        category: formData.category,
+                        save_recurring: saveRecurringValue
+                    };
+                    apiCall = api.addRecurringExpense(budgetId, body);
+                    break;
+                case 'variable':
+                    body = {
+                        label: formData.label,
+                        amount: formData.amount,
+                        save_recurring: saveRecurringValue
+                    };
+                    apiCall = api.addVariableExpense(budgetId, body);
+                    break;
+                default:
+                    throw new Error('Invalid item type');
             }
+
+            await apiCall;
             onSuccess();
         } catch (err) {
-            setError(err.message); // The API client already shows a toast
+            setError(err.message || 'An unexpected error occurred.');
         } finally {
             setLoading(false);
         }
