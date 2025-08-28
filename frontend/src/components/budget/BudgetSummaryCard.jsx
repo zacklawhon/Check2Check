@@ -1,7 +1,9 @@
 import React from 'react';
 
 function BudgetSummaryCard({ budget, transactions, goals, onOpenAccelerateModal, onCloseBudget, isClosing, user }) {
-  // --- All calculation logic is now contained within this component ---
+  if (!budget) {
+    return null; 
+  }
   const totalExpectedIncome = budget.initial_income.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
   const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
   const expectedSurplus = totalExpectedIncome - totalExpectedExpenses;

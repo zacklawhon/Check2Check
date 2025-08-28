@@ -84,9 +84,10 @@ class BudgetController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetCycle = $budgetService->getCycleDetails($userId, (int) $id);
+            $completeState = $budgetService->getCompleteBudgetState($userId, (int) $id);
 
-            // --- ADD THIS BLOCK ---
+            $budgetCycle = $completeState['budget'];
+
             $user = session()->get('user');
             if ($user && isset($user['permission_level']) && $user['permission_level'] === 'update_by_request') {
                 $actionRequestModel = new ActionRequestModel();
@@ -99,7 +100,7 @@ class BudgetController extends BaseAPIController
             }
             // --- END BLOCK ---
 
-            return $this->respond($budgetCycle);
+            return $this->respond($completeState);
 
         } catch (\Exception $e) {
             return $this->failNotFound($e->getMessage());

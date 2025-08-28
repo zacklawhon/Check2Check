@@ -101,10 +101,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->addIncomeToCycle($userId, $cycleId, $newIncome, $saveAsRecurring);
+            $updatedBudget = $budgetService->addIncomeToCycle($userId, $cycleId, $newIncome, $saveAsRecurring);
             
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Income added and transaction logged.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -134,11 +134,11 @@ class BudgetItemController extends BaseAPIController
         // 2. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
-            $budgetService = new \App\Services\BudgetService();
-            $budgetService->removeIncomeFromCycle($userId, $budgetId, $label);
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->removeIncomeFromCycle($userId, $budgetId, $label);
 
             // 3. Controller returns the response.
-            return $this->respondDeleted(['message' => 'Income removed successfully.']);
+            return $this->respondDeleted($updatedBudget);
             
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -186,11 +186,11 @@ class BudgetItemController extends BaseAPIController
         // 3. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
-            $budgetService = new \App\Services\BudgetService();
-            $budgetService->addExpenseToCycle($userId, $cycleId, $newExpense, $saveAsRecurring);
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->addExpenseToCycle($userId, $cycleId, $newExpense, $saveAsRecurring);
 
             // 4. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Recurring expense added successfully.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -221,10 +221,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->removeExpenseFromCycle($userId, $cycleId, $labelToRemove);
+            $updatedBudget = $budgetService->removeExpenseFromCycle($userId, $cycleId, $labelToRemove);
 
             // 3. Controller returns the response.
-            return $this->respondDeleted(['message' => 'Expense removed successfully.']);
+            return $this->respondDeleted($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -256,10 +256,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->addVariableExpense($userId, $budgetId, $label, (float)$amount);
+            $updatedBudget = $budgetService->addVariableExpense($userId, $budgetId, $label, (float)$amount);
 
             // 3. Controller returns the response.
-            return $this->respondCreated(['message' => 'Variable spending item added successfully.']);
+            return $this->respondCreated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -330,10 +330,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->updateVariableExpenseAmount($userId, $cycleId, $labelToUpdate, $newAmount);
+            $updatedBudget = $budgetService->updateVariableExpenseAmount($userId, $cycleId, $labelToUpdate, $newAmount);
 
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Budget updated successfully.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -370,10 +370,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->adjustIncomeInCycle($userId, $budgetId, $label, $newAmount);
+            $updatedBudget = $budgetService->adjustIncomeInCycle($userId, $budgetId, $label, $newAmount);
 
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Income adjusted successfully.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -476,10 +476,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->updateIncomeInCycle($userId, $budgetId, $originalLabel, $newLabel, $newAmount);
+            $updatedBudget = $budgetService->updateIncomeInCycle($userId, $budgetId, $originalLabel, $newLabel, $newAmount);
             
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Income item updated successfully.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -521,11 +521,11 @@ class BudgetItemController extends BaseAPIController
         // 2. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
-            $budgetService = new \App\Services\BudgetService();
-            $budgetService->updateRecurringExpenseInCycle($userId, $budgetId, $labelToUpdate, $newAmount, $newDueDate);
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->updateRecurringExpenseInCycle($userId, $budgetId, $labelToUpdate, $newAmount, $newDueDate);
 
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Budget expense updated successfully.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -605,11 +605,11 @@ class BudgetItemController extends BaseAPIController
         // 2. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
-            $budgetService = new \App\Services\BudgetService();
-            $budgetService->markBillUnpaid($userId, $cycleId, $labelToUnpay);
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->markBillUnpaid($userId, $cycleId, $labelToUnpay);
 
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Bill marked as unpaid and transaction removed.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -648,10 +648,10 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $budgetService->markIncomeReceived($userId, $budgetId, $label, $actualAmount, $date);
+            $updatedBudget = $budgetService->markIncomeReceived($userId, $budgetId, $label, $actualAmount, $date);
 
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Income marked as received.']);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());

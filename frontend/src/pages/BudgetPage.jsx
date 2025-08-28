@@ -1,17 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import * as api from '../utils/api';
 import { useNavigate, useParams, useOutletContext } from 'react-router-dom';
-import VariableExpenseItem from '../components/budget/VariableExpenseItem';
-import RecurringExpenseItem from '../components/budget/RecurringExpenseItem';
-import IncomeListItem from '../components/budget/IncomeListItem';
 import AddItemModal from '../components/budget/modals/AddItemModal';
-import EditIncomeModal from '../components/budget/modals/EditIncomeModal';
-import ConfirmationModal from '../components/common/ConfirmationModal';
 import EditDatesModal from '../components/budget/modals/EditDatesModal';
 import AccountsCard from '../components/budget/AccountsCard';
 import NextStepsPrompt from '../components/budget/NextStepsPrompt';
 import AccelerateGoalModal from '../components/budget/modals/AccelerateGoalModal';
-import ReceiveIncomeModal from '../components/budget/modals/ReceiveIncomeModal';
 import EditBudgetItemModal from '../components/budget/modals/EditBudgetItemModal';
 import BudgetSummaryCard from '../components/budget/BudgetSummaryCard';
 import IncomeList from '../components/budget/IncomeList';
@@ -28,9 +22,6 @@ function BudgetPage() {
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState('');
     const [modalType, setModalType] = useState(null);
-    const [itemToEdit, setItemToEdit] = useState(null);
-    const [itemToReceive, setItemToReceive] = useState(null);
-    const [itemToRemove, setItemToRemove] = useState(null);
     const [isEditDatesModalOpen, setIsEditDatesModalOpen] = useState(false);
     const [isClosing, setIsClosing] = useState(false);
     const [showNextSteps, setShowNextSteps] = useState(false);
@@ -44,12 +35,14 @@ function BudgetPage() {
         try {
             const isOwner = user && !user.is_partner;
 
-            // budgetData contains action_requests for partners, which we will now use
-            const [budgetData, transactionsData, goalsData] = await Promise.all([
-                api.getBudgetDetails(budgetId),
-                api.getTransactionsForCycle(budgetId),
+            // --- REFACTOR START ---
+            // Use Promise.all for goals and the combined budget/transaction call
+            const [budgetState, goalsData] = await Promise.all([
+                api.getBudgetDetails(budgetId), // This API call now returns { budget, transactions }
                 api.getGoals(),
             ]);
+
+            const { budget: budgetData, transactions: transactionsData = [] } = budgetState;
 
             let requestsToMerge = [];
             // If the user is the owner, fetch their requests separately
@@ -81,8 +74,7 @@ function BudgetPage() {
             budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses, requestsToMerge);
             budgetData.initial_income = mergeRequests(budgetData.initial_income, requestsToMerge);
 
-            // The 'pendingRequests' state array is no longer needed as the primary source of truth
-            // but we keep the handler function for immediate UI feedback after an action.
+            // Set state for all our data
             setBudget(budgetData);
             setTransactions(transactionsData);
             setGoals(goalsData);
@@ -94,11 +86,16 @@ function BudgetPage() {
         }
     };
 
-    const refreshBudget = () => {
-        fetchPageData(true);
-        if (refreshGlobalData) {
-            refreshGlobalData(null, true);
+    const handleStateUpdate = (response) => {
+        if (response && response.budget && response.transactions) {
+            setBudget(response.budget);
+            setTransactions(response.transactions);
+        } else {
+
         }
+        // Close any open modals.
+        setModalType(null);
+        setIsEditDatesModalOpen(false);
     };
 
     useEffect(() => {
@@ -117,31 +114,6 @@ function BudgetPage() {
             setShowNextSteps(shouldShow);
         }
     }, [user, budget]);
-
-    const handleSuccess = () => { setModalType(null); refreshBudget(); };
-
-    const handleEditSuccess = () => {
-        setItemToEdit(null);
-        refreshBudget();
-    };
-
-    const handleDatesUpdateSuccess = () => { setIsEditDatesModalOpen(false); refreshBudget(); };
-
-    const handleRemoveIncome = async () => {
-        if (!itemToRemove) return;
-        try {
-            await api.removeIncomeItem(budgetId, itemToRemove.label);
-            setItemToRemove(null);
-            refreshBudget();
-        } catch (err) {
-            setError(err.message);
-        }
-    };
-
-    const handleReceiveSuccess = () => {
-        setItemToReceive(null);
-        refreshBudget();
-    };
 
     const handleCloseBudget = async () => {
         setIsClosing(true);
@@ -170,20 +142,13 @@ function BudgetPage() {
         return date.toLocaleDateString('en-US', { month: 'short', day: 'numeric' });
     };
 
-    const handleRequestSent = (itemLabel) => {
-        const uniqueId = `${item.label}-${item.date}`;
+    const handleRequestSent = (uniqueId) => {
         setPendingRequests(prev => [...prev, uniqueId]);
     };
 
-    const handleBudgetEditSuccess = () => {
-        setItemToEditInBudget(null);
-        refreshBudget();
-    };
-
-     const handleRequestCancelled = (itemLabel) => {
-        const uniqueId = `${item.label}-${item.date}`;
+    // This function also accepts the unique ID to find and remove.
+    const handleRequestCancelled = (uniqueId) => {
         setPendingRequests(prev => prev.filter(id => id !== uniqueId));
-        refreshBudget();
     };
 
     if (loading || !user) {
@@ -191,34 +156,10 @@ function BudgetPage() {
     }
 
     if (error) return <div className="text-red-500 p-8 text-center">{error}</div>;
-    if (!budget || !user) return <div className="text-white p-8 text-center">Budget or user data not found.</div>;
-
-    const totalExpectedIncome = budget.initial_income.reduce((sum, item) => sum + parseFloat(item.amount || 0), 0);
-    const totalExpectedExpenses = budget.initial_expenses.reduce((sum, item) => sum + parseFloat(item.estimated_amount || 0), 0);
-    const expectedSurplus = totalExpectedIncome - totalExpectedExpenses;
-
-    const totalReceivedIncome = transactions.filter(t => t.type === 'income').reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const totalExpensesPaid = transactions.filter(t => t.type === 'expense').reduce((sum, t) => sum + parseFloat(t.amount), 0);
-    const currentCash = totalReceivedIncome - totalExpensesPaid;
-
-    let surplusLabel = 'Expected Surplus';
-    let surplusColor = 'text-white';
-    if (expectedSurplus > 0) surplusColor = 'text-green-400';
-    if (expectedSurplus < 0) {
-        surplusLabel = 'Expected Deficit';
-        surplusColor = 'text-red-400';
+    if (!budget) {
+        return <div className="text-white p-8 text-center">Budget or user data not found.</div>;
     }
-    const displaySurplusAmount = Math.abs(expectedSurplus);
-    const recurringExpenses = budget.initial_expenses.filter(exp => exp.type === 'recurring');
-    const variableExpenses = budget.initial_expenses.filter(exp => exp.type === 'variable');
-    const groupedRecurringExpenses = recurringExpenses.reduce((acc, expense) => {
-        const category = expense.category || 'other';
-        if (!acc[category]) acc[category] = [];
-        acc[category].push(expense);
-        return acc;
-    }, {});
-    const isClosable = budget.status === 'active' && isPastEndDate(budget.end_date);
-    const activeGoal = goals.find(g => g.status === 'active');
+
 
     return (
         <div className="container mx-auto p-4 md:p-8 text-white">
@@ -238,9 +179,10 @@ function BudgetPage() {
                 {/* --- Left Column --- */}
                 <div className="md:col-span-1 flex flex-col gap-8">
                     <BudgetSummaryCard
+                        onStateUpdate={handleStateUpdate}
                         budget={budget}
-                        user={user}
                         transactions={transactions}
+                        user={user}
                         goals={goals}
                         onOpenAccelerateModal={() => setIsAccelerateModalOpen(true)}
                         onCloseBudget={handleCloseBudget}
@@ -250,7 +192,6 @@ function BudgetPage() {
                         <AccountsCard
                             accounts={accounts}
                             budgetId={budgetId}
-                            onUpdate={refreshBudget}
                         />
                     )}
                 </div>
@@ -260,11 +201,9 @@ function BudgetPage() {
                     <IncomeList
                         incomeItems={budget.initial_income}
                         user={user}
-                        setBudget={setBudget} 
+                        budget={budget}
+                        onStateUpdate={handleStateUpdate}
                         onAddItem={() => setModalType('income')}
-                        onReceiveItem={setItemToReceive}
-                        onEditItem={setItemToEdit}
-                        onRemoveItem={setItemToRemove}
                         budgetId={budgetId}
                         onItemRequest={handleRequestSent}
                         onItemRequestCancel={handleRequestCancelled}
@@ -272,28 +211,27 @@ function BudgetPage() {
                     />
                     <ExpensesList
                         expenseItems={budget.initial_expenses}
-                        setBudget={setBudget} 
                         transactions={transactions}
                         budgetId={budgetId}
                         user={user}
                         onAddItem={(type) => setModalType(type)}
-                        onEditItem={setItemToEdit}
-                        onUpdate={refreshBudget}
+                        onStateUpdate={handleStateUpdate}
                         onItemRequest={handleRequestSent}
                         onItemRequestCancel={handleRequestCancelled}
                         pendingRequests={pendingRequests}
                     />
                 </div>
             </div>
+            {modalType && <AddItemModal type={modalType} budgetId={budgetId} accounts={accounts} onClose={() => setModalType(null)} onSuccess={handleStateUpdate} />}
 
-            {/* --- All Modals --- */}
-            {modalType && <AddItemModal type={modalType} budgetId={budgetId} accounts={accounts} onClose={() => setModalType(null)} onSuccess={handleSuccess} />}
-            {itemToEdit && <EditIncomeModal item={itemToEdit} budgetId={budgetId} onClose={() => setItemToEdit(null)} onSuccess={handleEditSuccess} />}
-            {isEditDatesModalOpen && <EditDatesModal budget={budget} onClose={() => setIsEditDatesModalOpen(false)} onSuccess={handleDatesUpdateSuccess} />}
-            <ConfirmationModal isOpen={!!itemToRemove} onClose={() => setItemToRemove(null)} onConfirm={handleRemoveIncome} title="Confirm Removal" message={`Are you sure you want to remove "${itemToRemove?.label}"?`} />
-            <ReceiveIncomeModal isOpen={!!itemToReceive} item={itemToReceive} budgetId={budgetId} onClose={() => setItemToReceive(null)} onSuccess={handleReceiveSuccess} />
-            <EditBudgetItemModal isOpen={!!itemToEdit} onClose={() => setItemToEdit(null)} onSuccess={handleEditSuccess} item={itemToEdit} budgetId={budgetId} />
-            {goals.length > 0 && <AccelerateGoalModal isOpen={isAccelerateModalOpen} onClose={() => setIsAccelerateModalOpen(false)} onSuccess={() => { setIsAccelerateModalOpen(false); refreshBudget(); }} goal={goals.find(g => g.status === 'active')} surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)} budgetId={budgetId} />}
+            <EditDatesModal
+                isOpen={isEditDatesModalOpen}
+                budget={budget}
+                onClose={() => setIsEditDatesModalOpen(false)}
+                onSuccess={handleStateUpdate}
+            />
+
+            {goals.length > 0 && <AccelerateGoalModal isOpen={isAccelerateModalOpen} onClose={() => setIsAccelerateModalOpen(false)} onSuccess={(handleStateUpdate) => { setIsAccelerateModalOpen(false); }} goal={goals.find(g => g.status === 'active')} surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)} budgetId={budgetId} />}
         </div>
     );
 }

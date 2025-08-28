@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import * as api from '../../../utils/api';
 
-function EditDatesModal({ budget, onClose, onSuccess }) {
+function EditDatesModal({ isOpen, budget, onClose, onSuccess }) {
     // Helper to format date for input field
     const formatDate = (dateString) => {
         return new Date(dateString).toISOString().split('T')[0];
@@ -25,6 +25,10 @@ function EditDatesModal({ budget, onClose, onSuccess }) {
             setLoading(false);
         }
     };
+
+    if (!isOpen) {
+        return null;
+    }
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">

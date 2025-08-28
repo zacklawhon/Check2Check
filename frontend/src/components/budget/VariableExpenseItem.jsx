@@ -3,17 +3,21 @@ import LogTransactionModal from './modals/LogTransactionModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as api from '../../utils/api';
 
-function VariableExpenseItem({ item, budgetId, onUpdate, transactions, user }) {
+function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions, onItemRequest, isPending }) {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [budgetedAmount, setBudgetedAmount] = useState(item.estimated_amount || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
 
+  if (!itemTransactions) {
+    return null;
+  }
+
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
   const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
 
-  const totalSpent = transactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
+  const totalSpent = itemTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
   const remainingBudget = parseFloat(budgetedAmount || 0) - totalSpent;
 
   const handleBudgetSet = async (e) => {

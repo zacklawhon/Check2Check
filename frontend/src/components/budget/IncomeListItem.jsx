@@ -4,10 +4,11 @@ import * as api from '../../utils/api';
 
 function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel }) {
   const [loading, setLoading] = useState(false);
- const isReceived = !!item.is_received;
+  const isReceived = !!item.is_received;
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
   const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
   const isOwner = !user.owner_user_id;
+  const uniqueId = `${item.label}-${item.date}`;
 
   // --- Handlers for Owner's Approval ---
   const handleApproval = async (action) => {
@@ -19,7 +20,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
         await api.denyRequest(item.pending_request.id);
       }
       toast.success(`Request ${action}d!`);
-      onUpdate();
+      onStateUpdate(response);
     } catch (err) {
       // API client shows toast
     } finally {
@@ -36,9 +37,9 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
 
         if (isUpdateByRequest) {
           onItemRequest(item);
-          onUpdate();
+          onStateUpdate(response);
         } else {
-          onUpdate();
+
         }
       } catch (err) {
         // API client shows toast
@@ -63,7 +64,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       if (onItemRequestCancel) {
         onItemRequestCancel(item);
       } else {
-        onUpdate();
+        onStateUpdate(response);
       }
     } catch (err) {
 
@@ -139,8 +140,13 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
         <button onClick={() => onEdit(item)} disabled={isReceived || isReadOnly} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
           {/* SVG for Edit */}
         </button>
-        <button onClick={handleRemoveClick} disabled={isReceived || isReadOnly} title="Remove" className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed">
-          {loading ? '...' : '×'}
+        <button
+          onClick={() => onRemove(item)} // This should now call the function from props
+          disabled={isReceived || isReadOnly}
+          title="Remove"
+          className="text-gray-400 hover:text-red-500 disabled:text-gray-600 disabled:cursor-not-allowed"
+        >
+          { loading ? '...' : 'X' }
         </button>
       </div>
     </li>

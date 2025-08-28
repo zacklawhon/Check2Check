@@ -5,7 +5,7 @@ import { getDayWithOrdinal } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending, onItemRequest, onItemRequestCancel, setBudget }) {
+function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending, onItemRequest, onItemRequestCancel, setBudget, setTransactions }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -62,8 +62,9 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
         try {
             const payload = { label: item.label, amount: item.estimated_amount };
 
-            const updatedBudget = await api.markBillPaid(budgetId, payload);
-            setBudget(updatedBudget);
+            const response = await api.markBillPaid(budgetId, payload);
+            setBudget(response.budget); // Set the budget state
+            setTransactions(response.transactions);
 
         } catch (err) {
             // Handle any errors from the API

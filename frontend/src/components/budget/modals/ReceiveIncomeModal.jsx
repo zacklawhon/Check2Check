@@ -13,26 +13,31 @@ function ReceiveIncomeModal({ isOpen, item, budgetId, onClose, onSuccess }) {
     }, [item]);
 
     const handleConfirm = async () => {
-        if (!amount || parseFloat(amount) <= 0) {
-            setError('Please enter a valid amount.');
-            return;
-        }
-        setLoading(true);
-        setError('');
-        try {
-            const payload = {
-                label: item.label,
-                amount: parseFloat(amount),
-                date: item.date,
-            };
-            await api.markIncomeReceived(budgetId, payload);
-            onSuccess();
-        } catch (err) {
-            setError(err.message); // The API client already shows a toast
-        } finally {
-            setLoading(false);
-        }
-    };
+    if (!amount || parseFloat(amount) <= 0) {
+        setError('Please enter a valid amount.');
+        return;
+    }
+    setLoading(true);
+    setError('');
+    try {
+        const payload = {
+            label: item.label,
+            amount: parseFloat(amount),
+            date: item.date,
+        };
+        
+        // 1. Capture the response from the API call.
+        const response = await api.markIncomeReceived(budgetId, payload);
+        
+        // 2. Pass the entire response object to the onSuccess handler.
+        onSuccess(response);
+        
+    } catch (err) {
+        setError(err.message);
+    } finally {
+        setLoading(false);
+    }
+};
 
     if (!isOpen) return null;
 

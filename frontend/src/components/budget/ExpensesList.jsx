@@ -2,12 +2,15 @@ import React from 'react';
 import RecurringExpenseItem from './RecurringExpenseItem';
 import VariableExpenseItem from './VariableExpenseItem';
 
-function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, onEditItem, onUpdate, onItemRequest, pendingRequests, onItemRequestCancel, setBudget }) {
+function ExpensesList({ expenseItems, transactions, budget, budgetId, user, onAddItem, onEditItem, onStateUpdate, onItemRequest, pendingRequests, onItemRequestCancel }) {
+  if (!expenseItems || !transactions) {
+    return null;
+  }
   const canEdit = !user.is_partner || user.permission_level !== 'read_only';
 
   const recurringExpenses = expenseItems.filter(exp => exp.type === 'recurring');
   const variableExpenses = expenseItems.filter(exp => exp.type === 'variable');
-  
+
   const groupedRecurring = recurringExpenses.reduce((acc, expense) => {
     const category = expense.category || 'other';
     if (!acc[category]) acc[category] = [];
@@ -22,11 +25,11 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
         <div className="flex justify-between items-center mb-2">
           <h4 className="font-semibold text-gray-300">Recurring Bills</h4>
           {canEdit && (
-            <button 
-                onClick={() => onAddItem('recurring')} 
-                className="text-sm bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg"
+            <button
+              onClick={() => onAddItem('recurring')}
+              className="text-sm bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 rounded-lg"
             >
-                + Add
+              + Add
             </button>
           )}
         </div>
@@ -40,9 +43,10 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
                     key={`rec-exp-${item.id || index}`}
                     item={item}
                     budgetId={budgetId}
-                    setBudget={setBudget}
+                    budget={budget}
+                    onUpdate={onStateUpdate}
+                    itemTransactions={transactions}
                     user={user}
-                    onUpdate={onUpdate}
                     onEditInBudget={() => onEditItem(item)}
                     onItemRequest={onItemRequest}
                     onItemRequestCancel={onItemRequestCancel}
@@ -59,11 +63,11 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
         <div className="flex justify-between items-center mb-2">
           <h4 className="font-semibold text-gray-300">Variable Spending</h4>
           {canEdit && (
-            <button 
-                onClick={() => onAddItem('variable')} 
-                className="text-sm bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 rounded-lg"
+            <button
+              onClick={() => onAddItem('variable')}
+              className="text-sm bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 rounded-lg"
             >
-                + Add
+              + Add
             </button>
           )}
         </div>
@@ -73,10 +77,9 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
               key={`var-exp-${item.label}-${index}`}
               item={item}
               budgetId={budgetId}
-              setBudget={setBudget}
               user={user}
-              onUpdate={onUpdate}
-              transactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}
+              onUpdate={onStateUpdate} // Correctly passing the new handler
+              itemTransactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}
               onItemRequest={onItemRequest}
               isPending={pendingRequests.includes(item.label)}
             />

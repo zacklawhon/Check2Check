@@ -12,6 +12,44 @@ use Exception;
 
 class BudgetService
 {
+
+    /**
+     * Fetches the complete, processed state for a budget cycle.
+     *
+     * @param int $userId
+     * @param int $cycleId
+     * @return array
+     */
+    public function getCompleteBudgetState(int $userId, int $cycleId): array
+    {
+        $budgetCycleModel = new BudgetCycleModel();
+        $budget = $budgetCycleModel->where('id', $cycleId)
+            ->where('user_id', $userId)
+            ->first();
+
+        if (!$budget) {
+            // Return empty state if not found, letting the calling function handle the error.
+            return ['budget' => null, 'transactions' => []];
+        }
+
+        // Decode all JSON fields into arrays
+        $budget['initial_income'] = json_decode($budget['initial_income'] ?? '[]', true);
+        $budget['initial_expenses'] = json_decode($budget['initial_expenses'] ?? '[]', true);
+        $budget['final_summary'] = json_decode($budget['final_summary'] ?? '[]', true);
+
+        // Fetch all related transactions
+        $transactionModel = new TransactionModel();
+        $transactions = $transactionModel->where('budget_cycle_id', $cycleId)
+            ->where('user_id', $userId)
+            ->findAll();
+
+        return [
+            'budget' => $budget,
+            'transactions' => $transactions
+        ];
+    }
+
+
     /**
      * Marks a bill as paid within a budget cycle, updates the budget's JSON data,
      * and logs the corresponding transaction.
@@ -71,7 +109,7 @@ class BudgetService
             throw $e; // Re-throw the exception to be caught by the controller
         }
 
-        return $budgetCycleModel->find($cycleId);
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 
     /**
@@ -84,7 +122,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function markBillUnpaid(int $userId, int $cycleId, string $labelToUnpay): bool
+    public function markBillUnpaid(int $userId, int $cycleId, string $labelToUnpay): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -140,7 +178,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 
     /**
@@ -154,7 +192,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function markIncomeReceived(int $userId, int $budgetId, string $label, float $actualAmount, string $date): bool
+    public function markIncomeReceived(int $userId, int $budgetId, string $label, float $actualAmount, string $date): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budget = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -205,7 +243,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -259,7 +297,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function addIncomeToCycle(int $userId, int $cycleId, array $incomeData, $saveAsRecurring): bool
+    public function addIncomeToCycle(int $userId, int $cycleId, array $incomeData, $saveAsRecurring): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -318,7 +356,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 
 
@@ -331,7 +369,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function removeIncomeFromCycle(int $userId, int $budgetId, string $label): bool
+    public function removeIncomeFromCycle(int $userId, int $budgetId, string $label): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -381,7 +419,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -395,7 +433,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function addExpenseToCycle(int $userId, int $cycleId, array $newExpense, bool $saveAsRecurring): bool
+    public function addExpenseToCycle(int $userId, int $cycleId, array $newExpense, bool $saveAsRecurring): array
     {
         $budgetCycleModel = new BudgetCycleModel();
 
@@ -452,7 +490,7 @@ class BudgetService
             throw $e; // Re-throw the exception
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 
     /**
@@ -464,7 +502,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function removeExpenseFromCycle(int $userId, int $cycleId, string $labelToRemove): bool
+    public function removeExpenseFromCycle(int $userId, int $cycleId, string $labelToRemove): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -490,7 +528,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 
     /**
@@ -504,7 +542,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function addVariableExpense(int $userId, int $budgetId, string $label, float $amount): bool
+    public function addVariableExpense(int $userId, int $budgetId, string $label, float $amount): array
     {
         $budgetModel = new BudgetCycleModel();
         $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -547,7 +585,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -560,7 +598,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function updateVariableExpenseAmount(int $userId, int $cycleId, string $label, float $newAmount): bool
+    public function updateVariableExpenseAmount(int $userId, int $cycleId, string $label, float $newAmount): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
@@ -590,7 +628,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 
     /**
@@ -603,7 +641,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function adjustIncomeInCycle(int $userId, int $budgetId, string $label, float $newAmount): bool
+    public function adjustIncomeInCycle(int $userId, int $budgetId, string $label, float $newAmount): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -664,7 +702,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -707,7 +745,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -721,7 +759,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function updateIncomeInCycle(int $userId, int $budgetId, string $originalLabel, string $newLabel, float $newAmount): bool
+    public function updateIncomeInCycle(int $userId, int $budgetId, string $originalLabel, string $newLabel, float $newAmount): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -778,7 +816,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -792,7 +830,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function updateRecurringExpenseInCycle(int $userId, int $budgetId, string $label, float $newAmount, ?int $newDueDate): bool
+    public function updateRecurringExpenseInCycle(int $userId, int $budgetId, string $label, float $newAmount, ?int $newDueDate): array
     {
         $budgetModel = new BudgetCycleModel();
         $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -823,7 +861,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
@@ -908,49 +946,14 @@ class BudgetService
      */
     public function getCycleDetails(int $userId, int $cycleId): ?array
     {
-        $budgetCycleModel = new BudgetCycleModel();
-        $budgetCycle = $budgetCycleModel->where('id', $cycleId)
-            ->where('user_id', $userId)
-            ->first();
 
-        if (!$budgetCycle) {
+        $state = $this->getCompleteBudgetState($userId, $cycleId);
+
+        if (!$state['budget']) {
             throw new \Exception('Budget cycle not found or access denied.');
         }
 
-        // --- Business Logic to determine if income has been received ---
-        $transactionModel = new TransactionModel();
-        $transactions = $transactionModel->where('budget_cycle_id', $cycleId)->findAll();
-
-        $receivedIncomeDescriptions = [];
-        foreach ($transactions as $t) {
-            if ($t['type'] === 'income') {
-                $receivedIncomeDescriptions[] = $t['description'];
-            }
-        }
-
-        $initialIncome = json_decode($budgetCycle['initial_income'] ?? '[]', true);
-        if (!empty($receivedIncomeCounts)) {
-        foreach ($initialIncome as &$item) {
-            // Only process items that haven't already been explicitly marked
-            if (empty($item['is_received'])) {
-                $label = $item['label'];
-                // If there's a transaction for this label and we haven't used it up yet
-                if (isset($receivedIncomeCounts[$label]) && $receivedIncomeCounts[$label] > 0) {
-                    $item['is_received'] = true;
-                    // Decrement the count so this transaction doesn't mark another item
-                    $receivedIncomeCounts[$label]--;
-                }
-            }
-        }
-    }
-        // --- End of Business Logic ---
-
-        // Prepare the final, complete object for the controller
-        $budgetCycle['initial_income'] = $initialIncome;
-        $budgetCycle['initial_expenses'] = json_decode($budgetCycle['initial_expenses'] ?? '[]', true);
-        $budgetCycle['final_summary'] = json_decode($budgetCycle['final_summary'] ?? '[]', true);
-
-        return $budgetCycle;
+        return $state['budget'];
     }
 
     /**
@@ -995,7 +998,7 @@ class BudgetService
 
         // If the user is eligible for express setup, run the projections
         if ($isReturningUserWithRules) {
-            $projectionService = new \App\Services\ProjectionService();
+            $projectionService = new ProjectionService();
             $data['projectedIncome'] = $projectionService->projectIncome($proposedStartDate, $proposedEndDate, $suggestedIncome);
             $data['projectedExpenses'] = $projectionService->projectExpenses($proposedStartDate, $proposedEndDate, $suggestedExpenses);
         }
@@ -1091,7 +1094,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function updateBudgetDates(int $userId, int $budgetId, string $startDate, string $endDate): bool
+    public function updateBudgetDates(int $userId, int $budgetId, string $startDate, string $endDate): array
     {
         $budgetModel = new BudgetCycleModel();
 
@@ -1116,7 +1119,7 @@ class BudgetService
             throw $e;
         }
 
-        return true;
+        return $this->getCompleteBudgetState($userId, $budgetId);
     }
 
     /**
