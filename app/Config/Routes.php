@@ -71,7 +71,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->put('recurring-expense/(:num)', 'BudgetItemController::updateRecurringExpenseInCycle/$1');
             $routes->post('update-income-amount/(:num)', 'BudgetItemController::updateInitialIncomeAmount/$1');
             $routes->post('spending-categories', 'BudgetItemController::createSpendingCategory');
-            
+            $routes->post('log-variable-expense/(:num)', 'BudgetItemController::logVariableExpense/$1');
         });
 
         $routes->group('transfers', static function ($routes) {

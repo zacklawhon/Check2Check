@@ -1,14 +1,18 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import LogTransactionModal from './modals/LogTransactionModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as api from '../../utils/api';
 
-function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions, onItemRequest, isPending }) {
+function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, itemTransactions, isPending, onItemRequest, onEdit }) {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
-  const [budgetedAmount, setBudgetedAmount] = useState(item.estimated_amount || '');
+  const [inputAmount, setInputAmount] = useState(item.estimated_amount || '');
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState('');
+
+  useEffect(() => {
+    setInputAmount(item.estimated_amount || '');
+  }, [item.estimated_amount]);
 
   if (!itemTransactions) {
     return null;
@@ -18,15 +22,15 @@ function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions,
   const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
 
   const totalSpent = itemTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
-  const remainingBudget = parseFloat(budgetedAmount || 0) - totalSpent;
+  const remainingBudget = Math.max(parseFloat(item.estimated_amount || 0) - totalSpent, 0);
 
   const handleBudgetSet = async (e) => {
     e.preventDefault();
     setLoading(true);
     setError('');
     try {
-      await api.updateVariableExpenseAmount(budgetId, { label: item.label, amount: budgetedAmount });
-      onUpdate();
+      const response = await api.updateVariableExpenseAmount(budgetId, { label: item.label, amount: inputAmount });
+      onStateUpdate(response);
     } catch (err) {
       setError(err.message);
     } finally {
@@ -34,16 +38,12 @@ function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions,
     }
   };
 
-  const handleLogSuccess = () => {
-    setIsLogModalOpen(false);
-    onUpdate();
-  };
 
   const handleDeleteConfirm = async () => {
     setIsConfirmModalOpen(false);
     try {
-      await api.removeExpenseItem(budgetId, item.label);
-      onUpdate();
+      const response = await api.removeExpenseItem(budgetId, item.label);
+      onStateUpdate(response);
     } catch (err) {
       setError(err.message);
     }
@@ -62,7 +62,10 @@ function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions,
 
   return (
     <>
-      <li className="bg-gray-700 p-3 rounded-md">
+      <li
+        className={`bg-gray-700 p-3 rounded-md ${typeof onEdit === 'function' && !isReadOnly ? 'hover:bg-gray-600 cursor-pointer' : ''}`}
+        onClick={() => (typeof onEdit === 'function' && !isReadOnly) ? onEdit(item) : undefined}
+      >
         {/* 1. This is the main container. We make it a column on mobile and a row on desktop. */}
         <div className="flex flex-col md:flex-row justify-between md:items-center gap-2">
           <div className="flex-grow">
@@ -85,8 +88,8 @@ function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions,
                   type="number"
                   step="0.01"
                   id={`budget-amount-${item.label}`}
-                  value={budgetedAmount}
-                  onChange={(e) => setBudgetedAmount(e.target.value)}
+                  value={inputAmount}
+                  onChange={(e) => setInputAmount(e.target.value)}
                   placeholder="Budget"
                   className="bg-gray-600 w-full sm:w-24 text-white rounded-lg p-1 border border-gray-500 text-right focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   required
@@ -106,10 +109,12 @@ function VariableExpenseItem({ item, budgetId, user, onUpdate, itemTransactions,
             budgetId={budgetId}
             user={user}
             categoryName={item.label}
+            spent={totalSpent}
+            remaining={remainingBudget}
             onClose={() => setIsLogModalOpen(false)}
-            onSuccess={() => {
+            onSuccess={(response) => {
               setIsLogModalOpen(false);
-              onUpdate();
+              onStateUpdate(response);
             }}
           />
         )}

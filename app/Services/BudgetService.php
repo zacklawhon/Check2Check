@@ -204,13 +204,13 @@ class BudgetService
         $itemFound = false;
 
         foreach ($incomeItems as &$item) {
-        if ($item['label'] === $label && $item['date'] === $date && empty($item['is_received'])) {
-            $item['is_received'] = true;
-            $item['amount'] = $actualAmount; // Optionally update the amount to the actual received amount
-            $itemFound = true;
-            break; // Stop after finding and updating the first match
+            if ($item['label'] === $label && $item['date'] === $date && empty($item['is_received'])) {
+                $item['is_received'] = true;
+                $item['amount'] = $actualAmount; // Optionally update the amount to the actual received amount
+                $itemFound = true;
+                break; // Stop after finding and updating the first match
+            }
         }
-    }
 
         if (!$itemFound) {
             throw new \Exception('The planned income item was not found in this budget.');
@@ -332,7 +332,7 @@ class BudgetService
                 'id' => uniqid('inc_', true), // Add a unique ID
                 'label' => $incomeData['label'],
                 'amount' => $incomeData['amount'],
-                'date' => null,
+                'date' => $incomeData['date'],
                 'is_received' => false, // Set the default status correctly
                 'frequency' => $incomeData['frequency'] ?? 'one-time'
             ];
@@ -378,34 +378,22 @@ class BudgetService
         }
 
         $incomeItems = json_decode($budgetCycle['initial_income'], true);
-        $itemToRemove = null;
-
+        $itemExists = false;
         foreach ($incomeItems as $item) {
             if ($item['label'] === $label) {
-                $itemToRemove = $item;
+                $itemExists = true;
                 break;
             }
         }
 
-        if (!$itemToRemove) {
+        if (!$itemExists) {
             throw new \Exception('Income item not found.');
         }
 
         $db = \Config\Database::connect();
         $db->transStart();
         try {
-            // Step 1: Log a negative transaction to reverse the income
-            $transactionModel = new TransactionModel();
-            $transactionModel->logTransaction(
-                $userId,
-                $budgetId,
-                'income',
-                'Removal',
-                -(float) $itemToRemove['amount'],
-                "Removal of income source '{$label}'"
-            );
 
-            // Step 2: Update the budget's JSON data
             $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['label'] !== $label);
             $budgetCycleModel->update($budgetId, ['initial_income' => json_encode(array_values($updatedIncomeItems))]);
 
@@ -1164,10 +1152,10 @@ class BudgetService
         if ($exists) {
             return $exists['id'];
         }
-        
+
         $data = [
             'user_id' => $userId,
-            'name'    => $name,
+            'name' => $name,
         ];
 
         try {
@@ -1181,5 +1169,46 @@ class BudgetService
 
         // This line should ideally not be reached if exceptions are handled correctly.
         throw new \Exception('Could not save spending category.');
+    }
+
+    /**
+     * Logs a transaction for a variable expense and returns the updated budget state.
+     *
+     * @param int $userId
+     * @param int $cycleId
+     * @param string $label
+     * @param float $amount
+     * @param string|null $description
+     * @return array
+     */
+    public function logVariableExpenseTransaction(int $userId, int $cycleId, string $label, float $amount, ?string $description = null): array
+    {
+        $budgetCycleModel = new BudgetCycleModel();
+        $budget = $budgetCycleModel->where('id', $cycleId)->where('user_id', $userId)->first();
+        if (!$budget) {
+            throw new \Exception('Budget cycle not found.');
+        }
+        $db = \Config\Database::connect();
+        $db->transStart();
+        try {
+            $transactionModel = new TransactionModel();
+            $transactionModel->logTransaction(
+                $userId,
+                $cycleId,
+                'expense',
+                $label, // category_name
+                $amount,
+                $description ?? $label
+            );
+            $db->transComplete();
+            if ($db->transStatus() === false) {
+                throw new \Exception('Database transaction failed while logging variable expense.');
+            }
+        } catch (\Exception $e) {
+            $db->transRollback();
+            log_message('error', '[SERVICE_ERROR_LOG_VARIABLE_EXPENSE] ' . $e->getMessage());
+            throw $e;
+        }
+        return $this->getCompleteBudgetState($userId, $cycleId);
     }
 }

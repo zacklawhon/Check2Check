@@ -47,7 +47,6 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
               key={`${uniqueId}-${index}`}
               item={item}
               user={user}
-              // Pass the state setters directly to the list item
               onReceive={setItemToReceive}
               onEdit={setItemToEdit}
               onRemove={setItemToRemove}

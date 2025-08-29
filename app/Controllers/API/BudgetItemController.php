@@ -76,6 +76,7 @@ class BudgetItemController extends BaseAPIController
         $rules = [
             'label'          => 'required|string',
             'amount'         => 'required|decimal',
+            'date'           => 'required|valid_date[Y-m-d]',
             'frequency'      => 'permit_empty|string',
             'save_recurring' => 'permit_empty|in_list[1,0,true,false]'
         ];
@@ -86,6 +87,7 @@ class BudgetItemController extends BaseAPIController
         $newIncome = [
             'label'     => $this->request->getVar('label'),
             'amount'    => $this->request->getVar('amount'),
+            'date'      => $this->request->getVar('date'),
             'frequency' => $this->request->getVar('frequency') ?: 'one-time'
         ];
         $saveAsRecurring = filter_var($this->request->getVar('save_recurring'), FILTER_VALIDATE_BOOLEAN);
@@ -655,6 +657,36 @@ class BudgetItemController extends BaseAPIController
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
+        }
+    }
+
+    /**
+     * Logs a transaction for a variable expense and returns the updated budget state.
+     */
+    public function logVariableExpense($cycleId)
+    {
+        $permission = $this->getPermissionLevel();
+        if ($permission === 'read_only') {
+            return $this->failForbidden('You do not have permission to perform this action.');
+        }
+        $rules = [
+            'label' => 'required|string',
+            'amount' => 'required|numeric',
+            'description' => 'permit_empty|string'
+        ];
+        if (!$this->validate($rules)) {
+            return $this->fail($this->validator->getErrors());
+        }
+        $label = $this->request->getVar('label');
+        $amount = (float) $this->request->getVar('amount');
+        $description = $this->request->getVar('description');
+        try {
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedState = $budgetService->logVariableExpenseTransaction($userId, $cycleId, $label, $amount, $description);
+            return $this->respondUpdated($updatedState);
+        } catch (\Exception $e) {
+            return $this->failServerError($e->getMessage());
         }
     }
 

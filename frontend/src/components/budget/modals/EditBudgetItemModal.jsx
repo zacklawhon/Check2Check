@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom'; 
 import * as api from '../../../utils/api'
 
-function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
+function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId, hideDueDate }) {
     const navigate = useNavigate(); 
     const [amount, setAmount] = useState('');
     const [dueDate, setDueDate] = useState('');
@@ -31,8 +31,8 @@ function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
                 estimated_amount: amount,
                 due_date: dueDate
             };
-            await api.updateRecurringExpenseInCycle(budgetId, payload);
-            onSuccess();
+            const response = await api.updateRecurringExpenseInCycle(budgetId, payload);
+            onSuccess(response);
         } catch (err) {
             setError(err.message);
         } finally {
@@ -59,6 +59,7 @@ function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
                             className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
                         />
                     </div>
+                    {!hideDueDate && (
                     <div>
                         <label className="block text-sm font-medium text-gray-300">Due Day of Month</label>
                         <input
@@ -70,6 +71,7 @@ function EditBudgetItemModal({ isOpen, onClose, onSuccess, item, budgetId }) {
                             className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-600"
                         />
                     </div>
+                    )}
                 </div>
 
                 {/* 3. Add the link to the Account page */}

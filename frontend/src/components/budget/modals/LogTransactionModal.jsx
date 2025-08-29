@@ -3,7 +3,7 @@ import toast from 'react-hot-toast';
 import * as api from '../../../utils/api';
 
 // 2. Accept the 'user' object as a prop
-function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user }) {
+function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user, spent, remaining }) {
     const [amount, setAmount] = useState('');
     const [description, setDescription] = useState('');
     const [error, setError] = useState('');
@@ -15,18 +15,16 @@ function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user 
         setLoading(true);
         setError('');
 
-        const transactionData = {
-            budget_cycle_id: budgetId,
-            category_name: categoryName,
-            type: 'expense',
+        const payload = {
+            label: categoryName,
             amount: amount,
             description: description
         };
 
         try {
-            await api.logTransaction(transactionData);
+            const response = await api.logVariableExpense(budgetId, payload);
             toast.success('Transaction logged!');
-            onSuccess();
+            onSuccess(response);
         } catch (err) {
             setError(err.message); // The API client already shows a toast
         } finally {
@@ -39,6 +37,10 @@ function LogTransactionModal({ budgetId, categoryName, onClose, onSuccess, user 
             <div className="bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-sm relative">
                 <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-white">&times;</button>
                 <h2 className="text-2xl font-bold text-center mb-4 text-white">Log Purchase for {categoryName}</h2>
+                <div className="flex justify-between mb-4 text-sm text-gray-400">
+                    <span>Spent: ${spent?.toFixed(2) ?? '0.00'}</span>
+                    <span>Remaining: ${remaining?.toFixed(2) ?? '0.00'}</span>
+                </div>
                 <form onSubmit={handleSubmit}>
                     <div className="mb-4">
                         <label htmlFor="amount" className="block text-sm font-medium text-gray-300 mb-1">Amount</label>

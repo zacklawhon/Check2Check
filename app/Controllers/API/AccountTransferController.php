@@ -56,7 +56,15 @@ class AccountTransferController extends BaseAPIController
             'Transfer to ' . $account['account_name']
         );
 
-        return $this->respondUpdated(['message' => 'Transfer successful.']);
+        // Return updated budget state and accounts
+        $budgetService = new \App\Services\BudgetService();
+        $budgetState = $budgetService->getCompleteBudgetState($userId, $budgetId);
+        $accounts = (new UserAccountModel())->where('user_id', $userId)->findAll();
+        return $this->respondUpdated([
+            'budget' => $budgetState['budget'],
+            'transactions' => $budgetState['transactions'],
+            'accounts' => $accounts
+        ]);
     }
 
     public function transferFromAccount($budgetId)
@@ -121,12 +129,22 @@ class AccountTransferController extends BaseAPIController
                 $newIncomeItem = [
                     'label' => 'Transfer from ' . $account['account_name'],
                     'amount' => $amount,
-                    'frequency' => 'one-time'
+                    'frequency' => 'one-time',
+                    'is_received' => true,
+                    'date' => date('Y-m-d')
                 ];
                 $incomeItems[] = $newIncomeItem;
                 $budgetCycleModel->update($budgetId, ['initial_income' => json_encode($incomeItems)]);
             }
         }
-        return $this->respondUpdated(['message' => 'Transfer successful.']);
+        // Return updated budget state and accounts
+        $budgetService = new \App\Services\BudgetService();
+        $budgetState = $budgetService->getCompleteBudgetState($userId, $budgetId);
+        $accounts = (new UserAccountModel())->where('user_id', $userId)->findAll();
+        return $this->respondUpdated([
+            'budget' => $budgetState['budget'],
+            'transactions' => $budgetState['transactions'],
+            'accounts' => $accounts
+        ]);
     }
 }

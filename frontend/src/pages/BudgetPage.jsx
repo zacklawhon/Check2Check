@@ -87,13 +87,18 @@ function BudgetPage() {
     };
 
     const handleStateUpdate = (response) => {
-        if (response && response.budget && response.transactions) {
+        if (response && (response.budget || response.transactions || response.accounts)) {
+            if (response.budget) setBudget(response.budget);
+            if (response.transactions) setTransactions(response.transactions);
+            if (response.accounts) {
+                // If accounts are returned, update them in the parent context if possible
+                if (typeof setAccounts === 'function') setAccounts(response.accounts);
+                // If not, you may need to update accounts in the parent or context provider
+            }
+        } else if (response && response.budget && response.transactions) {
             setBudget(response.budget);
             setTransactions(response.transactions);
-        } else {
-
         }
-        // Close any open modals.
         setModalType(null);
         setIsEditDatesModalOpen(false);
     };
@@ -192,6 +197,7 @@ function BudgetPage() {
                         <AccountsCard
                             accounts={accounts}
                             budgetId={budgetId}
+                            onUpdate={fetchPageData}
                         />
                     )}
                 </div>

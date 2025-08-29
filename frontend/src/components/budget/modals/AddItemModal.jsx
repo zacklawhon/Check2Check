@@ -5,6 +5,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
     const [formData, setFormData] = useState({
         label: '',
         amount: '',
+        date: '',
         frequency: 'one-time',
         due_date: '',
         category: 'other',
@@ -19,6 +20,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
         setFormData({
             label: '',
             amount: '',
+            date: '',
             frequency: 'one-time',
             due_date: '',
             category: 'other',
@@ -43,44 +45,43 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
             let apiCall;
             let body;
 
-            // --- THIS IS THE FIX ---
-            // Convert the boolean to an integer (1 or 0) before sending.
             const saveRecurringValue = formData.save_recurring ? 1 : 0;
 
-            switch (type) {
-                case 'income':
-                    body = {
-                        label: formData.label,
-                        amount: formData.amount,
-                        frequency: formData.frequency,
-                        save_recurring: saveRecurringValue
-                    };
-                    apiCall = api.addIncomeToCycle(budgetId, body);
-                    break;
-                case 'recurring':
-                    body = {
-                        label: formData.label,
-                        estimated_amount: formData.amount,
-                        due_date: formData.due_date,
-                        category: formData.category,
-                        save_recurring: saveRecurringValue
-                    };
-                    apiCall = api.addRecurringExpense(budgetId, body);
-                    break;
-                case 'variable':
-                    body = {
-                        label: formData.label,
-                        amount: formData.amount,
-                        save_recurring: saveRecurringValue
-                    };
-                    apiCall = api.addVariableExpense(budgetId, body);
-                    break;
-                default:
-                    throw new Error('Invalid item type');
+            // Prepare the correct API call and body based on the modal type
+            if (type === 'income') {
+                apiCall = api.addIncomeToCycle;
+                body = {
+                    label: formData.label,
+                    amount: formData.amount,
+                    date: formData.date,
+                    frequency: formData.frequency,
+                    save_recurring: saveRecurringValue
+                };
+            } else if (type === 'recurring') {
+                apiCall = api.addRecurringExpense;
+                body = {
+                    label: formData.label,
+                    estimated_amount: formData.amount,
+                    due_date: formData.due_date,
+                    category: formData.category,
+                    save_recurring: saveRecurringValue
+                };
+            } else { // 'variable'
+                apiCall = api.addVariableExpense;
+                body = {
+                    label: formData.label,
+                    amount: formData.amount,
+                };
             }
 
-            await apiCall;
-            onSuccess();
+            // --- REFACTOR START ---
+            // 1. Capture the response from the API call.
+            const response = await apiCall(budgetId, body);
+
+            // 2. Pass the entire response object to the onSuccess handler.
+            onSuccess(response);
+            // --- REFACTOR END ---
+
         } catch (err) {
             setError(err.message || 'An unexpected error occurred.');
         } finally {
@@ -133,6 +134,18 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                     {type === 'income' && (
                         <>
                             <div>
+                                <label htmlFor="date" className="block text-sm font-medium text-gray-400">Expected Date</label>
+                                <input
+                                    type="date"
+                                    name="date"
+                                    id="date"
+                                    value={formData.date}
+                                    onChange={handleChange}
+                                    className="mt-1 block w-full bg-gray-700 border-gray-600 rounded-md shadow-sm text-white p-3"
+                                    required
+                                />
+                            </div>
+                            <div>
                                 <label htmlFor="frequency" className="block text-sm font-semibold mb-1 text-gray-400">Frequency</label>
                                 <select
                                     name="frequency"
@@ -144,6 +157,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                                     <option value="one-time">One-Time</option>
                                     <option value="weekly">Weekly</option>
                                     <option value="bi-weekly">Bi-Weekly</option>
+                                    <option value="semi-monthly">Twice a Month</option>
                                     <option value="monthly">Monthly</option>
                                 </select>
                             </div>

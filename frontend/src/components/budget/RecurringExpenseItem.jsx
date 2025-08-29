@@ -5,7 +5,7 @@ import { getDayWithOrdinal } from '../utils/formatters';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, isPending, onItemRequest, onItemRequestCancel, setBudget, setTransactions }) {
+function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onRemove, isPending, onItemRequest, onItemRequestCancel }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
@@ -25,7 +25,7 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
                 await api.denyRequest(item.pending_request.id);
             }
             toast.success(`Request ${action}d!`);
-            onUpdate();
+            onStateUpdate(response);
         } catch (err) {
             // API client shows toast
         } finally {
@@ -39,14 +39,14 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
         setError('');
         try {
             const payload = { label: item.label, estimated_amount: parseFloat(amount), due_date: item.due_date };
-            await api.updateRecurringExpenseInCycle(budgetId, payload);
+            const response = await api.updateRecurringExpenseInCycle(budgetId, payload);
 
             if (isUpdateByRequest) {
                 toast.success("Request to set amount has been sent.");
                 onItemRequest(item.label);
-                onUpdate();
+                onStateUpdate(response);
             } else {
-                onUpdate();
+                onStateUpdate(response);
             }
         } catch (err) {
             setError(err.message);
@@ -55,45 +55,22 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
         }
     };
 
-    const handleMarkPaid = async (e) => {
-        e.stopPropagation();
-        setLoading(true); // Provide instant "processing" feedback
-
-        try {
-            const payload = { label: item.label, amount: item.estimated_amount };
-
-            const response = await api.markBillPaid(budgetId, payload);
-            setBudget(response.budget); // Set the budget state
-            setTransactions(response.transactions);
-
-        } catch (err) {
-            // Handle any errors from the API
-            console.error(err);
-        } finally {
-            setLoading(false); // Stop the loading indicator
-        }
-    };
-
-    const handleMarkUnpaid = async (e) => {
-        e.stopPropagation();
+    const handleMarkPaid = async () => {
         setLoading(true);
-        setError('');
         try {
-            const payload = { label: item.label };
-            await api.markBillUnpaid(budgetId, payload);
+            const response = await api.markBillPaid(budgetId, { label: item.label, amount: item.estimated_amount });
+            onStateUpdate(response);
+        } catch (err) { /* handled by api utility */ }
+        setLoading(false);
+    };
 
-            if (isUpdateByRequest) {
-                toast.success("Request to mark as unpaid has been sent.");
-                onItemRequest(item.label);
-                onUpdate();
-            } else {
-                onUpdate();
-            }
-        } catch (err) {
-            setError(err.message);
-        } finally {
-            setLoading(false);
-        }
+    const handleUndoPaid = async () => {
+        setLoading(true);
+        try {
+            const response = await api.markBillUnpaid(budgetId, { label: item.label });
+            onStateUpdate(response);
+        } catch (err) { /* handled by api utility */ }
+        setLoading(false);
     };
 
     const handleDeleteConfirm = async () => {
@@ -105,9 +82,8 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
             if (isUpdateByRequest) {
                 toast.success("Request to remove expense has been sent.");
                 onItemRequest(item.label);
-                onUpdate();
+                onStateUpdate(response);
             } else {
-                onUpdate();
             }
         } catch (err) {
             setError(err.message);
@@ -117,11 +93,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
     };
 
     const handleDeleteClick = (e) => { e.stopPropagation(); setIsConfirmModalOpen(true); };
-
-    const handleEditClick = (e) => {
-        e.stopPropagation();
-        onEditInBudget(item);
-    }
 
     const handleCancelRequest = async () => {
         if (!item.pending_request) return;
@@ -224,10 +195,13 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
     // This is for items that have an amount and can be paid or unpaid.
     return (
         <>
-            {/* 1. Add the onClick and interactive styles back to the list item */}
             <li
-                onClick={!item.is_paid && isOwner ? () => onEditInBudget(item) : undefined}
                 className={`flex justify-between items-center bg-gray-700 p-3 rounded-md transition-all ${item.is_paid ? 'opacity-50' : isOwner ? 'hover:bg-gray-600 cursor-pointer' : ''}`}
+                onClick={(e) => {
+                    if (typeof onEdit === 'function' && !isReadOnly && !item.is_paid) {
+                        onEdit(item);
+                    }
+                }}
             >
                 <div>
                     <span className={`${item.is_paid ? 'line-through' : ''}`}>{item.label}</span>
@@ -240,12 +214,9 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
                 </div>
                 <div className="flex items-center gap-2">
                     <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
-
-                    {/* 2. The separate "Edit" button has been removed from here */}
-
                     {item.is_paid ? (
                         <button
-                            onClick={handleMarkUnpaid}
+                            onClick={e => { e.stopPropagation(); handleUndoPaid(); }}
                             disabled={loading || isReadOnly}
                             className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
@@ -253,16 +224,15 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
                         </button>
                     ) : (
                         <button
-                            onClick={handleMarkPaid}
+                            onClick={e => { e.stopPropagation(); handleMarkPaid(); }}
                             disabled={loading || isReadOnly}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
                             {loading ? 'Paying...' : 'Pay'}
                         </button>
                     )}
-
                     <button
-                        onClick={handleDeleteClick}
+                        onClick={e => { e.stopPropagation(); handleDeleteClick(e); }}
                         className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed"
                         disabled={item.is_paid || loading || isReadOnly}
                     >
@@ -271,7 +241,6 @@ function RecurringExpenseItem({ item, budgetId, onUpdate, onEditInBudget, user, 
                 </div>
                 {error && <p className="text-red-500 text-xs w-full text-right mt-1">{error}</p>}
             </li>
-
             <ConfirmationModal
                 isOpen={isConfirmModalOpen}
                 onClose={() => setIsConfirmModalOpen(false)}

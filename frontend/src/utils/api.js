@@ -141,6 +141,8 @@ export const markBillUnpaid = (budgetId, data) => apiRequest(`/api/budget-items/
 export const removeExpenseItem = (budgetId, label) => apiRequest(`/api/budget-items/remove-expense/${budgetId}`, 'POST', { label });
 export const updateVariableExpenseAmount = (budgetId, data) => apiRequest(`/api/budget-items/update-variable-amount/${budgetId}`, 'POST', data);
 
+// Log Variable Expense Transaction
+export const logVariableExpense = (budgetId, data) => apiRequest(`/api/budget-items/log-variable-expense/${budgetId}`, 'POST', data);
 
 // Transactions
 export const logTransaction = (transactionData) => apiRequest('/api/transaction/add', 'POST', transactionData);
