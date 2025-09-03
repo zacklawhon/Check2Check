@@ -159,6 +159,7 @@ class BudgetItemController extends BaseAPIController
         $rules = [
             'label'            => 'required|string',
             'estimated_amount' => 'required|decimal',
+            'type'             => 'required|in_list[recurring,one-time]',
             'due_date'         => 'permit_empty|integer',
             'category'         => 'permit_empty|string',
             'save_recurring'   => 'permit_empty|in_list[1,0,true,false]'
@@ -168,14 +169,17 @@ class BudgetItemController extends BaseAPIController
         }
 
         // 2. Controller gathers and prepares data.
+        $expenseType = $this->request->getVar('type');
         $newExpense = [
             'label'            => $this->request->getVar('label'),
             'estimated_amount' => $this->request->getVar('estimated_amount'),
-            'due_date'         => $this->request->getVar('due_date'),
             'category'         => $this->request->getVar('category') ?? 'other',
-            'type'             => 'recurring',
+            'type'             => $expenseType,
             'is_paid'          => false
         ];
+        if ($expenseType === 'recurring') {
+            $newExpense['due_date'] = $this->request->getVar('due_date');
+        }
         $saveAsRecurring = filter_var($this->request->getVar('save_recurring'), FILTER_VALIDATE_BOOLEAN);
 
         // Handle partner requests.

@@ -14,6 +14,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
+    const [expenseType, setExpenseType] = useState('recurring');
 
     useEffect(() => {
         // Reset form when the modal type changes
@@ -26,6 +27,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
             category: 'other',
             save_recurring: true
         });
+        setExpenseType('recurring');
     }, [type]);
 
     const handleChange = (e) => {
@@ -34,6 +36,15 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
             ...prev,
             [name]: type === 'checkbox' ? checked : value
         }));
+    };
+
+    const handleExpenseTypeChange = (e) => {
+        setExpenseType(e.target.value);
+        if (e.target.value === 'recurring') {
+            setFormData(prev => ({ ...prev, save_recurring: true }));
+        } else {
+            setFormData(prev => ({ ...prev, save_recurring: false, due_date: '' }));
+        }
     };
 
     const handleSubmit = async (e) => {
@@ -57,20 +68,21 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                     frequency: formData.frequency,
                     save_recurring: saveRecurringValue
                 };
-            } else if (type === 'recurring') {
-                apiCall = api.addRecurringExpense;
-                body = {
-                    label: formData.label,
-                    estimated_amount: formData.amount,
-                    due_date: formData.due_date,
-                    category: formData.category,
-                    save_recurring: saveRecurringValue
-                };
-            } else { // 'variable'
+            } else if (type === 'variable') {
                 apiCall = api.addVariableExpense;
                 body = {
                     label: formData.label,
                     amount: formData.amount,
+                };
+            } else { // All other expense types (recurring, one-time, etc)
+                apiCall = api.addRecurringExpense;
+                body = {
+                    label: formData.label,
+                    estimated_amount: formData.amount,
+                    due_date: expenseType === 'recurring' ? formData.due_date : '',
+                    category: formData.category,
+                    save_recurring: saveRecurringValue,
+                    type: expenseType
                 };
             }
 
@@ -91,10 +103,91 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
 
     const renderTitle = () => {
         if (type === 'income') return 'Add Income';
-        if (type === 'recurring') return 'Add Recurring Bill';
-        if (type === 'variable') return 'Add Variable Spending';
-        return 'Add Item';
+        if (type === 'variable') return 'Add Variable Expense';
+        return 'Add Expense';
     };
+
+    // Expense fields for all non-income types
+    let expenseFields = null;
+    if (type !== 'income') {
+        expenseFields = (
+            <>
+                <div className="mb-2">
+                    <label className="block text-sm font-semibold mb-1 text-gray-400">Expense Type</label>
+                    <div className="flex gap-4">
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="expense_type"
+                                value="recurring"
+                                checked={expenseType === 'recurring'}
+                                onChange={handleExpenseTypeChange}
+                            />
+                            <span>Recurring</span>
+                        </label>
+                        <label className="flex items-center gap-2">
+                            <input
+                                type="radio"
+                                name="expense_type"
+                                value="one-time"
+                                checked={expenseType === 'one-time'}
+                                onChange={handleExpenseTypeChange}
+                            />
+                            <span>One-Time (this budget only)</span>
+                        </label>
+                    </div>
+                </div>
+                {expenseType === 'recurring' && (
+                    <>
+                        <div>
+                            <label htmlFor="due_date" className="block text-sm font-semibold mb-1 text-gray-400">Due Day</label>
+                            <input
+                                type="number"
+                                name="due_date"
+                                id="due_date"
+                                value={formData.due_date}
+                                onChange={handleChange}
+                                placeholder="Due Day (e.g., 15)"
+                                min="1"
+                                max="31"
+                                className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                            />
+                        </div>
+                        <label className="flex items-center gap-2 text-gray-400">
+                            <input
+                                type="checkbox"
+                                name="save_recurring"
+                                id="save_recurring_recurring"
+                                checked={formData.save_recurring}
+                                onChange={handleChange}
+                                className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"
+                            />
+                            <span>Save for future budgets</span>
+                        </label>
+                    </>
+                )}
+                <div>
+                    <label htmlFor="category" className="block text-sm font-semibold mb-1 text-gray-400">Category</label>
+                    <select
+                        name="category"
+                        id="category"
+                        value={formData.category}
+                        onChange={handleChange}
+                        className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                    >
+                        <option value="other">Other</option>
+                        <option value="housing">Housing</option>
+                        <option value="utilities">Utilities</option>
+                        <option value="loan">Loan</option>
+                        <option value="credit-card">Credit Card</option>
+                        <option value="insurance">Insurance</option>
+                        <option value="subscription">Subscription</option>
+                        <option value="transfer">Transfer to Account</option>
+                    </select>
+                </div>
+            </>
+        );
+    }
 
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
@@ -130,6 +223,7 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                             className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
                         />
                     </div>
+                    {expenseFields}
 
                     {type === 'income' && (
                         <>
@@ -174,67 +268,6 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                                     <span>Save for future budgets</span>
                                 </label>
                             )}
-                        </>
-                    )}
-
-                    {type === 'recurring' && (
-                        <>
-                            <div>
-                                <label htmlFor="due_date" className="block text-sm font-semibold mb-1 text-gray-400">Due Day</label>
-                                <input
-                                    type="number"
-                                    name="due_date"
-                                    id="due_date"
-                                    value={formData.due_date}
-                                    onChange={handleChange}
-                                    placeholder="Due Day (e.g., 15)"
-                                    min="1"
-                                    max="31"
-                                    className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
-                                />
-                            </div>
-                            <div>
-                                <label htmlFor="category" className="block text-sm font-semibold mb-1 text-gray-400">Category</label>
-                                <select
-                                    name="category"
-                                    id="category"
-                                    value={formData.category}
-                                    onChange={handleChange}
-                                    className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
-                                >
-                                    <option value="other">Other</option>
-                                    <option value="housing">Housing</option>
-                                    <option value="utilities">Utilities</option>
-                                    <option value="loan">Loan</option>
-                                    <option value="credit-card">Credit Card</option>
-                                    <option value="insurance">Insurance</option>
-                                    <option value="subscription">Subscription</option>
-                                    <option value="transfer">Transfer to Account</option>
-                                </select>
-
-                                {formData.category === 'transfer' && (
-                                    <div>
-                                        <label className="block text-sm font-semibold mb-1 text-gray-400">Destination Account</label>
-                                        <select name="transfer_to_account_id" value={formData.transfer_to_account_id} onChange={handleChange} className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600">
-                                            <option value="">Select an account...</option>
-                                            {accounts.map(acc => (
-                                                <option key={acc.id} value={acc.id}>{acc.account_name}</option>
-                                            ))}
-                                        </select>
-                                    </div>
-                                )}
-                            </div>
-                            <label className="flex items-center gap-2 text-gray-400">
-                                <input
-                                    type="checkbox"
-                                    name="save_recurring"
-                                    id="save_recurring_recurring"
-                                    checked={formData.save_recurring}
-                                    onChange={handleChange}
-                                    className="form-checkbox h-4 w-4 rounded bg-gray-700 border-gray-600"
-                                />
-                                <span>Save for future budgets</span>
-                            </label>
                         </>
                     )}
 

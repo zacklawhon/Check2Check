@@ -85,7 +85,18 @@ function ProtectedRoute() {
     }
     setIsWhatsNewOpen(false);
   };
-  // The extra line has been removed
+
+  useEffect(() => {
+    // Redirect to landing page if not authenticated and not loading
+    if (!loadingUser && !user && !authError) {
+      navigate('/');
+    }
+  }, [loadingUser, user, authError, navigate]);
+
+  if (loadingUser) {
+    return <div>Loading...</div>;
+  }
+
   if (authError) {
     return (
       <div className="text-center p-8 text-white">
@@ -100,9 +111,10 @@ function ProtectedRoute() {
       </div>
     );
   }
-  if (loadingUser) return <div className="text-center p-8 text-white">Loading...</div>;
-  if (!user) return <Navigate to="/" replace />;
-  if (isNewUser && location.pathname !== '/wizard') return <Navigate to="/wizard" replace />;
+
+  if (!user) {
+    return null; // Will redirect
+  }
 
   const contextData = { user, activeBudget, accounts, refreshData: fetchInitialData };
 

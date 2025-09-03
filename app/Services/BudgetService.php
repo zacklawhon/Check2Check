@@ -424,9 +424,6 @@ class BudgetService
     public function addExpenseToCycle(int $userId, int $cycleId, array $newExpense, bool $saveAsRecurring): array
     {
         $budgetCycleModel = new BudgetCycleModel();
-
-        // --- THIS IS THE FIX ---
-        // Reverted the 'where' clause to its original, correct syntax.
         $budgetCycle = $budgetCycleModel->where('id', $cycleId)
             ->where('user_id', $userId)
             ->first();
@@ -435,11 +432,17 @@ class BudgetService
             throw new \Exception('Budget cycle not found.');
         }
 
+        // Defensive: default type to 'recurring' if not set or invalid
+        $validTypes = ['recurring', 'one-time', 'variable'];
+        $expenseType = isset($newExpense['type']) && in_array($newExpense['type'], $validTypes) ? $newExpense['type'] : 'recurring';
+        $newExpense['type'] = $expenseType;
+
         $db = \Config\Database::connect();
         $db->transStart();
 
         try {
-            if ($saveAsRecurring) {
+            // Only save as recurring if requested and type is recurring
+            if ($saveAsRecurring && $expenseType === 'recurring') {
                 $recurringExpenseModel = new RecurringExpenseModel();
                 $dataToSave = [
                     'user_id' => $userId,
@@ -455,6 +458,20 @@ class BudgetService
 
                 if (!$exists) {
                     $recurringExpenseModel->save($dataToSave);
+                }
+            }
+
+            // Only create a learned spending category if type is 'variable'
+            if ($expenseType === 'variable') {
+                $spendingCategoryModel = new LearnedSpendingCategoryModel();
+                $category = $spendingCategoryModel->where('user_id', $userId)
+                    ->where('name', $newExpense['label'])
+                    ->first();
+                if (!$category) {
+                    $spendingCategoryModel->insert([
+                        'user_id' => $userId,
+                        'name' => $newExpense['label'],
+                    ]);
                 }
             }
 
