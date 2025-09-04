@@ -173,7 +173,9 @@ class AccountController extends BaseAPIController
                 throw new \Exception('Database transaction failed.');
             }
 
-            return $this->respondUpdated(['message' => 'Income source updated and budget synced.']);
+            // Return the updated income source
+            $updatedItem = $model->find($id);
+            return $this->respondUpdated($updatedItem);
         } catch (\Exception $e) {
             log_message('error', '[ERROR_UPDATE_INCOME_SOURCE] ' . $e->getMessage());
             return $this->failServerError('Could not update income source.');
@@ -203,7 +205,8 @@ class AccountController extends BaseAPIController
         ];
 
         if ($model->update($id, $data)) {
-            return $this->respondUpdated(['message' => 'Recurring expense updated successfully.']);
+            $updatedItem = $model->find($id);
+            return $this->respondUpdated($updatedItem);
         }
         return $this->fail($model->errors());
     }

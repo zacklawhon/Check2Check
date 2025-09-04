@@ -33,16 +33,10 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            if (itemType === 'income') {
-                await api.updateIncomeSource(item.id, formData);
-                onUpdate();
-            } else {
-                await api.updateRecurringExpense(item.id, formData);
-                onUpdate();
-            }
-            onSuccess();
+            const updatedItem = await api.updateRecurringExpense(item.id, formData);
+            onSuccess(updatedItem);
         } catch (err) {
-            setError(err.message); // The API client already shows a toast
+            setError(err.message);
         } finally {
             setLoading(false);
         }

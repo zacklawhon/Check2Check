@@ -19,9 +19,9 @@ function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
         setError('');
         setIsSaving(true);
         try {
-            await api.updateGoal(goal.id, { goal_name: goalName });
+            const updatedGoal = await api.updateGoal(goal.id, { goal_name: goalName });
             // Pass updated goal data to parent for seamless update
-            onSuccess({ ...goal, goal_name: goalName });
+            onSuccess(updatedGoal);
         } catch (err) {
             setError(err.message); // The API client already shows a toast
         } finally {
