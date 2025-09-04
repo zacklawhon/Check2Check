@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function ProfileForm({ user, onUpdate }) {
+function ProfileForm({ user, onUpdate, setUser }) {
     const [formData, setFormData] = useState({});
     const [loading, setLoading] = useState(false);
 
@@ -26,7 +26,6 @@ function ProfileForm({ user, onUpdate }) {
         setLoading(true);
 
         try {
-            // The toast.promise will automatically handle showing loading, success, and error toasts.
             await toast.promise(
                 api.updateProfile(formData),
                 {
@@ -35,18 +34,27 @@ function ProfileForm({ user, onUpdate }) {
                     error: (err) => `Error: ${err.toString()}`,
                 }
             );
-            
-            // --- THIS IS THE FIX ---
-            // On success, immediately call onUpdate to trigger the live refresh.
-            onUpdate();
-            // --- END OF FIX ---
-
+            if (setUser) {
+                setUser(prev => ({
+                    ...prev,
+                    demographic_zip_code: formData.demographic_zip_code,
+                    demographic_age_range: formData.demographic_age_range,
+                    demographic_sex: formData.demographic_sex,
+                    demographic_household_size: formData.demographic_household_size,
+                }));
+            }
+            // --- Pass updated fields to parent for local update only ---
+            if (onUpdate) {
+                onUpdate({
+                    demographic_zip_code: formData.demographic_zip_code,
+                    demographic_age_range: formData.demographic_age_range,
+                    demographic_sex: formData.demographic_sex,
+                    demographic_household_size: formData.demographic_household_size,
+                });
+            }
         } catch (err) {
-            // The toast will have already displayed the error from the API client.
-            // We can log it here for debugging if needed.
             console.error("Failed to update profile:", err);
         } finally {
-            // This block will run regardless of whether the try or catch block ran.
             setLoading(false);
         }
     };

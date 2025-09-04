@@ -14,7 +14,8 @@ import SharedAccessCard from '../components/account/SharedAccessCard';
 import { getDayWithOrdinal } from '../components/utils/formatters';
 
 function AccountPage() {
-    const { user } = useOutletContext();
+    const outletContext = useOutletContext();
+    const [user, setUser] = useState(outletContext.user);
     const [items, setItems] = useState({ income_sources: [], recurring_expenses: [] });
     const [loading, setLoading] = useState(true);
     const [goals, setGoals] = useState([]);
@@ -49,6 +50,10 @@ function AccountPage() {
         fetchData();
     }, []);
 
+    useEffect(() => {
+        setUser(outletContext.user);
+    }, [outletContext.user]);
+
     const handleDeleteGoal = (goal) => {
         setGoalToDelete(goal);
     };
@@ -58,7 +63,7 @@ function AccountPage() {
         if (!goalToDelete) return;
         try {
             await api.deleteGoal(goalToDelete.id);
-            // On success, manually filter the state to update the UI instantly
+            // Update local state directly for seamless UI update
             setGoals(currentGoals => currentGoals.filter(g => g.id !== goalToDelete.id));
         } catch (err) {
             // Error toast is handled by the client
@@ -72,32 +77,71 @@ function AccountPage() {
         setEditingGoal(goal);
     };
 
-    // This is called when the edit modal successfully saves
-    const handleEditGoalSuccess = () => {
+    // Update the goal in local state after editing
+    const handleEditGoalSuccess = (updatedGoal) => {
         setEditingGoal(null); // Close the modal
-        fetchData(); // Refresh all data to ensure consistency
+        setGoals(currentGoals =>
+            currentGoals.map(g => g.id === updatedGoal.id ? { ...g, ...updatedGoal } : g)
+        );
     };
 
     const handleDeleteClick = (item, type) => {
         setItemToDelete({ ...item, type });
     };
 
+    // --- Profile update handler: update user state directly ---
+    const handleProfileUpdate = (updatedFields) => {
+        setUser(prev => ({
+            ...prev,
+            ...updatedFields,
+        }));
+    };
+
+    // --- Recurring expense edit handler ---
+    const handleEditExpenseSuccess = (updatedExpense) => {
+        setEditingExpense(null);
+        setItems(prev => ({
+            ...prev,
+            recurring_expenses: prev.recurring_expenses.map(e =>
+                e.id === updatedExpense.id ? { ...e, ...updatedExpense } : e
+            ),
+        }));
+    };
+
+    // --- Income source edit handler ---
+    const handleEditIncomeSuccess = (updatedIncome) => {
+        setEditingIncome(null);
+        setItems(prev => ({
+            ...prev,
+            income_sources: prev.income_sources.map(i =>
+                i.id === updatedIncome.id ? { ...i, ...updatedIncome } : i
+            ),
+        }));
+    };
+
+    // --- Recurring item delete handler ---
     const confirmDelete = async () => {
         if (!itemToDelete) return;
         try {
             await api.deleteRecurringItem(itemToDelete.type, itemToDelete.id);
-            fetchData(); // Refresh all data on success
+            setItems(prev => {
+                if (itemToDelete.type === 'income') {
+                    return {
+                        ...prev,
+                        income_sources: prev.income_sources.filter(i => i.id !== itemToDelete.id),
+                    };
+                } else {
+                    return {
+                        ...prev,
+                        recurring_expenses: prev.recurring_expenses.filter(e => e.id !== itemToDelete.id),
+                    };
+                }
+            });
         } catch (err) {
             // Error toast is handled by the client
         } finally {
             setItemToDelete(null);
         }
-    };
-
-    const handleEditSuccess = () => {
-        setEditingExpense(null);
-        setEditingIncome(null);
-        fetchData();
     };
 
     const groupedExpenses = items.recurring_expenses.reduce((acc, expense) => {
@@ -129,7 +173,11 @@ function AccountPage() {
 
                     <AccountManager />
 
-                    <ProfileForm user={user} onUpdate={fetchData} />
+                    <ProfileForm
+                        user={user}
+                        onUpdate={handleProfileUpdate}
+                        setUser={setUser}
+                    />
 
                     <div className="bg-gray-800 p-6 rounded-lg">
                         <h2 className="text-2xl font-bold text-green-400 mb-4">Saved Income</h2>
@@ -209,13 +257,13 @@ function AccountPage() {
                 isOpen={!!editingExpense}
                 item={editingExpense}
                 onClose={() => setEditingExpense(null)}
-                onSuccess={handleEditSuccess}
+                onSuccess={handleEditExpenseSuccess}
             />
             <EditIncomeRuleModal
                 isOpen={!!editingIncome}
                 incomeSource={editingIncome}
                 onClose={() => setEditingIncome(null)}
-                onSuccess={handleEditSuccess}
+                onSuccess={handleEditIncomeSuccess}
             />
         </>
     );
