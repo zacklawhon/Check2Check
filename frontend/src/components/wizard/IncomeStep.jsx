@@ -94,7 +94,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
     const [loading, setLoading] = useState(false);
     const [selectedIncome, setSelectedIncome] = useState([]);
     const [allIncomeSources, setAllIncomeSources] = useState([]);
-    const inputRefs = useRef([]);
+    const amountInputsRef = useRef({});
 
     useEffect(() => {
         setAllIncomeSources(suggestions.map(s => ({ ...s, amount: s.amount || '' })));
@@ -233,7 +233,7 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
         }
     };
 
-    const isNextDisabled = selectedIncome.length === 0 || selectedIncome.some(item => !item.amount || parseFloat(item.amount) <= 0);
+    const isNextDisabled = !selectedIncome.some(item => item.amount && parseFloat(item.amount) > 0);
 
     return (
         <div>
@@ -266,7 +266,36 @@ function IncomeStep({ onBack, onComplete, suggestions = [], existingIncome = [],
                                     </div>
                                     <div className="col-span-4 flex items-center">
                                         <span className="mr-1 text-gray-400">$</span>
-                                        <input type="number" step="0.01" placeholder="0.00" value={selectedItem.amount} onChange={(e) => handleAmountChange(source.id, e.target.value)} disabled={!isSelected} className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 disabled:bg-gray-700" />
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            placeholder="0.00" 
+                                            value={selectedItem.amount} 
+                                            onChange={(e) => handleAmountChange(source.id, e.target.value)} 
+                                            disabled={!isSelected} 
+                                            ref={(el) => {
+                                                if (el) {
+                                                    amountInputsRef.current[source.id] = el;
+                                                }
+                                            }}
+                                            onKeyDown={(e) => {
+                                                if (e.key === 'Tab') {
+                                                    e.preventDefault();
+                                                    const selectedIds = selectedIncome.map(item => item.id);
+                                                    const currentIndex = selectedIds.indexOf(source.id);
+                                                    let nextIndex;
+                                                    if (e.shiftKey) {
+                                                        nextIndex = (currentIndex - 1 + selectedIds.length) % selectedIds.length;
+                                                    } else {
+                                                        nextIndex = (currentIndex + 1) % selectedIds.length;
+                                                    }
+                                                    const nextId = selectedIds[nextIndex];
+                                                    const nextInput = amountInputsRef.current[nextId];
+                                                    if (nextInput) nextInput.focus();
+                                                }
+                                            }}
+                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 disabled:bg-gray-700" 
+                                        />
                                     </div>
 
                                     {/* --- RENDER THE EDITOR IF NEEDED --- */}

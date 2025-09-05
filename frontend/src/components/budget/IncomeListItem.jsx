@@ -20,7 +20,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
         await api.denyRequest(item.pending_request.id);
       }
       toast.success(`Request ${action}d!`);
-      onStateUpdate(response);
+      onUpdate();
     } catch (err) {
       // API client shows toast
     } finally {
@@ -32,14 +32,14 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   const handleRemoveClick = async () => {
     if (window.confirm(`Are you sure you want to remove "${item.label}"?`)) {
       try {
-        const data = await api.removeIncomeItem(budgetId, item.label);
-        toast.success(data.message);
+        const response = await api.removeIncomeItem(budgetId, item.label);
+        toast.success(response.message);
 
         if (isUpdateByRequest) {
           onItemRequest(item);
-          onStateUpdate(response);
+          onUpdate(response);
         } else {
-
+          onUpdate(response);
         }
       } catch (err) {
         // API client shows toast
@@ -64,7 +64,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       if (onItemRequestCancel) {
         onItemRequestCancel(item);
       } else {
-        onStateUpdate(response);
+        onUpdate();
       }
     } catch (err) {
 
@@ -119,7 +119,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
 
   // SCENARIO 2: Default view for Owners and Partners
   return (
-    <li className={`flex justify-between items-center p-3 rounded-md transition-colors ${isReceived ? 'bg-gray-700' : 'bg-gray-900/50'}`}>
+    <li className={`flex justify-between items-center p-3 rounded-md transition-colors ${!isReceived ? 'hover:bg-gray-600' : ''} ${isReceived ? 'bg-gray-700 cursor-default' : 'bg-gray-900/50 cursor-pointer'}`} onClick={!isReceived ? () => onEdit(item) : undefined}>
       <div>
         <p className={`font-semibold ${isReceived ? 'text-gray-400 line-through' : ''}`}>{item.label}</p>
         <p className="text-xs text-gray-400">
@@ -132,16 +132,16 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
         </span>
 
         {!isReceived && !isReadOnly && (
-          <button onClick={() => onReceive(item)} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
+          <button onClick={(e) => { e.stopPropagation(); onReceive(item); }} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
             Receive
           </button>
         )}
 
-        <button onClick={() => onEdit(item)} disabled={isReceived || isReadOnly} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
+        <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} disabled={isReceived || isReadOnly} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
           {/* SVG for Edit */}
         </button>
         <button
-          onClick={() => onRemove(item)} // This should now call the function from props
+          onClick={(e) => { e.stopPropagation(); onRemove(item); }} // This should now call the function from props
           disabled={isReceived || isReadOnly}
           title="Remove"
           className="text-gray-400 hover:text-red-500 disabled:text-gray-600 disabled:cursor-not-allowed"

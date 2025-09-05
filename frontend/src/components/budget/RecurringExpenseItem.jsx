@@ -11,6 +11,7 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
     const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
     const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
     const [amount, setAmount] = useState(item.estimated_amount || '');
+    const [deleting, setDeleting] = useState(false);
 
     const isReadOnly = user.is_partner && user.permission_level === 'read_only';
     const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
@@ -75,20 +76,21 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
 
     const handleDeleteConfirm = async () => {
         setIsConfirmModalOpen(false);
-        setLoading(true);
+        setDeleting(true);
         try {
-            await api.removeExpenseItem(budgetId, item.label);
+            const response = await api.removeExpenseItem(budgetId, item.label);
 
             if (isUpdateByRequest) {
                 toast.success("Request to remove expense has been sent.");
                 onItemRequest(item.label);
                 onStateUpdate(response);
             } else {
+                onStateUpdate(response);
             }
         } catch (err) {
             setError(err.message);
         } finally {
-            setLoading(false);
+            setDeleting(false);
         }
     };
 
@@ -208,8 +210,8 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                     <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
                         <span className="capitalize">{item.category}</span>
                         {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
-                        {item.principal_balance && <span className="hidden sm:inline">(Bal: ${item.principal_balance})</span>}
-                        {item.interest_rate && <span className="hidden sm:inline">({item.interest_rate}%)</span>}
+                        {item.principal_balance && item.principal_balance !== '0' && item.principal_balance !== 0 && parseFloat(item.principal_balance) > 0 && <span className="hidden sm:inline">(Bal: ${item.principal_balance})</span>}
+                        {item.interest_rate && item.interest_rate !== '0' && item.interest_rate !== 0 && parseFloat(item.interest_rate) > 0 && <span className="hidden sm:inline">({item.interest_rate}%)</span>}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">
@@ -234,7 +236,7 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                     <button
                         onClick={e => { e.stopPropagation(); handleDeleteClick(e); }}
                         className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed"
-                        disabled={item.is_paid || loading || isReadOnly}
+                        disabled={item.is_paid || deleting || loading || isReadOnly}
                     >
                         &times;
                     </button>

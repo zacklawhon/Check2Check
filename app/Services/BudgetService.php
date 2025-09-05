@@ -764,7 +764,7 @@ class BudgetService
      * @return bool
      * @throws \Exception
      */
-    public function updateIncomeInCycle(int $userId, int $budgetId, string $originalLabel, string $newLabel, float $newAmount): array
+    public function updateIncomeInCycle(int $userId, int $budgetId, string $originalLabel, string $newLabel, float $newAmount, string $date): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -778,11 +778,12 @@ class BudgetService
 
         // Find the original item and update it
         foreach ($incomeItems as &$item) {
-            if ($item['label'] === $originalLabel) {
+            if ($item['label'] === $originalLabel && $item['date'] === $date) {
                 $itemFound = true;
                 $originalAmount = (float) $item['amount'];
                 $item['label'] = $newLabel;
                 $item['amount'] = $newAmount;
+                $item['date'] = $date;
                 break;
             }
         }

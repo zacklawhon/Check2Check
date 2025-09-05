@@ -17,8 +17,8 @@ function EditDatesModal({ isOpen, budget, onClose, onSuccess }) {
         setLoading(true);
         setError('');
         try {
-            await api.updateBudgetDates(budget.id, { start_date: startDate, end_date: endDate });
-            onSuccess();
+            const response = await api.updateBudgetDates(budget.id, { start_date: startDate, end_date: endDate });
+            onSuccess(response);
         } catch (err) {
             setError(err.message); 
         } finally {

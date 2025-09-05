@@ -441,5 +441,30 @@ class SharingController extends BaseAPIController
         return $this->respond(['message' => 'Request cancelled successfully.']);
     }
 
+    /**
+     * Fetches partners and pending invites for the current user.
+     */
+    public function getPartnersAndInvites()
+    {
+        $ownerId = session()->get('userId');
+        $userModel = new UserModel();
+        $invitationModel = new InvitationModel();
+
+        // Get partners from users table
+        $partners = $userModel->where('owner_user_id', $ownerId)->findAll();
+
+        // Get pending invites from invitations table
+        $pendingInvites = $invitationModel
+            ->where('inviter_user_id', $ownerId)
+            ->where('invite_type', 'share')
+            ->where('status', 'pending')
+            ->findAll();
+
+        return $this->respond([
+            'partners' => $partners,
+            'pendingInvites' => $pendingInvites
+        ]);
+    }
+
 
 }

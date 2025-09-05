@@ -12,11 +12,9 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
     $routes->post('auth/request-link', 'AuthController::requestLink');
     $routes->post('auth/verify-link', 'AuthController::verifyLink');
     $routes->post('auth/logout', 'AuthController::logout');
+    $routes->post('sharing/accept', 'SharingController::acceptInvite');
+    $routes->post('sharing/transform-account', 'SharingController::transformAccount');
 
-    $routes->group('sharing', static function ($routes) {
-        $routes->post('accept', 'SharingController::acceptInvite');
-        $routes->post('transform-account', 'SharingController::transformAccount');
-    });
 
     // --- All Authenticated Routes ---
     $routes->group('', ['filter' => 'sessionauth'], static function ($routes) {
@@ -25,7 +23,6 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         $routes->group('user', static function ($routes) {
             $routes->get('profile', 'UserController::getProfile');
             $routes->post('update-demographics', 'UserController::updateDemographics');
-            $routes->post('update-financial-profile', 'UserController::updateFinancialProfile');
             $routes->get('active-budget', 'UserController::getActiveBudget');
             $routes->post('dismiss-accounts-prompt', 'UserController::dismissAccountsPrompt');
             $routes->delete('fresh-start', 'UserController::freshStart');
@@ -35,12 +32,14 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         $routes->group('sharing', static function ($routes) {
             $routes->post('invite', 'SharingController::sendInvite');
             $routes->get('invites', 'SharingController::getInvites');
+            $routes->get('partners-and-invites', 'SharingController::getPartnersAndInvites');
             $routes->post('approve/(:num)', 'SharingController::approveActionRequest/$1');
             $routes->get('requests/(:num)', 'SharingController::getActionRequests/$1');
             $routes->put('update-permission/(:num)', 'SharingController::updatePermission/$1');
             $routes->delete('invites/(:num)', 'SharingController::revokeAccess/$1');
             $routes->post('deny/(:num)', 'SharingController::denyActionRequest/$1');
             $routes->delete('request/(:num)', 'SharingController::cancelActionRequest/$1');
+
         });
         // ## END: NEW SHARING ROUTES ##
 

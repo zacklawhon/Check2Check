@@ -25,20 +25,22 @@ function AccountPage() {
     const [itemToDelete, setItemToDelete] = useState(null);
     const [goalToDelete, setGoalToDelete] = useState(null);
     const [editingGoal, setEditingGoal] = useState(null);
-    const [invites, setInvites] = useState([]);
+    const [partners, setPartners] = useState([]);
+    const [pendingInvites, setPendingInvites] = useState([]);
     const navigate = useNavigate();
 
     const fetchData = async () => {
         setLoading(true); 
         try {
-            const [fetchedItems, fetchedGoals, fetchedInvites] = await Promise.all([
+            const [fetchedItems, fetchedGoals, fetchedPartnersAndInvites] = await Promise.all([
                 api.getRecurringItems(),
                 api.getGoals(),
-                api.getSharingInvites()
+                api.getPartnersAndInvites()
             ]);
             setItems(fetchedItems);
             setGoals(fetchedGoals);
-            setInvites(fetchedInvites);
+            setPartners(fetchedPartnersAndInvites.partners);
+            setPendingInvites(fetchedPartnersAndInvites.pendingInvites);
         } catch (err) {
             setError(err.message); // The API client already shows a toast
         } finally {
@@ -225,7 +227,7 @@ function AccountPage() {
                             ))}
                         </div>
                     </div>
-                    <SharedAccessCard invites={invites} onUpdate={fetchData} />
+                    <SharedAccessCard partners={partners} pendingInvites={pendingInvites} onUpdate={fetchData} />
                     <AccountActions />
                 </div>
             </div>

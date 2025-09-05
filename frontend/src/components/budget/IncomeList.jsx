@@ -1,7 +1,7 @@
 import React, { useState } from 'react';
 import IncomeListItem from './IncomeListItem';
 import ConfirmationModal from '../common/ConfirmationModal';
-import EditIncomeModal from '../budget/modals/EditIncomeModal'; // Import Edit Modal
+import EditIncomeItemModal from '../budget/modals/EditIncomeItemModal'; // Import Edit Modal
 import ReceiveIncomeModal from '../budget/modals/ReceiveIncomeModal'; // Import Receive Modal
 import * as api from '../../utils/api';
 
@@ -67,12 +67,12 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
         title="Confirm Removal"
         message={`Are you sure you want to remove "${itemToRemove?.label}"?`}
       />
-      <EditIncomeModal
+      <EditIncomeItemModal
         isOpen={!!itemToEdit}
         item={itemToEdit}
         budgetId={budgetId}
         onClose={() => setItemToEdit(null)}
-        onSuccess={(response) => {onStateUpdate(response); }}
+        onSuccess={(response) => { onStateUpdate(response); setItemToEdit(null); }}
       />
       <ReceiveIncomeModal
         isOpen={!!itemToReceive}

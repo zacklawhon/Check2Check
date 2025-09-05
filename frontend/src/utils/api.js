@@ -110,6 +110,7 @@ export const approveRequest = (requestId) => apiRequest(`/api/sharing/approve/${
 export const denyRequest = (requestId) => apiRequest(`/api/sharing/deny/${requestId}`, 'POST');
 export const getSharingInvites = () => apiRequest('/api/sharing/invites');
 export const cancelRequest = (requestId) => apiRequest(`/api/sharing/request/${requestId}`, 'DELETE');
+export const getPartnersAndInvites = () => apiRequest('/api/sharing/partners-and-invites');
 
 
 

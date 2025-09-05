@@ -43,8 +43,22 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                 current.setDate(current.getDate() + 1);
             }
             return false;
-        });
+        }).sort((a, b) => (parseInt(a.due_date) || 0) - (parseInt(b.due_date) || 0));
     }, [allExpenses, confirmedDates]);
+
+    const groupedSuggestions = useMemo(() => {
+        const grouped = filteredSuggestions.reduce((acc, expense) => {
+            const category = expense.category || 'other';
+            if (!acc[category]) acc[category] = [];
+            acc[category].push(expense);
+            return acc;
+        }, {});
+        return grouped;
+    }, [filteredSuggestions]);
+
+    const flatSuggestions = useMemo(() => {
+        return Object.values(groupedSuggestions).flat();
+    }, [groupedSuggestions]);
 
     const handleSelectionChange = (expense, isChecked) => {
         if (isChecked) {
@@ -120,7 +134,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
     
     const handleKeyDown = (e, index) => {
         if (e.key === 'Tab' && !e.shiftKey) {
-            const nextEnabledInputIndex = filteredSuggestions.findIndex((exp, i) =>
+            const nextEnabledInputIndex = flatSuggestions.findIndex((exp, i) =>
                 i > index && selectedExpenses.some(item => item.id === exp.id)
             );
 
@@ -175,48 +189,56 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
         <div>
             <h2 className="text-2xl font-bold mb-4">Step 3: Confirm Recurring Expenses</h2>
 
-            {filteredSuggestions.length > 0 && (
+            {Object.keys(groupedSuggestions).length > 0 && (
                  <div className="mb-6">
                     <h3 className="font-semibold mb-2">Suggested Recurring Expenses</h3>
                     <p className="text-sm text-gray-400 mb-2">Check the box for each bill you expect this period and enter the amount you plan to pay.</p>
                     <div className="space-y-3 bg-gray-700 p-4 rounded-lg">
-                        {filteredSuggestions.map((exp, index) => {
-                             const isSelected = selectedExpenses.some(item => item.id === exp.id);
-                             const selectedItem = selectedExpenses.find(item => item.id === exp.id) || exp;
-                            return (
-                                <div key={exp.id} className="grid grid-cols-12 gap-2 items-center">
-                                    <label className="col-span-1 flex items-center">
-                                        <input
-                                            type="checkbox"
-                                            checked={isSelected}
-                                            onChange={(e) => handleSelectionChange(exp, e.target.checked)}
-                                            className="h-5 w-5 rounded bg-gray-800 border-gray-600 text-indigo-500"/>
-                                    </label>
-                                    <div className="col-span-7">
-                                        <p className="font-semibold">{exp.label}</p>
-                                        <div className="text-xs text-gray-400 flex items-center gap-2">
-                                            <span className="capitalize">{exp.category}</span>
-                                            {exp.due_date && <span>(Due: {getDayWithOrdinal(parseInt(exp.due_date, 10))})</span>}
-                                            {exp.principal_balance && <span className="hidden sm:inline">(Bal: ${exp.principal_balance})</span>}
-                                            {exp.interest_rate && <span className="hidden sm:inline">({exp.interest_rate}%)</span>}
-                                        </div>
-                                    </div>
-                                    <div className="col-span-4 flex items-center">
-                                         <span className="mr-1 text-gray-400">$</span>
-                                         <input
-                                            ref={el => inputRefs.current[index] = el}
-                                            onKeyDown={e => handleKeyDown(e, index)}
-                                            type="number"
-                                            step="0.01"
-                                            placeholder="0.00"
-                                            value={selectedItem.estimated_amount}
-                                            onChange={(e) => handleAmountChange(exp.id, e.target.value)}
-                                            disabled={!isSelected}
-                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 disabled:bg-gray-700"/>
-                                    </div>
+                        {Object.entries(groupedSuggestions).map(([category, items]) => (
+                            <div key={category} className="mb-4 bg-gray-800 p-3 rounded-lg border border-gray-600">
+                                <h4 className="font-semibold text-gray-400 capitalize mb-2">{category.replace('-', ' ')}</h4>
+                                <div className="space-y-2">
+                                    {items.map((exp) => {
+                                         const isSelected = selectedExpenses.some(item => item.id === exp.id);
+                                         const selectedItem = selectedExpenses.find(item => item.id === exp.id) || exp;
+                                         const flatIndex = flatSuggestions.findIndex(item => item.id === exp.id);
+                                            return (
+                                                <div key={exp.id} className="grid grid-cols-12 gap-2 items-center">
+                                                    <label className="col-span-1 flex items-center">
+                                                        <input
+                                                            type="checkbox"
+                                                            checked={isSelected}
+                                                            onChange={(e) => handleSelectionChange(exp, e.target.checked)}
+                                                            className="h-5 w-5 rounded bg-gray-800 border-gray-600 text-indigo-500"/>
+                                                    </label>
+                                                    <div className="col-span-7">
+                                                        <p className="font-semibold">{exp.label}</p>
+                                                        <div className="text-xs text-gray-400 flex items-center gap-2">
+                                                            <span className="capitalize">{exp.category}</span>
+                                                            {exp.due_date && <span>(Due: {getDayWithOrdinal(parseInt(exp.due_date, 10))})</span>}
+                                                            {exp.principal_balance && exp.principal_balance !== '0' && exp.principal_balance !== 0 && parseFloat(exp.principal_balance) > 0 && <span className="hidden sm:inline">(Bal: ${exp.principal_balance})</span>}
+                                                            {exp.interest_rate && exp.interest_rate !== '0' && exp.interest_rate !== 0 && parseFloat(exp.interest_rate) > 0 && <span className="hidden sm:inline">({exp.interest_rate}%)</span>}
+                                                        </div>
+                                                    </div>
+                                                    <div className="col-span-4 flex items-center">
+                                                         <span className="mr-1 text-gray-400">$</span>
+                                                         <input
+                                                            ref={el => inputRefs.current[flatIndex] = el}
+                                                            onKeyDown={e => handleKeyDown(e, flatIndex)}
+                                                            type="number"
+                                                            step="0.01"
+                                                            placeholder="0.00"
+                                                            value={selectedItem.estimated_amount}
+                                                            onChange={(e) => handleAmountChange(exp.id, e.target.value)}
+                                                            disabled={!isSelected}
+                                                            className="w-full bg-gray-800 text-white rounded-md p-1 border border-gray-600 disabled:bg-gray-700"/>
+                                                    </div>
+                                                </div>
+                                            )
+                                        })}
                                 </div>
-                            )
-                        })}
+                            </div>
+                        ))}
                     </div>
                 </div>
             )}

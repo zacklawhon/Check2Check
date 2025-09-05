@@ -140,7 +140,7 @@ class BudgetItemController extends BaseAPIController
             $updatedBudget = $budgetService->removeIncomeFromCycle($userId, $budgetId, $label);
 
             // 3. Controller returns the response.
-            return $this->respondDeleted($updatedBudget);
+            return $this->respondUpdated($updatedBudget);
             
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -230,7 +230,7 @@ class BudgetItemController extends BaseAPIController
             $updatedBudget = $budgetService->removeExpenseFromCycle($userId, $cycleId, $labelToRemove);
 
             // 3. Controller returns the response.
-            return $this->respondDeleted($updatedBudget);
+            return $this->respondUpdated($updatedBudget);
 
         } catch (\Exception $e) {
             return $this->fail($e->getMessage());
@@ -457,7 +457,8 @@ class BudgetItemController extends BaseAPIController
         $rules = [
             'original_label' => 'required|string',
             'label'          => 'required|string',
-            'amount'         => 'required|decimal'
+            'amount'         => 'required|decimal',
+            'date'           => 'required|valid_date[Y-m-d]'
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());
@@ -466,13 +467,15 @@ class BudgetItemController extends BaseAPIController
         $originalLabel = $this->request->getVar('original_label');
         $newLabel = $this->request->getVar('label');
         $newAmount = (float) $this->request->getVar('amount');
+        $date = $this->request->getVar('date');
 
         // Handle partner requests.
         if ($permission === 'update_by_request') {
             $payload = [
                 'original_label' => $originalLabel,
                 'label'          => $newLabel,
-                'amount'         => $newAmount
+                'amount'         => $newAmount,
+                'date'           => $date
             ];
             $description = "Update income '{$originalLabel}' to '{$newLabel}' for $" . number_format($newAmount, 2);
             return $this->handlePartnerAction('update_income_in_cycle', $description, $budgetId, $payload);
@@ -482,7 +485,7 @@ class BudgetItemController extends BaseAPIController
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $updatedBudget = $budgetService->updateIncomeInCycle($userId, $budgetId, $originalLabel, $newLabel, $newAmount);
+            $updatedBudget = $budgetService->updateIncomeInCycle($userId, $budgetId, $originalLabel, $newLabel, $newAmount, $date);
             
             // 3. Controller returns the response.
             return $this->respondUpdated($updatedBudget);

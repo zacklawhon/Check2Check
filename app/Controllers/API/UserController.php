@@ -116,8 +116,6 @@ class UserController extends BaseAPIController
         }
     }
 
-    // Methods like updateDemographics and dismissAccountsPrompt do not need to be changed
-    // as they correctly modify the currently logged-in user's own record.
     public function updateDemographics()
     {
         $userId = session()->get('userId');

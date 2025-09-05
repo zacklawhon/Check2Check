@@ -1,11 +1,20 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import * as api from '../../utils/api';
+import PermissionSelect from './PermissionSelect'; // Adjust the import path as necessary
+import ConfirmationModal from '../common/ConfirmationModal';
 
-function SharedAccessCard({ invites, onUpdate }) {
+function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
   const [email, setEmail] = useState('');
   const [permission, setPermission] = useState('read_only');
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
+  const [localPartners, setLocalPartners] = useState(partners);
+  const [revokeModalOpen, setRevokeModalOpen] = useState(false);
+  const [partnerToRevoke, setPartnerToRevoke] = useState(null);
+
+  useEffect(() => {
+    setLocalPartners(partners);
+  }, [partners]);
 
   const handleSendInvite = async () => {
     setError('');
@@ -20,28 +29,45 @@ function SharedAccessCard({ invites, onUpdate }) {
     }
   };
 
-  const handleRevoke = async (inviteId) => {
-    if (window.confirm('Are you sure you want to revoke this access? This cannot be undone.')) {
-      try {
-        await api.revokeAccess(inviteId);
-        onUpdate();
-      } catch (err) {
-        setError(err.message); // The API client already shows a toast
-      }
-    }
+  const handleRevoke = async (partner) => {
+    setPartnerToRevoke(partner);
+    setRevokeModalOpen(true);
   };
 
-   const handleUpdatePermission = async (partnerId, newPermission) => {
+  const handleUpdatePermission = async (partnerId, newPermission) => {
     try {
-        await api.updatePartnerPermission(partnerId, newPermission);
-        onUpdate();
+      await api.updatePartnerPermission(partnerId, newPermission);
+      // Removed onUpdate() to avoid page refresh
     } catch (err) {
-        setError(err.message); // The API client already shows a toast
+      setError(err.message); // The API client already shows a toast
     }
   };
 
-  const partners = invites.filter(inv => inv.status === 'accepted');
-  const pendingInvites = invites.filter(inv => inv.status === 'pending');
+  const handlePermissionUpdated = (partnerId, newPermission) => {
+    setLocalPartners(prev => prev.map(p => p.id === partnerId ? { ...p, permission_level: newPermission } : p));
+  };
+
+  const openRevokeModal = (partner) => {
+    setPartnerToRevoke(partner);
+    setRevokeModalOpen(true);
+  };
+
+  const closeRevokeModal = () => {
+    setPartnerToRevoke(null);
+    setRevokeModalOpen(false);
+  };
+
+  const confirmRevoke = async () => {
+    if (!partnerToRevoke) return;
+    try {
+      await api.revokeAccess(partnerToRevoke.id);
+      setLocalPartners(prev => prev.filter(p => p.id !== partnerToRevoke.id));
+      setRevokeModalOpen(false);
+      setPartnerToRevoke(null);
+    } catch (err) {
+      setError(err.message);
+    }
+  };
 
   return (
     <div className="bg-gray-800 p-6 rounded-lg text-white">
@@ -85,25 +111,17 @@ function SharedAccessCard({ invites, onUpdate }) {
       <div>
         <h3 className="text-lg font-semibold mb-2">Manage Partners</h3>
         <div className="space-y-4">
-          {invites.length === 0 && <p className="text-gray-400">You haven't invited any partners yet.</p>}
+          {localPartners.length === 0 && <p className="text-gray-400">You haven't invited any partners yet.</p>}
           
-          {partners.map(invite => (
-            <div key={invite.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-md">
+          {localPartners.map(partner => (
+            <div key={partner.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-md">
               <div>
-                <p className="font-medium">{invite.recipient_email}</p>
+                <p className="font-medium">{partner.email}</p>
                 <p className="text-sm text-green-400">Status: Active</p>
               </div>
               <div className="flex items-center space-x-2">
-                <select 
-                    defaultValue={invite.permission_level}
-                    onChange={(e) => handleUpdatePermission(invite.claimed_by_user_id, e.target.value)}
-                    className="p-2 border border-gray-600 rounded-md text-sm bg-gray-900"
-                >
-                    <option value="read_only">Read Only</option>
-                    <option value="update_by_request">Update by Request</option>
-                    <option value="full_access">Full Access</option>
-                </select>
-                <button onClick={() => handleRevoke(invite.claimed_by_user_id)} className="text-red-400 hover:text-red-300">
+                <PermissionSelect partner={partner} onUpdatePermission={handleUpdatePermission} onPermissionUpdated={handlePermissionUpdated} />
+                <button onClick={() => handleRevoke(partner)} className="text-red-400 hover:text-red-300">
                     Revoke
                 </button>
               </div>
@@ -125,6 +143,13 @@ function SharedAccessCard({ invites, onUpdate }) {
           ))}
         </div>
       </div>
+      <ConfirmationModal
+        isOpen={revokeModalOpen}
+        onClose={() => setRevokeModalOpen(false)}
+        onConfirm={confirmRevoke}
+        title="Revoke Access"
+        message={`Are you sure you want to revoke access for ${partnerToRevoke?.email}? The partner will lose access to your budget.`}
+      />
     </div>
   );
 }

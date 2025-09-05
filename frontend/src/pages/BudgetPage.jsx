@@ -123,8 +123,11 @@ function BudgetPage() {
     const handleCloseBudget = async () => {
         setIsClosing(true);
         try {
-            // Use the new, clean API function
-            await api.closeBudget(budgetId);
+            const response = await api.closeBudget(budgetId);
+            // Update the state with the response if available
+            if (response && response.budget) {
+                setBudget(response.budget);
+            }
             window.location.href = `/review/${budgetId}`;
         } catch (err) {
             // The API client will show the error toast

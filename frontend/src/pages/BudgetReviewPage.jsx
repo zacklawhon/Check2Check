@@ -18,13 +18,17 @@ function BudgetReviewPage() {
         // 2. The fetch function is now cleaner and uses the API client
         const fetchData = async () => {
             try {
-                const [budget, goals] = await Promise.all([
+                const [budgetState, goals] = await Promise.all([
                     api.getBudgetDetails(budgetId),
                     api.getGoals()
                 ]);
 
+                const { budget } = budgetState;
+
                 if (budget.status !== 'completed' || !budget.final_summary) {
-                    navigate(`/budget/${budgetId}`);
+                    // For debugging, show the current status instead of redirecting
+                    setReviewData(budget);
+                    setError(`Budget status: ${budget.status}, Final summary: ${budget.final_summary ? 'present' : 'missing'}`);
                     return;
                 }
                 setReviewData(budget);

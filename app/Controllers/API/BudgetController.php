@@ -135,8 +135,11 @@ class BudgetController extends BaseAPIController
             $budgetService = new BudgetService();
             $budgetService->closeCycle($userId, (int) $id);
 
+            // Fetch the updated budget state
+            $updatedState = $budgetService->getCompleteBudgetState($userId, (int) $id);
+
             // 3. Controller returns the response.
-            return $this->respond(['message' => 'Budget closed successfully.']);
+            return $this->respondUpdated($updatedState);
 
         } catch (\Exception $e) {
             // Check for the specific "not found" error from the service.
@@ -179,8 +182,11 @@ class BudgetController extends BaseAPIController
             $budgetService = new BudgetService();
             $budgetService->updateBudgetDates($userId, (int) $budgetId, $startDate, $endDate);
 
+            // Fetch the updated budget state
+            $updatedState = $budgetService->getCompleteBudgetState($userId, (int) $budgetId);
+
             // 3. Controller returns the response.
-            return $this->respondUpdated(['message' => 'Budget dates updated successfully.']);
+            return $this->respondUpdated($updatedState);
 
         } catch (\Exception $e) {
             // Check for the specific "not found" error from the service.
