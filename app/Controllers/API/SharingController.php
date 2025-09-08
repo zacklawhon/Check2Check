@@ -119,10 +119,10 @@ class SharingController extends BaseAPIController
                     'frequency' => $payload['frequency'] ?? 'one-time'
                 ];
                 $saveAsRecurring = $payload['save_recurring'] ?? false;
-                $updatedBudget = $budgetService->addIncomeToCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $incomeData, $saveAsRecurring);
+                $budgetService->addIncomeToCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $incomeData, $saveAsRecurring);
                 break;
             case 'remove_income':
-                $updatedBudget = $budgetService->removeIncomeFromCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['date'] ?? null, $payload['id'] ?? null);
+                $budgetService->removeIncomeFromCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['date'] ?? null, $payload['id'] ?? null);
                 break;
             case 'add_expense':
                 $expenseData = [
@@ -134,37 +134,37 @@ class SharingController extends BaseAPIController
                     'is_paid' => false
                 ];
                 $saveAsRecurring = $payload['save_recurring'] ?? false;
-                $updatedBudget = $budgetService->addExpenseToCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $expenseData, $saveAsRecurring);
+                $budgetService->addExpenseToCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $expenseData, $saveAsRecurring);
                 break;
             case 'remove_expense':
-                $updatedBudget = $budgetService->removeExpenseFromCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label']);
+                $budgetService->removeExpenseFromCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label']);
                 break;
             case 'update_variable_expense':
-                $updatedBudget = $budgetService->updateVariableExpenseAmount($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount']);
+                $budgetService->updateVariableExpenseAmount($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount']);
                 break;
             case 'mark_bill_paid':
-                $updatedBudget = $budgetService->markBillPaid($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount']);
+                $budgetService->markBillPaid($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount']);
                 break;
             case 'mark_bill_unpaid':
-                $updatedBudget = $budgetService->markBillUnpaid($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label']);
+                $budgetService->markBillUnpaid($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label']);
                 break;
             case 'update_income_in_cycle':
-                $updatedBudget = $budgetService->updateIncomeInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['original_label'], $payload['label'], $payload['amount'], $payload['date']);
+                $budgetService->updateIncomeInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['original_label'], $payload['label'], $payload['amount'], $payload['date']);
                 break;
             case 'update_recurring_expense':
-                $updatedBudget = $budgetService->updateRecurringExpenseInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['estimated_amount'], $payload['due_date']);
+                $budgetService->updateRecurringExpenseInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['estimated_amount'], $payload['due_date']);
                 break;
             case 'adjust_income':
-                $updatedBudget = $budgetService->adjustIncomeInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['new_amount']);
+                $budgetService->adjustIncomeInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['new_amount']);
                 break;
             case 'update_initial_income':
-                $updatedBudget = $budgetService->updateInitialIncomeAmount($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['id'], $payload['amount']);
+                $budgetService->updateInitialIncomeAmount($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['id'], $payload['amount']);
                 break;
             case 'mark_income_received':
-                $updatedBudget = $budgetService->markIncomeReceived($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount'], $payload['date']);
+                $budgetService->markIncomeReceived($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount'], $payload['date']);
                 break;
             case 'update_budget_dates':
-                $updatedBudget = $budgetService->updateBudgetDates($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['start_date'], $payload['end_date']);
+                $budgetService->updateBudgetDates($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['start_date'], $payload['end_date']);
                 break;
             // Add more cases as needed for other action_types
             default:
@@ -175,10 +175,8 @@ class SharingController extends BaseAPIController
         // Delete the request after execution
         $actionRequestModel->delete($requestId);
 
-        // Return the updated budget state
-        if (!$updatedBudget) {
-            $updatedBudget = $budgetService->getCompleteBudgetState($this->getEffectiveUserId(), $request['budget_cycle_id']);
-        }
+        // Always fetch and return the latest budget state
+        $updatedBudget = $budgetService->getCompleteBudgetState($this->getEffectiveUserId(), $request['budget_cycle_id']);
         return $this->respondUpdated($updatedBudget);
     }
 

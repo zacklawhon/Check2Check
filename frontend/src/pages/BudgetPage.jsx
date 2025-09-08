@@ -12,6 +12,7 @@ import IncomeList from '../components/budget/IncomeList';
 import ExpensesList from '../components/budget/ExpensesList';
 
 function BudgetPage() {
+    console.log('BudgetPage rendered');
     const { budgetId } = useParams();
     const navigate = useNavigate();
     const { user, accounts, refreshData: refreshGlobalData } = useOutletContext();
@@ -40,7 +41,7 @@ function BudgetPage() {
                     let matches = false;
                     if (payload.id && item.id) {
                         matches = payload.id === item.id;
-                    } else if (payload.date && item.date && payload.date !== null && item.date !== null) {
+                    } else if (payload.date && item.date && payload.date !== null && payload.date !== null) {
                         const labelToMatch = payload.original_label || payload.label;
                         matches = labelToMatch === item.label && payload.date === item.date;
                     } else {
@@ -63,8 +64,6 @@ function BudgetPage() {
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
-            const isOwner = user && !user.is_partner;
-
             // --- REFACTOR START ---
             // Use Promise.all for goals and the combined budget/transaction call
             const [budgetState, goalsData] = await Promise.all([
@@ -74,19 +73,9 @@ function BudgetPage() {
 
             const { budget: budgetData, transactions: transactionsData = [] } = budgetState;
 
-            let requestsToMerge = [];
-            // If the user is the owner, fetch their requests separately
-            if (isOwner) {
-                requestsToMerge = await api.getActionRequests(budgetId);
-            }
-            // If the user is a partner, use the requests already sent with the budget data
-            else if (budgetData.action_requests) {
-                requestsToMerge = budgetData.action_requests;
-            }
-
             // Apply the merge logic to both income and expenses
-            budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses, requestsToMerge);
-            budgetData.initial_income = mergeRequests(budgetData.initial_income, requestsToMerge);
+            budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses, budgetData.action_requests);
+            budgetData.initial_income = mergeRequests(budgetData.initial_income, budgetData.action_requests);
 
             // Set state for all our data
             setBudget(budgetData);
@@ -101,21 +90,33 @@ function BudgetPage() {
     };
 
     const handleStateUpdate = (response) => {
-        if (response && (response.budget || response.transactions || response.accounts)) {
-            if (response.budget) {
-                const mergedBudget = mergeRequestsIntoBudget(response.budget);
-                setBudget(mergedBudget);
-            }
-            if (response.transactions) setTransactions(response.transactions);
-            if (response.accounts) {
-                // If accounts are returned, update them in the parent context if possible
-                if (typeof setAccounts === 'function') setAccounts(response.accounts);
-                // If not, you may need to update accounts in the parent or context provider
-            }
-        } else if (response && response.budget && response.transactions) {
-            const mergedBudget = mergeRequestsIntoBudget(response.budget);
+        console.log('handleStateUpdate called', response);
+        // If response is a budget object directly (not wrapped)
+        if (response && response.id && response.initial_income && response.initial_expenses) {
+            const mergedBudget = { ...response };
+            mergedBudget.initial_expenses = mergeRequests(mergedBudget.initial_expenses, mergedBudget.action_requests);
+            mergedBudget.initial_income = mergeRequests(mergedBudget.initial_income, mergedBudget.action_requests);
+            console.log('BudgetPage handleStateUpdate mergedBudget:', mergedBudget);
             setBudget(mergedBudget);
-            setTransactions(response.transactions);
+            // If accounts are present, update them
+            if (response.accounts) setAccounts(response.accounts);
+            if (response.transactions) setTransactions(response.transactions);
+            if (response.goals) setGoals(response.goals);
+        }
+        // If response is wrapped as { budget: ... }
+        else if (response && response.budget) {
+            const mergedBudget = { ...response.budget };
+            mergedBudget.initial_expenses = mergeRequests(mergedBudget.initial_expenses, mergedBudget.action_requests);
+            mergedBudget.initial_income = mergeRequests(mergedBudget.initial_income, mergedBudget.action_requests);
+            console.log('BudgetPage handleStateUpdate mergedBudget:', mergedBudget);
+            setBudget(mergedBudget);
+            if (response.accounts) setAccounts(response.accounts);
+            if (response.transactions) setTransactions(response.transactions);
+            if (response.goals) setGoals(response.goals);
+        }
+        if (response && response.transactions && !response.budget) setTransactions(response.transactions);
+        if (response && response.accounts && !response.budget) {
+            if (typeof setAccounts === 'function') setAccounts(response.accounts);
         }
         setModalType(null);
         setIsEditDatesModalOpen(false);

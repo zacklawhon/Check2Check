@@ -25,12 +25,13 @@ function TransferModal({ isOpen, onClose, onConfirm, accounts, budgetId, action 
                 transfer_type: transferType
             };
 
+            let response;
             if (action === 'from') {
-                await api.transferFromAccount(budgetId, body);
+                response = await api.transferFromAccount(budgetId, body);
             } else {
-                await api.transferToAccount(budgetId, body);
+                response = await api.transferToAccount(budgetId, body);
             }
-            onConfirm();
+            if (onConfirm) onConfirm(response); // Pass API response up
 
         } catch (err) {
             setError(err.message); // The API client already shows a toast

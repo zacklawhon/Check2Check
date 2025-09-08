@@ -20,13 +20,19 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
     const handleApprove = async (action) => {
         setLoading(true);
         try {
+            let response;
             if (action === 'approve') {
-                await api.approveRequest(item.pending_request.id);
+                response = await api.approveRequest(item.pending_request.id);
             } else {
-                await api.denyRequest(item.pending_request.id);
+                response = await api.denyRequest(item.pending_request.id);
             }
-            toast.success(`Request ${action}d!`);
-            onStateUpdate(response);
+            console.log('API approveRequest response:', response);
+            toast.success(`Request ${action === 'deny' ? 'Denied' : 'Approved'}!`);
+            if (onStateUpdate && response && response.budget) {
+                onStateUpdate(response.budget); // Pass only the budget object
+            } else if (onStateUpdate) {
+                onStateUpdate(response);
+            }
         } catch (err) {
             // API client shows toast
         } finally {
@@ -152,8 +158,8 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                             </p>
                         </div>
                         <div className="flex items-center gap-2">
-                            <button onClick={() => handleApprove('approve')} disabled={loading} className="bg-green-600 ...">Approve</button>
-                            <button onClick={() => handleApprove('deny')} disabled={loading} className="bg-red-600 ...">Deny</button>
+                            <button onClick={() => handleApprove('approve')} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Approve</button>
+                            <button onClick={() => handleApprove('deny')} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Deny</button>
                         </div>
                     </div>
                 </li>

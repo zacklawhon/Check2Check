@@ -4,9 +4,10 @@ import TransferModal from './modals/TransferModal';
 function AccountsCard({ accounts, budgetId, onUpdate }) {
     const [modalAction, setModalAction] = useState(null); // 'from' or 'to'
 
-    const handleSuccess = () => {
+    // Accept the API response and pass it up to parent
+    const handleSuccess = (response) => {
         setModalAction(null);
-        onUpdate();
+        if (onUpdate) onUpdate(response);
     };
 
     const actionsDisabled = !budgetId;
@@ -37,6 +38,7 @@ function AccountsCard({ accounts, budgetId, onUpdate }) {
                 </div>
                 {actionsDisabled && <p className="text-xs text-center text-gray-400 mt-3">An active budget is required to make transfers.</p>}
             </div>
+            {/* Pass handleSuccess to TransferModal, which should call it with the API response */}
             <TransferModal isOpen={!!modalAction} onClose={() => setModalAction(null)} onConfirm={handleSuccess} accounts={accounts} budgetId={budgetId} action={modalAction} />
         </>
     );

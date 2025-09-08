@@ -5,7 +5,8 @@ import EditIncomeItemModal from '../budget/modals/EditIncomeItemModal'; // Impor
 import ReceiveIncomeModal from '../budget/modals/ReceiveIncomeModal'; // Import Receive Modal
 import * as api from '../../utils/api';
 
-function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingRequests, budgetId, onStateUpdate, onItemRequestCancel, budget }) {
+function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingRequests, budgetId, onStateUpdate, onItemRequestCancel, budget, onRefresh }) {
+  console.log('IncomeList props:', { incomeItems, budget });
   const canEdit = !user.is_partner || user.permission_level !== 'read_only';
 
   // --- REFACTOR START ---

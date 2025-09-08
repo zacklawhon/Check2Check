@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel, onStateUpdate }) {
+function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel, onStateUpdate, onRefresh, budget }) {
   const [loading, setLoading] = useState(false);
   const isReceived = !!item.is_received;
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
@@ -20,8 +20,11 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       } else {
         response = await api.denyRequest(item.pending_request.id);
       }
-      toast.success(`Request ${action}d!`);
-      if (onStateUpdate) {
+      console.log('API approveRequest response:', response);
+      toast.success(`Request ${action === 'deny' ? 'Denied' : 'Approved'}!`);
+      if (onStateUpdate && response && response.budget) {
+        onStateUpdate(response.budget); // Pass only the budget object
+      } else if (onStateUpdate) {
         onStateUpdate(response);
       } else if (onUpdate) {
         onUpdate(response);
@@ -42,9 +45,9 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
 
         if (isUpdateByRequest) {
           onItemRequest(item);
-          onUpdate(response);
+          if (onStateUpdate) onStateUpdate(response);
         } else {
-          onUpdate(response);
+          if (onStateUpdate) onStateUpdate(response);
         }
       } catch (err) {
         // API client shows toast
@@ -64,7 +67,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
     try {
       await api.cancelRequest(item.pending_request.id);
       toast.success("Request cancelled!");
-
+      if (onRefresh) onRefresh();
 
       if (onItemRequestCancel) {
         onItemRequestCancel(item);
@@ -101,7 +104,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
                 if (onItemRequestCancel) {
                   onItemRequestCancel(item);
                 } else {
-                  onUpdate();
+                  if (onRefresh) onRefresh();
                 }
               } catch (err) {
               } finally {
