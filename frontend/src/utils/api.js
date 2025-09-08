@@ -96,7 +96,9 @@ export const updateRecurringExpense = (expenseId, expenseData) => apiRequest(`/a
 export const getBudgetDetails = (budgetId) => apiRequest(`/api/budget/${budgetId}`);
 export const getTransactionsForCycle = (budgetId) => apiRequest(`/api/budget-items/transactions/${budgetId}`);
 export const getActionRequests = (budgetId) => apiRequest(`/api/sharing/requests/${budgetId}`);
-export const removeIncomeItem = (budgetId, label) => apiRequest(`/api/budget-items/remove-income/${budgetId}`, 'POST', { label });
+export const removeIncomeItem = (budgetId, label, date, id) => {
+    return apiRequest(`/api/budget-items/remove-income/${budgetId}`, 'POST', { label, date, id });
+};
 export const closeBudget = (budgetId) => apiRequest(`/api/budget/close/${budgetId}`, 'POST');
 export const updateBudgetDates = (budgetId, dates) => apiRequest(`/api/budget/update-dates/${budgetId}`, 'POST', dates);
 
@@ -180,3 +182,20 @@ export const createSpendingCategory = (name) => apiRequest('/api/budget-items/sp
 // Savings Actions
 export const addSavings = (budgetId, data) => apiRequest(`/api/budget/savings/add/${budgetId}`, 'POST', data);
 export const withdrawSavings = (budgetId, data) => apiRequest(`/api/budget/savings/withdraw/${budgetId}`, 'POST', data);
+
+// Cancel Invite
+export async function cancelInvite(inviteId) {
+    // Adjust the endpoint as needed to match your backend route
+    const res = await fetch(`/api/sharing/cancel-invite/${inviteId}`, {
+        method: 'DELETE',
+        headers: {
+            'Content-Type': 'application/json',
+        },
+        credentials: 'include',
+    });
+    if (!res.ok) {
+        const data = await res.json();
+        throw new Error(data.message || 'Failed to cancel invite');
+    }
+    return await res.json();
+}

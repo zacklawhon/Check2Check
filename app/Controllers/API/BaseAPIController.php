@@ -43,7 +43,6 @@ class BaseAPIController extends BaseController
 
         $actionRequestModel = new ActionRequestModel();
         
-        // ADDED: Explicitly set the status field
         $dataToInsert = [
             'requester_user_id' => $requesterId,
             'owner_user_id'     => $ownerId,
@@ -52,11 +51,16 @@ class BaseAPIController extends BaseController
             'payload'           => json_encode($payload),
             'description'       => $description,
             'status'            => 'pending', 
-            
         ];
 
         $actionRequestModel->insert($dataToInsert);
 
-        return $this->respond(['message' => 'Your request has been sent to the budget owner for approval.']);
+        // --- NEW: Fetch and return pending requests for the budget ---
+        $pendingRequests = $actionRequestModel
+            ->where('budget_cycle_id', $budgetId)
+            ->where('status', 'pending')
+            ->findAll();
+
+        return $pendingRequests;
     }
 }

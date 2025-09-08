@@ -96,7 +96,13 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = array_merge($newIncome, ['save_recurring' => $saveAsRecurring]);
             $description = "Add income: '{$newIncome['label']}' for $" . number_format($newIncome['amount'], 2);
-            return $this->handlePartnerAction('add_income', $description, $cycleId, $payload);
+            $pendingRequests = $this->handlePartnerAction('add_income', $description, $cycleId, $payload);
+            // Fetch updated budget state and append pending requests
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $cycleId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -122,22 +128,29 @@ class BudgetItemController extends BaseAPIController
         }
 
         $label = $this->request->getVar('label');
+        $date = $this->request->getVar('date');
+        $id = $this->request->getVar('id');
         if (empty($label)) {
             return $this->failValidationErrors('Label is required.');
         }
 
         // Handle partner requests.
         if ($permission === 'update_by_request') {
-            $payload = ['label' => $label];
-            $description = "Remove income source: '{$label}'";
-            return $this->handlePartnerAction('remove_income', $description, $budgetId, $payload);
+            $payload = ['label' => $label, 'date' => $date, 'id' => $id];
+            $description = "Remove income source: '{$label}' on {$date}";
+            $pendingRequests = $this->handlePartnerAction('remove_income', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
         try {
             $userId = $this->getEffectiveUserId();
             $budgetService = new BudgetService();
-            $updatedBudget = $budgetService->removeIncomeFromCycle($userId, $budgetId, $label);
+            $updatedBudget = $budgetService->removeIncomeFromCycle($userId, $budgetId, $label, $date, $id);
 
             // 3. Controller returns the response.
             return $this->respondUpdated($updatedBudget);
@@ -186,7 +199,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = array_merge($newExpense, ['save_recurring' => $saveAsRecurring]);
             $description = "Add bill: '{$newExpense['label']}' for $" . number_format($newExpense['estimated_amount'], 2);
-            return $this->handlePartnerAction('add_expense', $description, $cycleId, $payload);
+            $pendingRequests = $this->handlePartnerAction('add_expense', $description, $cycleId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $cycleId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 3. Controller calls the service to do the work.
@@ -220,7 +238,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $labelToRemove];
             $description = "Remove expense: '{$labelToRemove}'";
-            return $this->handlePartnerAction('remove_expense', $description, $cycleId, $payload);
+            $pendingRequests = $this->handlePartnerAction('remove_expense', $description, $cycleId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $cycleId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -255,7 +278,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $label, 'amount' => $amount];
             $description = "Add variable expense '{$label}' for $" . number_format($amount, 2);
-            return $this->handlePartnerAction('add_variable_expense', $description, $budgetId, $payload);
+            $pendingRequests = $this->handlePartnerAction('add_variable_expense', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -329,7 +357,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $labelToUpdate, 'amount' => $newAmount];
             $description = "Update '{$labelToUpdate}' variable expense to $" . number_format($newAmount, 2);
-            return $this->handlePartnerAction('update_variable_expense', $description, $cycleId, $payload);
+            $pendingRequests = $this->handlePartnerAction('update_variable_expense', $description, $cycleId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $cycleId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -369,7 +402,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $label, 'new_amount' => $newAmount];
             $description = "Adjust income '{$label}' to $" . number_format($newAmount, 2);
-            return $this->handlePartnerAction('adjust_income', $description, $budgetId, $payload);
+            $pendingRequests = $this->handlePartnerAction('adjust_income', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -429,7 +467,12 @@ class BudgetItemController extends BaseAPIController
 
             $payload = ['id' => $idToUpdate, 'amount' => $newAmount];
             $description = "Update income '{$itemLabel}' to $" . number_format($newAmount, 2);
-            return $this->handlePartnerAction('update_initial_income', $description, $budgetId, $payload);
+            $pendingRequests = $this->handlePartnerAction('update_initial_income', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -478,7 +521,12 @@ class BudgetItemController extends BaseAPIController
                 'date'           => $date
             ];
             $description = "Update income '{$originalLabel}' to '{$newLabel}' for $" . number_format($newAmount, 2);
-            return $this->handlePartnerAction('update_income_in_cycle', $description, $budgetId, $payload);
+            $pendingRequests = $this->handlePartnerAction('update_income_in_cycle', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -524,7 +572,12 @@ class BudgetItemController extends BaseAPIController
                 'due_date'         => $newDueDate
             ];
             $description = "Update '{$labelToUpdate}': set amount to $" . number_format($newAmount, 2);
-            return $this->handlePartnerAction('update_recurring_expense', $description, $budgetId, $payload);
+            $pendingRequests = $this->handlePartnerAction('update_recurring_expense', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -571,7 +624,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $labelToPay, 'amount' => $amount];
             $description = "Pay bill: '{$labelToPay}' for $" . number_format($amount, 2);
-            return $this->handlePartnerAction('mark_bill_paid', $description, $cycleId, $payload);
+            $pendingRequests = $this->handlePartnerAction('mark_bill_paid', $description, $cycleId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $cycleId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the actual work.
@@ -608,7 +666,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $labelToUnpay];
             $description = "Mark bill as unpaid: '{$labelToUnpay}'.";
-            return $this->handlePartnerAction('mark_bill_unpaid', $description, $cycleId, $payload);
+            $pendingRequests = $this->handlePartnerAction('mark_bill_unpaid', $description, $cycleId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $cycleId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.
@@ -650,7 +713,12 @@ class BudgetItemController extends BaseAPIController
         if ($permission === 'update_by_request') {
             $payload = ['label' => $label, 'amount' => $actualAmount, 'date' => $date]; 
             $description = "Mark income '{$label}' as received for $" . number_format($actualAmount, 2);
-            return $this->handlePartnerAction('mark_income_received', $description, $budgetId, $payload);
+            $pendingRequests = $this->handlePartnerAction('mark_income_received', $description, $budgetId, $payload);
+            $userId = $this->getEffectiveUserId();
+            $budgetService = new BudgetService();
+            $updatedBudget = $budgetService->getCompleteBudgetState($userId, $budgetId);
+            $updatedBudget['budget']['action_requests'] = $pendingRequests;
+            return $this->respondUpdated($updatedBudget);
         }
 
         // 2. Controller calls the service to do the work.

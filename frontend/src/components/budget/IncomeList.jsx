@@ -5,7 +5,7 @@ import EditIncomeItemModal from '../budget/modals/EditIncomeItemModal'; // Impor
 import ReceiveIncomeModal from '../budget/modals/ReceiveIncomeModal'; // Import Receive Modal
 import * as api from '../../utils/api';
 
-function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingRequests, budgetId, onStateUpdate, onItemRequestCancel }) {
+function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingRequests, budgetId, onStateUpdate, onItemRequestCancel, budget }) {
   const canEdit = !user.is_partner || user.permission_level !== 'read_only';
 
   // --- REFACTOR START ---
@@ -26,6 +26,35 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
   };
   // --- REFACTOR END ---
 
+  // Find pending "add_income" requests not already in incomeItems
+  const pendingAddIncomeRequests = (budget?.action_requests || [])
+    .filter(req => req.action_type === 'add_income' && req.status === 'pending')
+    .filter(req => {
+      try {
+        const payload = JSON.parse(req.payload);
+        // Only include if NOT in incomeItems
+        return !incomeItems.some(item =>
+          item.label === payload.label && item.date === payload.date
+        );
+      } catch {
+        return false;
+      }
+    })
+    .map(req => {
+      let payload = {};
+      try {
+        payload = JSON.parse(req.payload);
+      } catch {}
+      return {
+        label: payload.label || 'Pending Income',
+        amount: payload.amount || 0,
+        date: payload.date || '',
+        frequency: payload.frequency,
+        is_received: false,
+        pending_request: req,
+      };
+    });
+
   return (
     <div className="mb-8">
       <div className="flex justify-between items-center mb-3">
@@ -40,6 +69,23 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
         )}
       </div>
       <ul className="space-y-2">
+        {/* Render pending add_income requests first */}
+        {pendingAddIncomeRequests.map((item, index) => (
+          <IncomeListItem
+            key={`pending-add-income-${item.label}-${item.date}-${index}`}
+            item={item}
+            user={user}
+            onReceive={() => {}}
+            onEdit={() => {}}
+            onRemove={() => {}}
+            budgetId={budgetId}
+            onStateUpdate={onStateUpdate}
+            onItemRequestCancel={onItemRequestCancel}
+            onItemRequest={onItemRequest}
+            isPending={true}
+          />
+        ))}
+        {/* Render normal income items */}
         {incomeItems && incomeItems.map((item, index) => {
           const uniqueId = `${item.label}-${item.date}`;
           return (

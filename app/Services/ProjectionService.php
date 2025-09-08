@@ -33,6 +33,33 @@ class ProjectionService
                     }
                     break;
                 
+                case 'semi-monthly':
+                    // --- NEW LOGIC FOR SEMI-MONTHLY ---
+                    // Expecting frequency_date_1 and frequency_date_2 (day of month, e.g., 1 and 15)
+                    $dates = [];
+                    if (!empty($rule['frequency_date_1'])) {
+                        $dates[] = (int)$rule['frequency_date_1'];
+                    }
+                    if (!empty($rule['frequency_date_2'])) {
+                        $dates[] = (int)$rule['frequency_date_2'];
+                    }
+                    foreach ($dates as $day) {
+                        // Find the first occurrence of this day in the range
+                        $current = clone $start;
+                        $found = false;
+                        while ($current <= $end) {
+                            if ((int)$current->format('j') === $day) {
+                                $found = true;
+                                break;
+                            }
+                            $current->modify('+1 day');
+                        }
+                        if ($found && $current <= $end) {
+                            $projectedIncome[] = $this->createIncomeEvent($rule, $current->format('Y-m-d'));
+                        }
+                    }
+                    break;
+
                 // Note: Logic for bi-weekly, semi-monthly, etc., would be added here.
                 // For this initial implementation, we'll focus on weekly and one-time.
 

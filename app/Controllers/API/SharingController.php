@@ -38,21 +38,23 @@ class SharingController extends BaseAPIController
         $invitationModel = new InvitationModel();
         $token = bin2hex(random_bytes(32));
 
-        $invitationModel->insert([
+        $inviteData = [
             'inviter_user_id' => $ownerId,
             'recipient_email' => $recipientEmail,
             'invite_token' => $token,
-            'status' => 'pending',
+            'status' => 'sent',
             'invite_type' => 'share',
             'permission_level' => $permissionLevel,
             'expires_at' => date('Y-m-d H:i:s', strtotime('+7 days')),
-        ]);
+        ];
+        $invitationModel->insert($inviteData);
 
         // --- ADDED: Email Sending Logic ---
         try {
             $email = Services::email();
             $emailData = [
                 'ownerName' => $owner['email'], // Or a name field if you have one
+                // Update the invite link to point to the frontend route
                 'inviteLink' => site_url('accept-invite?token=' . $token)
             ];
             $message = view('emails/share_invitation', $emailData);
@@ -103,16 +105,81 @@ class SharingController extends BaseAPIController
             return $this->failNotFound('Action request not found or you do not have permission to approve it.');
         }
 
-        // This is where the magic happens. We would have a service
-        // that knows how to execute actions based on the 'action_type' and 'payload'.
-        // For example:
-        // $actionService = new \App\Services\ActionService();
-        // $actionService->execute($request['action_type'], $request['payload']);
+        $payload = json_decode($request['payload'], true);
+        $budgetService = new \App\Services\BudgetService();
+        $updatedBudget = null;
 
-        // For now, we will just delete the request to complete the loop.
+        // Execute the action based on action_type
+        switch ($request['action_type']) {
+            case 'add_income':
+                $incomeData = [
+                    'label' => $payload['label'],
+                    'amount' => $payload['amount'],
+                    'date' => $payload['date'],
+                    'frequency' => $payload['frequency'] ?? 'one-time'
+                ];
+                $saveAsRecurring = $payload['save_recurring'] ?? false;
+                $updatedBudget = $budgetService->addIncomeToCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $incomeData, $saveAsRecurring);
+                break;
+            case 'remove_income':
+                $updatedBudget = $budgetService->removeIncomeFromCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['date'] ?? null, $payload['id'] ?? null);
+                break;
+            case 'add_expense':
+                $expenseData = [
+                    'label' => $payload['label'],
+                    'estimated_amount' => $payload['estimated_amount'],
+                    'category' => $payload['category'] ?? 'other',
+                    'type' => $payload['type'],
+                    'due_date' => $payload['due_date'] ?? null,
+                    'is_paid' => false
+                ];
+                $saveAsRecurring = $payload['save_recurring'] ?? false;
+                $updatedBudget = $budgetService->addExpenseToCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $expenseData, $saveAsRecurring);
+                break;
+            case 'remove_expense':
+                $updatedBudget = $budgetService->removeExpenseFromCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label']);
+                break;
+            case 'update_variable_expense':
+                $updatedBudget = $budgetService->updateVariableExpenseAmount($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount']);
+                break;
+            case 'mark_bill_paid':
+                $updatedBudget = $budgetService->markBillPaid($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount']);
+                break;
+            case 'mark_bill_unpaid':
+                $updatedBudget = $budgetService->markBillUnpaid($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label']);
+                break;
+            case 'update_income_in_cycle':
+                $updatedBudget = $budgetService->updateIncomeInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['original_label'], $payload['label'], $payload['amount'], $payload['date']);
+                break;
+            case 'update_recurring_expense':
+                $updatedBudget = $budgetService->updateRecurringExpenseInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['estimated_amount'], $payload['due_date']);
+                break;
+            case 'adjust_income':
+                $updatedBudget = $budgetService->adjustIncomeInCycle($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['new_amount']);
+                break;
+            case 'update_initial_income':
+                $updatedBudget = $budgetService->updateInitialIncomeAmount($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['id'], $payload['amount']);
+                break;
+            case 'mark_income_received':
+                $updatedBudget = $budgetService->markIncomeReceived($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['label'], $payload['amount'], $payload['date']);
+                break;
+            case 'update_budget_dates':
+                $updatedBudget = $budgetService->updateBudgetDates($this->getEffectiveUserId(), $request['budget_cycle_id'], $payload['start_date'], $payload['end_date']);
+                break;
+            // Add more cases as needed for other action_types
+            default:
+                // For unsupported actions, just delete the request
+                break;
+        }
+
+        // Delete the request after execution
         $actionRequestModel->delete($requestId);
 
-        return $this->respond(['message' => 'Action approved successfully.']);
+        // Return the updated budget state
+        if (!$updatedBudget) {
+            $updatedBudget = $budgetService->getCompleteBudgetState($this->getEffectiveUserId(), $request['budget_cycle_id']);
+        }
+        return $this->respondUpdated($updatedBudget);
     }
 
     /**
@@ -129,10 +196,10 @@ class SharingController extends BaseAPIController
         $invitationModel = new InvitationModel();
         $userModel = new UserModel();
 
-        // 2. The rest of the validation logic will now work correctly
+        // Accept invites with status 'sent'
         $invite = $invitationModel->where('invite_token', $token)->first();
 
-        if (!$invite || $invite['invite_type'] !== 'share' || $invite['status'] !== 'pending') {
+        if (!$invite || $invite['invite_type'] !== 'share' || $invite['status'] !== 'sent') {
             return $this->failNotFound('This invitation is invalid, has expired, or has already been accepted.');
         }
 
@@ -419,7 +486,11 @@ class SharingController extends BaseAPIController
         // Simply delete the request.
         $actionRequestModel->delete($requestId);
 
-        return $this->respond(['message' => 'Action denied successfully.']);
+        // Fetch and return the updated budget state
+        $budgetService = new \App\Services\BudgetService();
+        $updatedBudget = $budgetService->getCompleteBudgetState($this->getEffectiveUserId(), $request['budget_cycle_id']);
+
+        return $this->respondUpdated($updatedBudget);
     }
 
     public function cancelActionRequest($requestId)
@@ -435,10 +506,14 @@ class SharingController extends BaseAPIController
             return $this->failNotFound('Action request not found or you do not have permission to cancel it.');
         }
 
-        // 3. Simply delete the request.
+        // 3. Delete the request.
         $actionRequestModel->delete($requestId);
 
-        return $this->respond(['message' => 'Request cancelled successfully.']);
+        // 4. Fetch and return the updated budget state.
+        $budgetService = new \App\Services\BudgetService();
+        $updatedBudget = $budgetService->getCompleteBudgetState($this->getEffectiveUserId(), $request['budget_cycle_id']);
+
+        return $this->respondUpdated($updatedBudget);
     }
 
     /**
@@ -446,25 +521,48 @@ class SharingController extends BaseAPIController
      */
     public function getPartnersAndInvites()
     {
-        $ownerId = session()->get('userId');
+        $userId = $this->getEffectiveUserId();
+
+        // --- Fetch partners (users who have accepted the invite) ---
         $userModel = new UserModel();
-        $invitationModel = new InvitationModel();
+        $partners = $userModel->where('owner_user_id', $userId)->findAll();
 
-        // Get partners from users table
-        $partners = $userModel->where('owner_user_id', $ownerId)->findAll();
-
-        // Get pending invites from invitations table
-        $pendingInvites = $invitationModel
-            ->where('inviter_user_id', $ownerId)
+        // --- Fetch pending invites (status = 'sent') ---
+        $inviteModel = new InvitationModel(); // <-- Use InvitationModel
+        $pendingInvites = $inviteModel
+            ->where('inviter_user_id', $userId)
             ->where('invite_type', 'share')
-            ->where('status', 'pending')
+            ->where('status', 'sent')
             ->findAll();
 
         return $this->respond([
             'partners' => $partners,
-            'pendingInvites' => $pendingInvites
+            'pendingInvites' => $pendingInvites,
         ]);
     }
 
+    /**
+     * Cancels a pending invite by the owner.
+     */
+    public function cancelInvite($inviteId)
+    {
+        $ownerId = session()->get('userId');
+        $invitationModel = new InvitationModel();
 
+        $invite = $invitationModel
+            ->where('id', $inviteId)
+            ->where('inviter_user_id', $ownerId)
+            ->where('status', 'sent')
+            ->first();
+
+        if (!$invite) {
+            return $this->failNotFound('Invite not found or already claimed/cancelled.');
+        }
+
+        // You can either delete or update status to 'cancelled'
+        $invitationModel->delete($inviteId);
+
+        return $this->respondDeleted(['message' => 'Invite cancelled.']);
+    }
 }
+

@@ -43,6 +43,14 @@ class BudgetService
             ->where('user_id', $userId)
             ->findAll();
 
+        // --- NEW: Fetch pending requests for the budget ---
+        $actionRequestModel = new \App\Models\ActionRequestModel();
+        $requests = $actionRequestModel
+            ->where('budget_cycle_id', $cycleId)
+            ->where('status', 'pending')
+            ->findAll();
+        $budget['action_requests'] = $requests;
+
         return [
             'budget' => $budget,
             'transactions' => $transactions
@@ -366,10 +374,12 @@ class BudgetService
      * @param int    $userId The owner's user ID.
      * @param int    $budgetId The ID of the budget cycle.
      * @param string $label The label of the income item to remove.
-     * @return bool
+     * @param string $date The date of the income item to remove.
+     * @param string $id The id of the income item to remove.
+     * @return array
      * @throws \Exception
      */
-    public function removeIncomeFromCycle(int $userId, int $budgetId, string $label): array
+    public function removeIncomeFromCycle(int $userId, int $budgetId, string $label, ?string $date = null, ?string $id = null): array
     {
         $budgetCycleModel = new BudgetCycleModel();
         $budgetCycle = $budgetCycleModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -378,23 +388,22 @@ class BudgetService
         }
 
         $incomeItems = json_decode($budgetCycle['initial_income'], true);
-        $itemExists = false;
-        foreach ($incomeItems as $item) {
-            if ($item['label'] === $label) {
-                $itemExists = true;
-                break;
-            }
-        }
 
-        if (!$itemExists) {
-            throw new \Exception('Income item not found.');
+        if (!empty($id)) {
+            // Remove by id (most precise)
+            $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['id'] !== $id);
+        } elseif (!empty($date)) {
+            // Remove by label and date
+            $updatedIncomeItems = array_filter($incomeItems, fn($item) => !($item['label'] === $label && $item['date'] === $date));
+        } else {
+            // Fallback: Remove by label only (for backward compatibility)
+            $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['label'] !== $label);
         }
 
         $db = \Config\Database::connect();
         $db->transStart();
         try {
 
-            $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['label'] !== $label);
             $budgetCycleModel->update($budgetId, ['initial_income' => json_encode(array_values($updatedIncomeItems))]);
 
             $db->transComplete();

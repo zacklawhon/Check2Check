@@ -30,6 +30,36 @@ function BudgetPage() {
     const [pendingRequests, setPendingRequests] = useState([]);
 
 
+    // --- ADD: Helper functions for merging requests ---
+    const mergeRequests = (items, requests) => {
+        if (!requests || requests.length === 0) return items;
+        return items.map(item => {
+            const pendingRequest = requests.find(req => {
+                try {
+                    const payload = JSON.parse(req.payload);
+                    let matches = false;
+                    if (payload.id && item.id) {
+                        matches = payload.id === item.id;
+                    } else if (payload.date && item.date && payload.date !== null && item.date !== null) {
+                        const labelToMatch = payload.original_label || payload.label;
+                        matches = labelToMatch === item.label && payload.date === item.date;
+                    } else {
+                        matches = payload.label === item.label || payload.original_label === item.label;
+                    }
+                    return matches;
+                } catch { return false; }
+            });
+            return pendingRequest ? { ...item, pending_request: pendingRequest } : { ...item };
+        });
+    };
+
+    const mergeRequestsIntoBudget = (budget) => {
+        if (!budget.action_requests) return budget;
+        budget.initial_expenses = mergeRequests(budget.initial_expenses, budget.action_requests);
+        budget.initial_income = mergeRequests(budget.initial_income, budget.action_requests);
+        return budget;
+    };
+
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
@@ -54,22 +84,6 @@ function BudgetPage() {
                 requestsToMerge = budgetData.action_requests;
             }
 
-            // This function merges the full request object into the corresponding item
-            const mergeRequests = (items, requests) => {
-                if (!requests || requests.length === 0) return items;
-                return items.map(item => {
-                    const pendingRequest = requests.find(req => {
-                        try {
-                            const payload = JSON.parse(req.payload);
-                            // Check for original_label (for edits) or the standard label
-                            return payload.label === item.label || payload.original_label === item.label;
-                        } catch { return false; }
-                    });
-                    // If a match is found, attach the request object
-                    return pendingRequest ? { ...item, pending_request: pendingRequest } : item;
-                });
-            };
-
             // Apply the merge logic to both income and expenses
             budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses, requestsToMerge);
             budgetData.initial_income = mergeRequests(budgetData.initial_income, requestsToMerge);
@@ -88,7 +102,10 @@ function BudgetPage() {
 
     const handleStateUpdate = (response) => {
         if (response && (response.budget || response.transactions || response.accounts)) {
-            if (response.budget) setBudget(response.budget);
+            if (response.budget) {
+                const mergedBudget = mergeRequestsIntoBudget(response.budget);
+                setBudget(mergedBudget);
+            }
             if (response.transactions) setTransactions(response.transactions);
             if (response.accounts) {
                 // If accounts are returned, update them in the parent context if possible
@@ -96,7 +113,8 @@ function BudgetPage() {
                 // If not, you may need to update accounts in the parent or context provider
             }
         } else if (response && response.budget && response.transactions) {
-            setBudget(response.budget);
+            const mergedBudget = mergeRequestsIntoBudget(response.budget);
+            setBudget(mergedBudget);
             setTransactions(response.transactions);
         }
         setModalType(null);
@@ -157,6 +175,24 @@ function BudgetPage() {
     // This function also accepts the unique ID to find and remove.
     const handleRequestCancelled = (uniqueId) => {
         setPendingRequests(prev => prev.filter(id => id !== uniqueId));
+    };
+
+    const handleApproveRequest = async (requestId) => {
+        try {
+            const response = await api.approveRequest(requestId);
+            handleStateUpdate(response);
+        } catch (err) {
+            // API client shows toast
+        }
+    };
+
+    const handleDenyRequest = async (requestId) => {
+        try {
+            const response = await api.denyRequest(requestId);
+            handleStateUpdate(response);
+        } catch (err) {
+            // API client shows toast
+        }
     };
 
     if (loading || !user) {
@@ -221,6 +257,7 @@ function BudgetPage() {
                     <ExpensesList
                         expenseItems={budget.initial_expenses}
                         transactions={transactions}
+                        budget={budget}
                         budgetId={budgetId}
                         user={user}
                         onAddItem={(type) => setModalType(type)}

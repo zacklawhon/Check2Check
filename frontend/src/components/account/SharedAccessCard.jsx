@@ -9,12 +9,19 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
   const [error, setError] = useState('');
   const [success, setSuccess] = useState('');
   const [localPartners, setLocalPartners] = useState(partners);
+  const [localPendingInvites, setLocalPendingInvites] = useState(pendingInvites);
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [partnerToRevoke, setPartnerToRevoke] = useState(null);
+  const [revokeType, setRevokeType] = useState('partner'); // 'partner' or 'invite'
 
   useEffect(() => {
     setLocalPartners(partners);
   }, [partners]);
+
+  useEffect(() => {
+    // Only show invites with status 'sent'
+    setLocalPendingInvites(pendingInvites.filter(invite => invite.status === 'sent'));
+  }, [pendingInvites]);
 
   const handleSendInvite = async () => {
     setError('');
@@ -23,14 +30,20 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
       await api.sendShareInvite(email, permission);
       setSuccess('Invitation sent successfully!');
       setEmail('');
+      // Optimistically add to local pending invites with status 'sent'
+      setLocalPendingInvites(prev => [
+        ...prev,
+        { id: Date.now(), recipient_email: email, status: 'sent' }
+      ]);
       onUpdate();
     } catch (err) {
       setError(err.message); // The API client already shows a toast
     }
   };
 
-  const handleRevoke = async (partner) => {
-    setPartnerToRevoke(partner);
+  const handleRevoke = (item, type = 'partner') => {
+    setPartnerToRevoke(item);
+    setRevokeType(type);
     setRevokeModalOpen(true);
   };
 
@@ -47,11 +60,6 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
     setLocalPartners(prev => prev.map(p => p.id === partnerId ? { ...p, permission_level: newPermission } : p));
   };
 
-  const openRevokeModal = (partner) => {
-    setPartnerToRevoke(partner);
-    setRevokeModalOpen(true);
-  };
-
   const closeRevokeModal = () => {
     setPartnerToRevoke(null);
     setRevokeModalOpen(false);
@@ -60,8 +68,13 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
   const confirmRevoke = async () => {
     if (!partnerToRevoke) return;
     try {
-      await api.revokeAccess(partnerToRevoke.id);
-      setLocalPartners(prev => prev.filter(p => p.id !== partnerToRevoke.id));
+      if (revokeType === 'partner') {
+        await api.revokeAccess(partnerToRevoke.id);
+        setLocalPartners(prev => prev.filter(p => p.id !== partnerToRevoke.id));
+      } else if (revokeType === 'invite') {
+        await api.cancelInvite(partnerToRevoke.id);
+        setLocalPendingInvites(prev => prev.filter(i => i.id !== partnerToRevoke.id));
+      }
       setRevokeModalOpen(false);
       setPartnerToRevoke(null);
     } catch (err) {
@@ -111,8 +124,11 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
       <div>
         <h3 className="text-lg font-semibold mb-2">Manage Partners</h3>
         <div className="space-y-4">
-          {localPartners.length === 0 && <p className="text-gray-400">You haven't invited any partners yet.</p>}
-          
+          {localPartners.length === 0 && localPendingInvites.length === 0 && (
+            <p className="text-gray-400">You haven't invited any partners yet.</p>
+          )}
+
+          {/* Active Partners */}
           {localPartners.map(partner => (
             <div key={partner.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-md">
               <div>
@@ -121,21 +137,22 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
               </div>
               <div className="flex items-center space-x-2">
                 <PermissionSelect partner={partner} onUpdatePermission={handleUpdatePermission} onPermissionUpdated={handlePermissionUpdated} />
-                <button onClick={() => handleRevoke(partner)} className="text-red-400 hover:text-red-300">
+                <button onClick={() => handleRevoke(partner, 'partner')} className="text-red-400 hover:text-red-300">
                     Revoke
                 </button>
               </div>
             </div>
           ))}
 
-          {pendingInvites.map(invite => (
+          {/* Pending Invites */}
+          {localPendingInvites.map(invite => (
             <div key={invite.id} className="flex items-center justify-between p-3 bg-gray-700 rounded-md">
               <div>
                 <p className="font-medium">{invite.recipient_email}</p>
                 <p className="text-sm text-yellow-400">Status: Pending</p>
               </div>
               <div className="flex items-center space-x-2">
-                <button onClick={() => handleRevoke(invite.id)} className="text-red-400 hover:text-red-300">
+                <button onClick={() => handleRevoke(invite, 'invite')} className="text-red-400 hover:text-red-300">
                   Cancel Invite
                 </button>
               </div>
@@ -145,10 +162,14 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
       </div>
       <ConfirmationModal
         isOpen={revokeModalOpen}
-        onClose={() => setRevokeModalOpen(false)}
+        onClose={closeRevokeModal}
         onConfirm={confirmRevoke}
-        title="Revoke Access"
-        message={`Are you sure you want to revoke access for ${partnerToRevoke?.email}? The partner will lose access to your budget.`}
+        title={revokeType === 'partner' ? "Revoke Access" : "Cancel Invite"}
+        message={
+          revokeType === 'partner'
+            ? `Are you sure you want to revoke access for ${partnerToRevoke?.email}? The partner will lose access to your budget.`
+            : `Are you sure you want to cancel the invite for ${partnerToRevoke?.recipient_email}?`
+        }
       />
     </div>
   );

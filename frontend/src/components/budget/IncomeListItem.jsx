@@ -2,7 +2,7 @@ import React, { useState } from 'react';
 import toast from 'react-hot-toast';
 import * as api from '../../utils/api';
 
-function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel }) {
+function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onUpdate, onItemRequest, isPending, onItemRequestCancel, onStateUpdate }) {
   const [loading, setLoading] = useState(false);
   const isReceived = !!item.is_received;
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
@@ -14,13 +14,18 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   const handleApproval = async (action) => {
     setLoading(true);
     try {
+      let response;
       if (action === 'approve') {
-        await api.approveRequest(item.pending_request.id);
+        response = await api.approveRequest(item.pending_request.id);
       } else {
-        await api.denyRequest(item.pending_request.id);
+        response = await api.denyRequest(item.pending_request.id);
       }
       toast.success(`Request ${action}d!`);
-      onUpdate();
+      if (onStateUpdate) {
+        onStateUpdate(response);
+      } else if (onUpdate) {
+        onUpdate(response);
+      }
     } catch (err) {
       // API client shows toast
     } finally {
@@ -74,8 +79,9 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   };
   // --- RENDER LOGIC ---
 
-  if (item.pending_request) {
-    // Partner's View for a pending item
+  // Handle "add_income" pending requests (for both owner and partner)
+  if (item.pending_request && item.pending_request.action_type === 'add_income') {
+    // Partner's View for a pending add_income
     if (isUpdateByRequest) {
       return (
         <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
@@ -86,7 +92,22 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
             </p>
           </div>
           <button
-            onClick={handleCancelRequest}
+            onClick={async () => {
+              if (!item.pending_request) return;
+              setLoading(true);
+              try {
+                await api.cancelRequest(item.pending_request.id);
+                toast.success("Request cancelled!");
+                if (onItemRequestCancel) {
+                  onItemRequestCancel(item);
+                } else {
+                  onUpdate();
+                }
+              } catch (err) {
+              } finally {
+                setLoading(false);
+              }
+            }}
             disabled={loading}
             className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1 px-2 rounded"
           >
@@ -96,7 +117,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       );
     }
 
-    // Owner's View for a pending item
+    // Owner's View for a pending add_income
     if (isOwner) {
       return (
         <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">

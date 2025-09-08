@@ -88,18 +88,6 @@ class BudgetController extends BaseAPIController
 
             $budgetCycle = $completeState['budget'];
 
-            $user = session()->get('user');
-            if ($user && isset($user['permission_level']) && $user['permission_level'] === 'update_by_request') {
-                $actionRequestModel = new ActionRequestModel();
-                $requests = $actionRequestModel
-                    ->where('requester_user_id', $user['id'])
-                    ->where('budget_cycle_id', $id)
-                    ->where('status', 'pending')
-                    ->findAll();
-                $budgetCycle['action_requests'] = $requests;
-            }
-            // --- END BLOCK ---
-
             return $this->respond($completeState);
 
         } catch (\Exception $e) {

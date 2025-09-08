@@ -39,7 +39,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->delete('invites/(:num)', 'SharingController::revokeAccess/$1');
             $routes->post('deny/(:num)', 'SharingController::denyActionRequest/$1');
             $routes->delete('request/(:num)', 'SharingController::cancelActionRequest/$1');
-
+            $routes->delete('cancel-invite/(:num)', 'SharingController::cancelInvite/$1');
         });
         // ## END: NEW SHARING ROUTES ##
 

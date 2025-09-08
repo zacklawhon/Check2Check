@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import LogTransactionModal from './modals/LogTransactionModal';
 import ConfirmationModal from '../../components/common/ConfirmationModal';
 import * as api from '../../utils/api';
+import { toast } from 'react-hot-toast';
 
 function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, itemTransactions, isPending, onItemRequest, onEdit }) {
   const [isLogModalOpen, setIsLogModalOpen] = useState(false);
@@ -38,7 +39,6 @@ function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, it
     }
   };
 
-
   const handleDeleteConfirm = async () => {
     setIsConfirmModalOpen(false);
     try {
@@ -48,6 +48,75 @@ function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, it
       setError(err.message);
     }
   };
+
+  const handleApprove = async (action) => {
+    setLoading(true);
+    try {
+      const response = await (action === 'approve' ? api.approveRequest(item.pending_request.id) : api.denyRequest(item.pending_request.id));
+      onStateUpdate(response); // Trigger a full state update with the backend response
+    } catch (err) {
+      // API client shows toast
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  // --- NEW: Handler for Canceling Request ---
+  const handleCancelRequest = async () => {
+    if (!item.pending_request) return;
+    setLoading(true);
+    try {
+      const response = await api.cancelRequest(item.pending_request.id);
+      onStateUpdate(response);
+    } catch (err) {
+      // API client shows toast
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  if (item.pending_request) {
+    // Partner's View for a pending item
+    if (isUpdateByRequest) {
+      return (
+        <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
+          <div>
+            <p className="font-semibold text-gray-300">{item.label}</p>
+            <p className="text-xs text-yellow-400 italic">
+              {item.pending_request.description}
+            </p>
+          </div>
+          <button
+            onClick={handleCancelRequest}
+            disabled={loading}
+            className="bg-red-600 hover:bg-red-700 text-white text-xs font-bold py-1 px-2 rounded"
+          >
+            {loading ? '...' : 'Cancel'}
+          </button>
+        </li>
+      );
+    }
+
+    // Owner's View for a pending item
+    if (!user.owner_user_id) {
+      return (
+        <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">
+          <div className="flex justify-between items-center">
+            <div>
+              <p className="font-semibold">{item.label}</p>
+              <p className="text-sm text-yellow-300 italic">
+                Pending: {item.pending_request.description}
+              </p>
+            </div>
+            <div className="flex items-center gap-2">
+              <button onClick={() => handleApprove('approve')} disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Approve</button>
+              <button onClick={() => handleApprove('deny')} disabled={loading} className="bg-red-600 hover:bg-red-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Deny</button>
+            </div>
+          </div>
+        </li>
+      );
+    }
+  }
 
   if (item.is_goal_payment) {
     return (
