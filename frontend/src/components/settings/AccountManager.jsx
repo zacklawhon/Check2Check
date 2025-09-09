@@ -52,7 +52,7 @@ function AccountManager() {
             <div className="bg-gray-800 p-6 rounded-lg">
                 <div className="flex justify-between items-center mb-4">
                     <h2 className="text-2xl font-bold text-teal-400">Your Accounts</h2>
-                    <button onClick={() => { setActiveAccount(null); setIsEditModalOpen(true); }} className="bg-indigo-600 py-2 px-4 rounded">Add New</button>
+                    <button onClick={() => { setActiveAccount(null); setIsEditModalOpen(true); }} className="bg-indigo-600 py-2 px-4 rounded text-white">Add New</button>
                 </div>
                 {error && <p className="text-red-400 mb-2">{error}</p>}
 

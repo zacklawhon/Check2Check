@@ -10,7 +10,7 @@ function Header({ activeBudget, user }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-const canViewAccount = user && user.id && (
+const canViewSettings = user && user.id && (
   user.owner_user_id === null || 
   user.owner_user_id === undefined || 
   user.permission_level === 'full_access'
@@ -20,7 +20,7 @@ const canViewAccount = user && user.id && (
     const { pathname } = location;
     if (pathname.startsWith('/budget/')) return 'budget';
     if (pathname.startsWith('/wizard')) return 'wizard';
-    if (pathname.startsWith('/account')) return 'account';
+    if (pathname.startsWith('/settings')) return 'settings';
     if (pathname.startsWith('/dashboard')) return 'dashboard';
     return 'default'; // Fallback key
   }, [location]);
@@ -62,8 +62,8 @@ const canViewAccount = user && user.id && (
             </button>
           )}
           <button onClick={() => handleNavClick('/dashboard')} className="text-gray-300 hover:text-white">Dashboard</button>
-          {canViewAccount && (
-            <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
+          {canViewSettings && (
+            <button onClick={() => navigate('/settings')} className="text-gray-300 hover:text-white">Settings</button>
           )}
           <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
           <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Logout</button>
@@ -96,8 +96,8 @@ const canViewAccount = user && user.id && (
               </button>
             )}
             <button onClick={() => handleNavClick('/dashboard')} className="text-left text-gray-300 hover:text-white py-2">Dashboard</button>
-            {canViewAccount && (
-              <button onClick={() => navigate('/account')} className="text-gray-300 hover:text-white">Account</button>
+            {canViewSettings && (
+              <button onClick={() => navigate('/settings')} className="text-gray-300 hover:text-white">Settings</button>
             )}
             <button onClick={() => { setIsHelpModalOpen(true); setIsMenuOpen(false); }} className="text-left text-gray-300 hover:text-white py-2">Help & Feedback</button>
             <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm py-2 px-3 mt-2">Logout</button>

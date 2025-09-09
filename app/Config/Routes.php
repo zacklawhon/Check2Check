@@ -88,7 +88,7 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
         ]);
 
         $routes->post('user-accounts/update-balance/(:num)', 'UserAccountController::updateBalance/$1');
-        $routes->get('user-accounts', 'AccountController::getUserAccounts');
+        $routes->get('user-accounts', 'SettingsController::getUserAccounts');
 
         $routes->group('goals', static function ($routes) {
             $routes->get('/', 'GoalController::index');
@@ -98,31 +98,30 @@ $routes->group('api', ['namespace' => 'App\Controllers\API'], static function ($
             $routes->post('(:num)/log-payment', 'GoalController::logPayment/$1');
         });
 
-        $routes->group('account', static function ($routes) {
+        $routes->group('settings', static function ($routes) {
             //Creation Routes
-            
-            $routes->post('income-sources', 'AccountController::createIncomeSource');
-            $routes->post('recurring-expenses', 'AccountController::createRecurringExpense');
+            $routes->post('income-sources', 'SettingsController::createIncomeSource');
+            $routes->post('recurring-expenses', 'SettingsController::createRecurringExpense');
             
             //Update Methods
-            $routes->put('expenses/update-details/(:num)', 'AccountController::updateExpenseDetails/$1');
-            $routes->post('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');
-            $routes->post('request-email-change', 'AccountController::requestEmailChange');
-            $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
-            $routes->post('profile', 'AccountController::updateProfile');
-            $routes->post('financial-tools', 'AccountController::updateFinancialTools');
-            $routes->put('income-sources/(:num)', 'AccountController::updateIncomeSource/$1');
-            $routes->post('recurring-expenses/(:num)', 'AccountController::updateRecurringExpense/$1');
+            $routes->put('expenses/update-details/(:num)', 'SettingsController::updateExpenseDetails/$1');
+            $routes->post('income-sources/(:num)', 'SettingsController::updateIncomeSource/$1');
+            $routes->post('request-email-change', 'SettingsController::requestEmailChange');
+            $routes->post('recurring-expenses/(:num)', 'SettingsController::updateRecurringExpense/$1');
+            $routes->post('profile', 'SettingsController::updateProfile');
+            $routes->post('financial-tools', 'SettingsController::updateFinancialTools');
+            $routes->put('income-sources/(:num)', 'SettingsController::updateIncomeSource/$1');
+            $routes->post('recurring-expenses/(:num)', 'SettingsController::updateRecurringExpense/$1');
             
             //Getters
-            $routes->get('recurring-items', 'AccountController::getRecurringItems');
-            $routes->get('financial-tools', 'AccountController::getFinancialTools');
-            $routes->get('verify-email-change/(:segment)', 'AccountController::verifyEmailChange/$1');
+            $routes->get('recurring-items', 'SettingsController::getRecurringItems');
+            $routes->get('financial-tools', 'SettingsController::getFinancialTools');
+            $routes->get('verify-email-change/(:segment)', 'SettingsController::verifyEmailChange/$1');
 
             //Deleters
-            $routes->delete('income-sources/(:num)', 'AccountController::deleteIncomeSource/$1');
-            $routes->delete('recurring-expenses/(:num)', 'AccountController::deleteRecurringExpense/$1');
-            $routes->delete('delete', 'AccountController::deleteAccount');
+            $routes->delete('income-sources/(:num)', 'SettingsController::deleteIncomeSource/$1');
+            $routes->delete('recurring-expenses/(:num)', 'SettingsController::deleteRecurringExpense/$1');
+            $routes->delete('delete', 'SettingsController::deleteAccount');
         });
 
         $routes->group('feedback', static function ($routes) {

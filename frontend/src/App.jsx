@@ -7,7 +7,7 @@ import { Toaster } from 'react-hot-toast';
 import { ContentProvider } from './contexts/ContentContext';
 import WhatsNewModal from './components/common/WhatsNewModal';
 import AuthenticatedLayout from './components/AuthenticatedLayout';
-import AccountPage from './pages/AccountPage';
+import SettingsPage from './pages/SettingsPage';
 import LandingPage from './pages/LandingPage';
 import VerificationPage from './pages/VerificationPage';
 import DashboardPage from './pages/DashboardPage';
@@ -159,7 +159,7 @@ function App() {
 
             {/* Routes accessible ONLY by Owners */}
             <Route element={<PartnerRoute />}>
-              <Route path="/account" element={<AccountPage />} />
+              <Route path="/settings" element={<SettingsPage />} />
               {/* You can add other owner-only routes here, like '/admin' */}
             </Route>
 

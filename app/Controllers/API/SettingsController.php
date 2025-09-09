@@ -13,7 +13,7 @@ use App\Services\ProjectionService;
 use App\Models\TransactionModel;
 use Config\Services;
 
-class AccountController extends BaseAPIController
+class SettingsController extends BaseAPIController
 {
     use ResponseTrait;
 

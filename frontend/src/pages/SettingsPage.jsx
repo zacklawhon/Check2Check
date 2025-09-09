@@ -2,18 +2,18 @@ import React, { useState, useEffect } from 'react';
 import * as api from '../utils/api';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ConfirmationModal from '../components/common/ConfirmationModal';
-import EditItemModal from '../components/account/modals/EditItemModal';
-import EditIncomeRuleModal from '../components/account/modals/EditIncomeRuleModal'; 
-import EditGoalModal from '../components/account/modals/EditGoalModal';
-import ProfileForm from '../components/account/ProfileForm';
-import AccountActions from '../components/account/AccountActions';
-import AccountManager from '../components/account/AccountManager';
-import GoalsDisplay from '../components/account/GoalsDisplay';
-import IntroGoalCard from '../components/account/IntroGoalCard'; 
-import SharedAccessCard from '../components/account/SharedAccessCard';
+import EditItemModal from '../components/settings/modals/EditItemModal';
+import EditIncomeRuleModal from '../components/settings/modals/EditIncomeRuleModal'; 
+import EditGoalModal from '../components/settings/modals/EditGoalModal';
+import ProfileForm from '../components/settings/ProfileForm';
+import AccountActions from '../components/settings/AccountActions';
+import AccountManager from '../components/settings/AccountManager';
+import GoalsDisplay from '../components/settings/GoalsDisplay';
+import IntroGoalCard from '../components/settings/IntroGoalCard'; 
+import SharedAccessCard from '../components/settings/SharedAccessCard';
 import { getDayWithOrdinal } from '../components/utils/formatters';
 
-function AccountPage() {
+function SettingsPage() {
     const outletContext = useOutletContext();
     const [user, setUser] = useState(outletContext.user);
     const [items, setItems] = useState({ income_sources: [], recurring_expenses: [] });
@@ -158,7 +158,7 @@ function AccountPage() {
     return (
         <>
             <div className="container mx-auto p-4 md:p-8">
-                <h1 className="text-4xl font-bold text-white text-center mb-8">Account Management</h1>
+                <h1 className="text-4xl font-bold text-white text-center mb-8">Settings</h1>
                 {error && <p className="text-red-500 text-center mb-4">{error}</p>}
                 <div className="space-y-8 max-w-4xl mx-auto">
                     {/* 4. Conditionally render the "Nudge" card */}
@@ -271,4 +271,4 @@ function AccountPage() {
     );
 }
 
-export default AccountPage;
+export default SettingsPage;

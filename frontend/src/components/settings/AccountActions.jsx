@@ -1,11 +1,12 @@
 import React, { useState } from 'react';
-import { useNavigate } from 'react-router-dom';
+import { useNavigate, useOutletContext } from 'react-router-dom';
 import * as api from '../../utils/api';
 import ConfirmationModal from '../common/ConfirmationModal';
 
 function AccountActions() {
     // Make sure you are using the hook here and not a prop
     const navigate = useNavigate(); 
+    const { user } = useOutletContext();
     const [newEmail, setNewEmail] = useState('');
     const [isConfirmDeleteOpen, setIsConfirmDeleteOpen] = useState(false);
     const [isFreshStartOpen, setIsFreshStartOpen] = useState(false); // New state for the modal
@@ -66,7 +67,12 @@ function AccountActions() {
                 <h2 className="text-2xl font-bold text-red-400 mb-4">Account Actions</h2>
                 <div className="space-y-6">
                     <form onSubmit={handleEmailChangeRequest} className="space-y-2">
-                        <label className="block text-gray-300">Change Email Address</label>
+                        <label className="block text-gray-300">
+                            Change Email Address
+                            {user?.email && (
+                                <span className="ml-2 text-gray-400 text-xs">(Current: {user.email})</span>
+                            )}
+                        </label>
                         <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required placeholder="New Email Address" className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"/>
                         <div className="text-right">
                             <button type="submit" disabled={loading} className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-2 px-4 rounded-lg disabled:opacity-50">

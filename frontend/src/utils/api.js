@@ -68,7 +68,7 @@ export const getActiveBudget = () => apiRequest('/api/user/active-budget');
 export const updateAccountBalance = (accountId, newBalance) => apiRequest(`/api/user-accounts/update-balance/${accountId}`, 'POST', { current_balance: newBalance });
 export const deleteUserAccount = (accountId) => apiRequest(`/api/user-accounts/${accountId}`, 'DELETE');
 export const dismissAccountsPrompt = () => apiRequest('/api/user/dismiss-accounts-prompt', 'POST');
-export const updateProfile = (profileData) => apiRequest('/api/account/profile', 'POST', profileData);
+export const updateProfile = (profileData) => apiRequest('/api/settings/profile', 'POST', profileData);
 export const createAccount = (accountData) => apiRequest('/api/user-accounts', 'POST', accountData);
 export const updateAccount = (accountId, accountData) => apiRequest(`/api/user-accounts/${accountId}`, 'POST', accountData);
 
@@ -80,17 +80,17 @@ export const getLatestAnnouncement = () => apiRequest('/api/content/latest-annou
 export const markAnnouncementSeen = (contentId) => apiRequest('/api/content/mark-as-seen', 'POST', { content_id: contentId });
 
 // Account Page
-export const getRecurringItems = () => apiRequest('/api/account/recurring-items');
+export const getRecurringItems = () => apiRequest('/api/settings/recurring-items');
 export const deleteGoal = (goalId) => apiRequest(`/api/goals/${goalId}`, 'DELETE');
 export const deleteRecurringItem = (type, itemId) => {
     const endpoint = type === 'income' 
-        ? `/api/account/income-sources/${itemId}` 
-        : `/api/account/recurring-expenses/${itemId}`;
+        ? `/api/settings/income-sources/${itemId}` 
+        : `/api/settings/recurring-expenses/${itemId}`;
     return apiRequest(endpoint, 'DELETE');
 };
-export const verifyEmailChange = (token) => apiRequest(`/api/account/verify-email-change/${token}`);
-export const updateIncomeSource = (sourceId, sourceData) => apiRequest(`/api/account/income-sources/${sourceId}`, 'PUT', sourceData);
-export const updateRecurringExpense = (expenseId, expenseData) => apiRequest(`/api/account/recurring-expenses/${expenseId}`, 'POST', expenseData);
+export const verifyEmailChange = (token) => apiRequest(`/api/settings/verify-email-change/${token}`);
+export const updateIncomeSource = (sourceId, sourceData) => apiRequest(`/api/settings/income-sources/${sourceId}`, 'PUT', sourceData);
+export const updateRecurringExpense = (expenseId, expenseData) => apiRequest(`/api/settings/recurring-expenses/${expenseId}`, 'POST', expenseData);
 
 // Budget Page
 export const getBudgetDetails = (budgetId) => apiRequest(`/api/budget/${budgetId}`);
@@ -123,10 +123,10 @@ export const updateGoal = (goalId, goalData) => apiRequest(`/api/goals/${goalId}
 export const logGoalPayment = (goalId, data) => apiRequest(`/api/goals/${goalId}/log-payment`, 'POST', data);
 
 //Account Actions
-export const requestEmailChange = (newEmail) => apiRequest('/api/account/request-email-change', 'POST', { new_email: newEmail });
-export const deleteAccount = () => apiRequest('/api/account/delete', 'DELETE');
+export const requestEmailChange = (newEmail) => apiRequest('/api/settings/request-email-change', 'POST', { new_email: newEmail });
+export const deleteAccount = () => apiRequest('/api/settings/delete', 'DELETE');
 export const freshStart = () => apiRequest('/api/user/fresh-start', 'DELETE');
-export const updateFinancialTools = (toolsData) => apiRequest('/api/account/financial-tools', 'POST', toolsData);
+export const updateFinancialTools = (toolsData) => apiRequest('/api/settings/financial-tools', 'POST', toolsData);
 
 // Budget Item Creation
 export const addIncomeToCycle = (budgetId, data) => apiRequest(`/api/budget-items/add-income/${budgetId}`, 'POST', data);
@@ -137,7 +137,7 @@ export const addRecurringExpense = (budgetId, data) => apiRequest(`/api/budget-i
 export const updateRecurringExpenseInCycle = (budgetId, data) => apiRequest(`/api/budget-items/recurring-expense/${budgetId}`, 'PUT', data);
 export const updateIncomeInCycle = (budgetId, data) => apiRequest(`/api/budget-items/${budgetId}/update-income`, 'POST', data);
 export const getExpenseHistory = (label) => apiRequest(`/api/budget-items/expense-history?label=${encodeURIComponent(label)}`);
-export const updateExpenseDetails = (expenseId, data) => apiRequest(`/api/account/expenses/update-details/${expenseId}`, 'PUT', data);
+export const updateExpenseDetails = (expenseId, data) => apiRequest(`/api/settings/expenses/update-details/${expenseId}`, 'PUT', data);
 export const markBillPaid = (budgetId, data) => apiRequest(`/api/budget-items/mark-bill-paid/${budgetId}`, 'POST', data);
 export const markIncomeReceived = (budgetId, data) => apiRequest(`/api/budget-items/${budgetId}/receive-income`, 'POST', data);
 export const markBillUnpaid = (budgetId, data) => apiRequest(`/api/budget-items/mark-bill-unpaid/${budgetId}`, 'POST', data);
@@ -162,8 +162,8 @@ export const getUserInvitations = () => apiRequest('/api/invitations');
 export const sendJoinInvite = (email) => apiRequest('/api/invitations/send', 'POST', { recipient_email: email });
 
 // Account Item Creation
-export const createRecurringExpense = (expenseData) => apiRequest('/api/account/recurring-expenses', 'POST', expenseData);
-export const createIncomeSource = (incomeData) => apiRequest('/api/account/income-sources', 'POST', incomeData);
+export const createRecurringExpense = (expenseData) => apiRequest('/api/settings/recurring-expenses', 'POST', expenseData);
+export const createIncomeSource = (incomeData) => apiRequest('/api/settings/income-sources', 'POST', incomeData);
 
 // Wizard
 export const getWizardSuggestions = () => apiRequest('/api/budget/wizard-suggestions');
