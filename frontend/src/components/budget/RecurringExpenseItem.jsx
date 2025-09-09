@@ -26,7 +26,6 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
             } else {
                 response = await api.denyRequest(item.pending_request.id);
             }
-            console.log('API approveRequest response:', response);
             toast.success(`Request ${action === 'deny' ? 'Denied' : 'Approved'}!`);
             if (onStateUpdate && response && response.budget) {
                 onStateUpdate(response.budget); // Pass only the budget object
@@ -218,6 +217,7 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                         {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
                         {item.principal_balance && item.principal_balance !== '0' && item.principal_balance !== 0 && parseFloat(item.principal_balance) > 0 && <span className="hidden sm:inline">(Bal: ${item.principal_balance})</span>}
                         {item.interest_rate && item.interest_rate !== '0' && item.interest_rate !== 0 && parseFloat(item.interest_rate) > 0 && <span className="hidden sm:inline">({item.interest_rate}%)</span>}
+                        {item.spending_limit && item.spending_limit !== '0' && item.spending_limit !== 0 && parseFloat(item.spending_limit) > 0 && <span className="hidden sm:inline">(Limit: ${item.spending_limit})</span>}
                     </div>
                 </div>
                 <div className="flex items-center gap-2">

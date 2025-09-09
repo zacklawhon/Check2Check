@@ -185,15 +185,19 @@ function SettingsPage() {
                         <h2 className="text-2xl font-bold text-green-400 mb-4">Saved Income</h2>
                         <ul className="space-y-3">
                             {items.income_sources.map(item => (
-                                <li key={item.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center">
+                                <li key={item.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center cursor-pointer group hover:bg-gray-600 transition-colors"
+                                    onClick={e => {
+                                        // Prevent click if delete button is clicked
+                                        if (e.target.closest('.delete-btn')) return;
+                                        setEditingIncome(item);
+                                    }}
+                                >
                                     <div>
                                         <p className="font-semibold text-gray-200">{item.label}</p>
                                         <p className="text-sm text-gray-400 capitalize">{item.frequency}</p>
                                     </div>
                                     <div className="flex gap-2">
-                                        {/* --- Use the new handler for income --- */}
-                                        <button onClick={() => setEditingIncome(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                                        <button onClick={() => handleDeleteClick(item, 'income')} className="text-xs text-red-400 hover:text-red-300">Delete</button>
+                                        <button onClick={() => handleDeleteClick(item, 'income')} className="text-xs text-red-400 hover:text-red-300 delete-btn">Delete</button>
                                     </div>
                                 </li>
                             ))}
@@ -205,20 +209,52 @@ function SettingsPage() {
                         <div className="space-y-4">
                             {Object.keys(groupedExpenses).sort().map(category => (
                                 <div key={category}>
-                                    <h3 className="text-sm font-bold text-gray-400 uppercase tracking-wider mb-2">{category}</h3>
+                                    <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider mb-2">{category}</h3>
                                     <ul className="space-y-3">
                                         {groupedExpenses[category].map(item => (
-                                            <li key={item.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center">
+                                            <li key={item.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center cursor-pointer group hover:bg-gray-600 transition-colors"
+                                                onClick={e => {
+                                                    if (e.target.closest('.delete-btn')) return;
+                                                    setEditingExpense(item);
+                                                }}
+                                            >
                                                 <div>
                                                     <p className="font-semibold text-gray-200">{item.label}</p>
                                                     <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
                                                         <span className="capitalize">{item.category}</span>
                                                         {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
                                                     </div>
+                                                    {/* Sub data for each type of expense */}
+                                                    <div className="mt-1 space-y-0.5">
+                                                        {item.category === 'credit-card' && (
+                                                            <>
+                                                                {item.outstanding_balance && <div><span className="text-blue-300">Outstanding Balance:</span> <span className="text-red-400">${item.outstanding_balance}</span></div>}
+                                                                {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
+                                                                {item.spending_limit && <div><span className="text-blue-300">Spending Limit:</span> <span className="text-gray-300">${item.spending_limit}</span></div>}
+                                                                {item.spending_limit && item.outstanding_balance && (
+                                                                    <div><span className="text-blue-300">Available Spending Limit:</span> <span className="text-green-400">${(parseFloat(item.spending_limit) - parseFloat(item.outstanding_balance)).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+                                                                )}
+                                                            </>
+                                                        )}
+                                                        {item.category === 'loan' && (
+                                                            <>
+                                                                {item.principal_balance && <div><span className="text-blue-300">Principal Balance:</span> <span className="text-red-400">${item.principal_balance}</span></div>}
+                                                                {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
+                                                                {item.maturity_date && <div><span className="text-blue-300">Maturity Date:</span> <span className="text-indigo-300">{item.maturity_date}</span></div>}
+                                                            </>
+                                                        )}
+                                                        {item.category !== 'credit-card' && item.category !== 'loan' && (
+                                                            <>
+                                                                {item.outstanding_balance && <div><span className="text-blue-300">Outstanding Balance:</span> <span className="text-red-400">${item.outstanding_balance}</span></div>}
+                                                                {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300 ">{item.interest_rate}%</span></div>}
+                                                                {item.principal_balance && <div><span className="text-blue-300">Principal Balance:</span> <span className="text-red-400">${item.principal_balance}</span></div>}
+                                                                {item.maturity_date && <div><span className="text-blue-300">Maturity Date:</span> <span className="text-indigo-300">{item.maturity_date}</span></div>}
+                                                            </>
+                                                        )}
+                                                    </div>
                                                 </div>
                                                 <div className="flex gap-2">
-                                                    <button onClick={() => setEditingExpense(item)} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
-                                                    <button onClick={() => handleDeleteClick(item, 'expense')} className="text-xs text-red-400 hover:text-red-300">Delete</button>
+                                                    <button onClick={() => handleDeleteClick(item, 'expense')} className="text-xs text-red-400 hover:text-red-300 delete-btn">Delete</button>
                                                 </div>
                                             </li>
                                         ))}

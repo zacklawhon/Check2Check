@@ -10,11 +10,11 @@ function Header({ activeBudget, user }) {
   const [isMenuOpen, setIsMenuOpen] = useState(false);
   const [isHelpModalOpen, setIsHelpModalOpen] = useState(false);
 
-const canViewSettings = user && user.id && (
-  user.owner_user_id === null || 
-  user.owner_user_id === undefined || 
-  user.permission_level === 'full_access'
-);
+  const canViewSettings = user && user.id && (
+    user.owner_user_id === null ||
+    user.owner_user_id === undefined ||
+    user.permission_level === 'full_access'
+  );
 
   const pageKey = useMemo(() => {
     const { pathname } = location;
@@ -62,10 +62,10 @@ const canViewSettings = user && user.id && (
             </button>
           )}
           <button onClick={() => handleNavClick('/dashboard')} className="text-gray-300 hover:text-white">Dashboard</button>
+          <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
           {canViewSettings && (
             <button onClick={() => navigate('/settings')} className="text-gray-300 hover:text-white">Settings</button>
           )}
-          <button onClick={() => setIsHelpModalOpen(true)} className="text-gray-300 hover:text-white">Help & Feedback</button>
           <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-4 rounded-lg text-sm">Logout</button>
         </nav>
 
@@ -96,10 +96,10 @@ const canViewSettings = user && user.id && (
               </button>
             )}
             <button onClick={() => handleNavClick('/dashboard')} className="text-left text-gray-300 hover:text-white py-2">Dashboard</button>
+            <button onClick={() => { setIsHelpModalOpen(true); setIsMenuOpen(false); }} className="text-left text-gray-300 hover:text-white py-2">Help & Feedback</button>
             {canViewSettings && (
               <button onClick={() => navigate('/settings')} className="text-gray-300 hover:text-white">Settings</button>
             )}
-            <button onClick={() => { setIsHelpModalOpen(true); setIsMenuOpen(false); }} className="text-left text-gray-300 hover:text-white py-2">Help & Feedback</button>
             <button onClick={handleLogout} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold rounded-lg text-sm py-2 px-3 mt-2">Logout</button>
           </nav>
         </div>

@@ -20,7 +20,6 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       } else {
         response = await api.denyRequest(item.pending_request.id);
       }
-      console.log('API approveRequest response:', response);
       toast.success(`Request ${action === 'deny' ? 'Denied' : 'Approved'}!`);
       if (onStateUpdate && response && response.budget) {
         onStateUpdate(response.budget); // Pass only the budget object
@@ -82,9 +81,9 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   };
   // --- RENDER LOGIC ---
 
-  // Handle "add_income" pending requests (for both owner and partner)
-  if (item.pending_request && item.pending_request.action_type === 'add_income') {
-    // Partner's View for a pending add_income
+  // Handle any pending request (not just add_income)
+  if (item.pending_request) {
+    // Partner's View for a pending item
     if (isUpdateByRequest) {
       return (
         <li className="flex justify-between items-center p-3 rounded-md bg-yellow-900/50">
@@ -120,7 +119,7 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
       );
     }
 
-    // Owner's View for a pending add_income
+    // Owner's View for a pending item
     if (isOwner) {
       return (
         <li className="p-3 rounded-md bg-yellow-900/50 border-2 border-yellow-500">

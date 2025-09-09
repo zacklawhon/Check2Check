@@ -13,6 +13,7 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
   const [revokeModalOpen, setRevokeModalOpen] = useState(false);
   const [partnerToRevoke, setPartnerToRevoke] = useState(null);
   const [revokeType, setRevokeType] = useState('partner'); // 'partner' or 'invite'
+  const [loadingInvite, setLoadingInvite] = useState(false);
 
   useEffect(() => {
     setLocalPartners(partners);
@@ -26,6 +27,7 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
   const handleSendInvite = async () => {
     setError('');
     setSuccess('');
+    setLoadingInvite(true);
     try {
       await api.sendShareInvite(email, permission);
       setSuccess('Invitation sent successfully!');
@@ -38,6 +40,8 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
       onUpdate();
     } catch (err) {
       setError(err.message); // The API client already shows a toast
+    } finally {
+      setLoadingInvite(false);
     }
   };
 
@@ -112,8 +116,9 @@ function SharedAccessCard({ partners, pendingInvites, onUpdate }) {
           <button 
             onClick={handleSendInvite}
             className="w-full sm:w-auto bg-teal-600 text-white px-4 py-2 rounded-md hover:bg-teal-700"
+            disabled={loadingInvite}
           >
-            Send Invite
+            {loadingInvite ? 'Sending...' : 'Send'}
           </button>
         </div>
         {error && <p className="text-red-400 text-sm mt-2">{error}</p>}

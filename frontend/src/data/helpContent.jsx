@@ -74,8 +74,8 @@ export const helpContent = {
       </ul>
     ]
   },
-  account: {
-    title: "Account Management",
+  settings: {
+    title: "Settings & Account Management",
     content: [
       <p key="p1">This is your central hub for managing your profile and the reusable templates for your income and bills. <strong>Changes made here affect future budgets</strong>, not your currently active one.</p>,
       

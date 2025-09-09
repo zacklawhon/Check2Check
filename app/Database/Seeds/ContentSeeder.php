@@ -57,8 +57,8 @@ class ContentSeeder extends Seeder
                 'is_active' => true,
             ],
             [
-                'page_key' => 'account',
-                'title' => 'Account Management',
+                'page_key' => 'settings',
+                'title' => 'Settings & Account Management',
                 'content' => '<p>This is your central hub for managing your profile and the reusable templates for your income and bills. <strong>Changes made here affect future budgets</strong>, not your currently active one.</p>' .
                              '<h4 class="text-lg font-bold text-gray-200 mt-3 mb-1">Goals & Plans</h4>' .
                              '<p>Here you can create, edit, or delete your savings or debt reduction goals. Having an active goal enables features like the "Accelerate Your Goal" prompt on the Budget Page.</p>' .

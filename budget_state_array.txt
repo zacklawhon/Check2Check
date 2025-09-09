@@ -1,0 +1,281 @@
+{
+    "budget": {
+        "id": "9",
+        "user_id": "1",
+        "start_date": "2025-09-01",
+        "end_date": "2025-09-30",
+        "status": "active",
+        "initial_income": [
+            {
+                "label": "Paycheck 1",
+                "amount": 1300,
+                "date": "2025-09-01"
+            },
+            {
+                "label": "Paycheck 1",
+                "amount": 1300,
+                "date": "2025-09-16"
+            },
+            {
+                "label": "Paycheck 2",
+                "amount": 1880,
+                "date": "2025-09-01"
+            },
+            {
+                "label": "Paycheck 2",
+                "amount": 1880,
+                "date": "2025-09-16"
+            },
+            {
+                "label": "Dividends ",
+                "amount": 75,
+                "date": "2025-09-01"
+            },
+            {
+                "label": "Weekly Check",
+                "amount": 125,
+                "date": "2025-09-05"
+            },
+            {
+                "label": "Weekly Check",
+                "amount": 125,
+                "date": "2025-09-12"
+            },
+            {
+                "label": "Weekly Check",
+                "amount": 125,
+                "date": "2025-09-19"
+            },
+            {
+                "label": "Weekly Check",
+                "amount": 125,
+                "date": "2025-09-26"
+            }
+        ],
+        "initial_expenses": [
+            {
+                "id": 30,
+                "label": "Rent",
+                "due_date": "15",
+                "category": "housing",
+                "estimated_amount": "500",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 31,
+                "label": "Gas",
+                "due_date": "19",
+                "category": "utilities",
+                "estimated_amount": "120",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 32,
+                "label": "Electric Bill",
+                "due_date": "21",
+                "category": "utilities",
+                "estimated_amount": "125",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 33,
+                "label": "Water Bill",
+                "due_date": "24",
+                "category": "utilities",
+                "estimated_amount": "155",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 34,
+                "label": "Car Payment",
+                "due_date": "17",
+                "category": "loan",
+                "estimated_amount": "240",
+                "principal_balance": "12500",
+                "interest_rate": "12.5",
+                "maturity_date": "2029-06-21",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 35,
+                "label": "Capital One",
+                "due_date": "21",
+                "category": "credit-card",
+                "estimated_amount": "110",
+                "principal_balance": "",
+                "interest_rate": "28.59",
+                "maturity_date": "",
+                "outstanding_balance": "1000",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 36,
+                "label": "Discover",
+                "due_date": "19",
+                "category": "credit-card",
+                "estimated_amount": "95",
+                "principal_balance": "",
+                "interest_rate": "24.99",
+                "maturity_date": "",
+                "outstanding_balance": "0",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 37,
+                "label": "Chase",
+                "due_date": "22",
+                "category": "credit-card",
+                "estimated_amount": "50",
+                "principal_balance": "",
+                "interest_rate": "24.55",
+                "maturity_date": "",
+                "outstanding_balance": "456",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 38,
+                "label": "Allstate",
+                "due_date": "25",
+                "category": "insurance",
+                "estimated_amount": "144",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 39,
+                "label": "Netflix",
+                "due_date": "24",
+                "category": "subscription",
+                "estimated_amount": "20",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 40,
+                "label": "Paramount+",
+                "due_date": "16",
+                "category": "subscription",
+                "estimated_amount": "15",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "id": 41,
+                "label": "Transfer",
+                "due_date": "15",
+                "category": "transfer",
+                "estimated_amount": "100",
+                "principal_balance": "",
+                "interest_rate": "",
+                "maturity_date": "",
+                "outstanding_balance": "",
+                "transfer_to_account_id": "7",
+                "type": "recurring",
+                "is_paid": false
+            },
+            {
+                "label": "Pull Cash",
+                "estimated_amount": 100,
+                "category": "variable",
+                "type": "variable"
+            }
+        ],
+        "final_summary": [],
+        "created_at": "2025-09-09 11:24:41",
+        "action_requests": [
+            {
+                "id": "73",
+                "requester_user_id": "6",
+                "owner_user_id": "1",
+                "budget_cycle_id": "9",
+                "action_type": "mark_bill_paid",
+                "payload": "{\"label\": \"Rent\", \"amount\": 500}",
+                "description": "Pay bill: 'Rent' for $500.00",
+                "status": "pending",
+                "created_at": "2025-09-09 15:10:06"
+            },
+            {
+                "id": "76",
+                "requester_user_id": "6",
+                "owner_user_id": "1",
+                "budget_cycle_id": "9",
+                "action_type": "mark_income_received",
+                "payload": "{\"date\": \"2025-09-01\", \"label\": \"Paycheck 1\", \"amount\": 1300}",
+                "description": "Mark income 'Paycheck 1' as received for $1,300.00",
+                "status": "pending",
+                "created_at": "2025-09-09 15:18:30"
+            },
+            {
+                "id": "77",
+                "requester_user_id": "6",
+                "owner_user_id": "1",
+                "budget_cycle_id": "9",
+                "action_type": "mark_income_received",
+                "payload": "{\"date\": \"2025-09-01\", \"label\": \"Paycheck 1\", \"amount\": 1300}",
+                "description": "Mark income 'Paycheck 1' as received for $1,300.00",
+                "status": "pending",
+                "created_at": "2025-09-09 15:25:45"
+            },
+            {
+                "id": "78",
+                "requester_user_id": "6",
+                "owner_user_id": "1",
+                "budget_cycle_id": "9",
+                "action_type": "mark_bill_paid",
+                "payload": "{\"label\": \"Rent\", \"amount\": 500}",
+                "description": "Pay bill: 'Rent' for $500.00",
+                "status": "pending",
+                "created_at": "2025-09-09 15:25:49"
+            }
+        ]
+    },
+    "transactions": []
+}

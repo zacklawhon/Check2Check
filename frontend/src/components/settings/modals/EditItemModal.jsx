@@ -20,6 +20,7 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                 interest_rate: item.interest_rate || '',
                 outstanding_balance: item.outstanding_balance || '',
                 maturity_date: item.maturity_date || '',
+                spending_limit: item.spending_limit || '',
             });
         }
     }, [item]);
@@ -187,6 +188,19 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                                             value={formData.interest_rate || ''} 
                                             onChange={handleChange} 
                                             placeholder="Interest Rate (%)" 
+                                            className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
+                                        />
+                                    </div>
+                                    <div>
+                                        <label htmlFor="spending_limit" className="block text-sm text-gray-400 mb-1">Spending Limit</label>
+                                        <input 
+                                            type="number" 
+                                            step="0.01" 
+                                            name="spending_limit" 
+                                            id="spending_limit"
+                                            value={formData.spending_limit || ''} 
+                                            onChange={handleChange} 
+                                            placeholder="Spending Limit" 
                                             className="w-full bg-gray-700 text-white rounded-lg p-2 border border-gray-700"
                                         />
                                     </div>

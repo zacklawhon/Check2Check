@@ -6,7 +6,6 @@ import EditBudgetItemModal from './modals/EditBudgetItemModal';
 import * as api from '../../utils/api';
 
 function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, onStateUpdate, onItemRequest, pendingRequests, onItemRequestCancel, budget }) {
-    console.log('ExpensesList props:', { expenseItems, budget });
     // --- REFACTOR START ---
     // State for all expense-related actions now lives here.
     const [itemToEdit, setItemToEdit] = useState(null);

@@ -5,7 +5,7 @@ import * as api from '../../utils/api';
 function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = [], confirmedDates = {}, onNewExpenseAdded, accounts = [] }) {
     const [formState, setFormState] = useState({
         label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
-        interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: ''
+        interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: '', spending_limit: ''
     });
     const [error, setError] = useState('');
     const [loading, setLoading] = useState(false);
@@ -94,13 +94,10 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
         }
         setLoading(true);
         setError('');
-        
         try {
             const recurringData = { ...formState };
             delete recurringData.amount;
-            
             const data = await api.createRecurringExpense(recurringData);
-            
             const newExpense = {
                 id: data.id,
                 label: formState.label,
@@ -111,20 +108,17 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                 interest_rate: formState.interest_rate,
                 maturity_date: formState.maturity_date,
                 outstanding_balance: formState.outstanding_balance,
-                transfer_to_account_id: formState.transfer_to_account_id
+                transfer_to_account_id: formState.transfer_to_account_id,
+                spending_limit: formState.spending_limit
             };
-            
             if (onNewExpenseAdded) {
                 onNewExpenseAdded(newExpense);
             }
-            
             setSelectedExpenses(prev => [...prev, newExpense]);
-
             setFormState({
                 label: '', amount: '', dueDate: '', category: 'other', principal_balance: '',
-                interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: ''
+                interest_rate: '', maturity_date: '', outstanding_balance: '', transfer_to_account_id: '', spending_limit: ''
             });
-
         } catch (err) {
             setError(err.message);
         } finally {
@@ -154,9 +148,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
             try {
                 const recurringData = { ...formState };
                 delete recurringData.amount;
-                
                 const data = await api.createRecurringExpense(recurringData);
-                
                 const newExpense = {
                     id: data.id,
                     label: formState.label,
@@ -167,11 +159,10 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                     interest_rate: formState.interest_rate,
                     maturity_date: formState.maturity_date,
                     outstanding_balance: formState.outstanding_balance,
-                    transfer_to_account_id: formState.transfer_to_account_id
+                    transfer_to_account_id: formState.transfer_to_account_id,
+                    spending_limit: formState.spending_limit
                 };
-                
                 finalExpenseList.push(newExpense);
-
             } catch (err) {
                 setError(err.message);
                 setLoading(false);
@@ -286,6 +277,7 @@ function ExpenseStep({ onBack, onComplete, suggestions = [], existingExpenses = 
                          <h4 className="font-semibold text-gray-300">Credit Card Details (Optional)</h4>
                         <input type="number" step="0.01" name="outstanding_balance" value={formState.outstanding_balance} onChange={handleFormChange} placeholder="Outstanding Balance" className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"/>
                         <input type="number" step="0.01" name="interest_rate" value={formState.interest_rate} onChange={handleFormChange} placeholder="Interest Rate (%)" className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"/>
+                        <input type="number" step="0.01" name="spending_limit" value={formState.spending_limit} onChange={handleFormChange} placeholder="Spending Limit" className="w-full bg-gray-800 text-white rounded-lg p-2 border border-gray-700"/>
                     </div>
                 )}
                 

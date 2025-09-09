@@ -60,7 +60,7 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
                 {error && <p className="text-red-400 mt-2">{error}</p>}
                 <div className="flex justify-end gap-4 mt-4">
                     <button onClick={onClose} className="bg-gray-600 py-2 px-4 rounded text-white">Cancel</button>
-                    <button onClick={handleSubmit} disabled={loading} className="bg-indigo-600 py-2 px-4 rounded">{loading ? 'Saving...' : 'Save'}</button>
+                    <button onClick={handleSubmit} disabled={loading} className="bg-indigo-600 py-2 px-4 rounded text-white">{loading ? 'Saving...' : 'Save'}</button>
                 </div>
             </div>
         </div>

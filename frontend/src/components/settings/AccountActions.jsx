@@ -75,7 +75,7 @@ function AccountActions() {
                         </label>
                         <input type="email" value={newEmail} onChange={(e) => setNewEmail(e.target.value)} required placeholder="New Email Address" className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"/>
                         <div className="text-right">
-                            <button type="submit" disabled={loading} className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-2 px-4 rounded-lg disabled:opacity-50">
+                            <button type="submit" disabled={loading} className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-2 px-4 rounded-lg disabled:opacity-50 text-gray-900">
                                 {loading ? 'Sending...' : 'Request Change'}
                             </button>
                         </div>

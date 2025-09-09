@@ -12,7 +12,6 @@ import IncomeList from '../components/budget/IncomeList';
 import ExpensesList from '../components/budget/ExpensesList';
 
 function BudgetPage() {
-    console.log('BudgetPage rendered');
     const { budgetId } = useParams();
     const navigate = useNavigate();
     const { user, accounts, refreshData: refreshGlobalData } = useOutletContext();
@@ -29,25 +28,29 @@ function BudgetPage() {
     const [isAccelerateModalOpen, setIsAccelerateModalOpen] = useState(false);
     const [actionRequests, setActionRequests] = useState([]);
     const [pendingRequests, setPendingRequests] = useState([]);
+    const [allCreditCards, setAllCreditCards] = useState([]);
+    const [creditCardStats, setCreditCardStats] = useState({
+        totalSpendingLimit: 0,
+        totalOutstanding: 0,
+        totalCards: 0,
+        avgInterestRate: 0
+    });
 
 
     // --- ADD: Helper functions for merging requests ---
-    const mergeRequests = (items, requests) => {
-        if (!requests || requests.length === 0) return items;
+    // Helper: Attach pending_request to items
+    const mergeRequests = (items, requests, isIncome = false) => {
+        if (!requests || !Array.isArray(items)) return items;
         return items.map(item => {
             const pendingRequest = requests.find(req => {
                 try {
                     const payload = JSON.parse(req.payload);
-                    let matches = false;
-                    if (payload.id && item.id) {
-                        matches = payload.id === item.id;
-                    } else if (payload.date && item.date && payload.date !== null && payload.date !== null) {
-                        const labelToMatch = payload.original_label || payload.label;
-                        matches = labelToMatch === item.label && payload.date === item.date;
-                    } else {
-                        matches = payload.label === item.label || payload.original_label === item.label;
+                    if (isIncome && payload.label && payload.date) {
+                        return item.label === payload.label && item.date === payload.date;
+                    } else if (!isIncome && payload.label) {
+                        return item.label === payload.label;
                     }
-                    return matches;
+                    return false;
                 } catch { return false; }
             });
             return pendingRequest ? { ...item, pending_request: pendingRequest } : { ...item };
@@ -55,33 +58,58 @@ function BudgetPage() {
     };
 
     const mergeRequestsIntoBudget = (budget) => {
-        if (!budget.action_requests) return budget;
-        budget.initial_expenses = mergeRequests(budget.initial_expenses, budget.action_requests);
-        budget.initial_income = mergeRequests(budget.initial_income, budget.action_requests);
-        return budget;
+        if (!budget || !budget.action_requests) return budget;
+        return {
+            ...budget,
+            initial_income: mergeRequests(budget.initial_income, budget.action_requests, true),
+            initial_expenses: mergeRequests(budget.initial_expenses, budget.action_requests, false)
+        };
+    };
+
+    // Utility: Get pending keys for UI
+    const getPendingKeys = (budget) => {
+        const pendingIncome = (budget.initial_income || [])
+            .filter(item => item.pending_request)
+            .map(item => `${item.label}|||${item.date}`);
+        const pendingExpenses = (budget.initial_expenses || [])
+            .filter(item => item.pending_request)
+            .map(item => item.label);
+        return { pendingIncome, pendingExpenses };
+    };
+
+    // Centralized state update
+    const setBudgetStateFromResponse = (response) => {
+        let budgetData, transactionsData = [], goalsData = [];
+        if (response && response.budget) {
+            budgetData = mergeRequestsIntoBudget(response.budget);
+            if (response.transactions) transactionsData = response.transactions;
+            if (response.goals) goalsData = response.goals;
+        } else if (response && response.id && response.initial_income && response.initial_expenses) {
+            budgetData = mergeRequestsIntoBudget(response);
+            if (response.transactions) transactionsData = response.transactions;
+            if (response.goals) goalsData = response.goals;
+        } else if (response && response.transactions) {
+            transactionsData = response.transactions;
+        }
+        if (budgetData) setBudget(budgetData);
+        if (transactionsData) setTransactions(transactionsData);
+        if (goalsData) setGoals(goalsData);
+        setModalType(null);
+        setIsEditDatesModalOpen(false);
     };
 
     const fetchPageData = async (isRefresh = false) => {
         if (!isRefresh) setLoading(true);
         try {
-            // --- REFACTOR START ---
-            // Use Promise.all for goals and the combined budget/transaction call
             const [budgetState, goalsData] = await Promise.all([
-                api.getBudgetDetails(budgetId), // This API call now returns { budget, transactions }
+                api.getBudgetDetails(budgetId),
                 api.getGoals(),
             ]);
-
-            const { budget: budgetData, transactions: transactionsData = [] } = budgetState;
-
-            // Apply the merge logic to both income and expenses
-            budgetData.initial_expenses = mergeRequests(budgetData.initial_expenses, budgetData.action_requests);
-            budgetData.initial_income = mergeRequests(budgetData.initial_income, budgetData.action_requests);
-
-            // Set state for all our data
-            setBudget(budgetData);
-            setTransactions(transactionsData);
-            setGoals(goalsData);
-
+            setBudgetStateFromResponse({
+                budget: budgetState.budget,
+                transactions: budgetState.transactions,
+                goals: goalsData
+            });
         } catch (err) {
             setError(err.message);
         } finally {
@@ -89,38 +117,7 @@ function BudgetPage() {
         }
     };
 
-    const handleStateUpdate = (response) => {
-        console.log('handleStateUpdate called', response);
-        // If response is a budget object directly (not wrapped)
-        if (response && response.id && response.initial_income && response.initial_expenses) {
-            const mergedBudget = { ...response };
-            mergedBudget.initial_expenses = mergeRequests(mergedBudget.initial_expenses, mergedBudget.action_requests);
-            mergedBudget.initial_income = mergeRequests(mergedBudget.initial_income, mergedBudget.action_requests);
-            console.log('BudgetPage handleStateUpdate mergedBudget:', mergedBudget);
-            setBudget(mergedBudget);
-            // If accounts are present, update them
-            if (response.accounts) setAccounts(response.accounts);
-            if (response.transactions) setTransactions(response.transactions);
-            if (response.goals) setGoals(response.goals);
-        }
-        // If response is wrapped as { budget: ... }
-        else if (response && response.budget) {
-            const mergedBudget = { ...response.budget };
-            mergedBudget.initial_expenses = mergeRequests(mergedBudget.initial_expenses, mergedBudget.action_requests);
-            mergedBudget.initial_income = mergeRequests(mergedBudget.initial_income, mergedBudget.action_requests);
-            console.log('BudgetPage handleStateUpdate mergedBudget:', mergedBudget);
-            setBudget(mergedBudget);
-            if (response.accounts) setAccounts(response.accounts);
-            if (response.transactions) setTransactions(response.transactions);
-            if (response.goals) setGoals(response.goals);
-        }
-        if (response && response.transactions && !response.budget) setTransactions(response.transactions);
-        if (response && response.accounts && !response.budget) {
-            if (typeof setAccounts === 'function') setAccounts(response.accounts);
-        }
-        setModalType(null);
-        setIsEditDatesModalOpen(false);
-    };
+    const handleStateUpdate = setBudgetStateFromResponse;
 
     useEffect(() => {
         if (budgetId) {
@@ -233,6 +230,17 @@ function BudgetPage() {
                         onCloseBudget={handleCloseBudget}
                         isClosing={isClosing}
                     />
+                    {/* --- Credit Card Stats Card --- */}
+                    <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+                        <h3 className="text-lg font-bold text-white-300 border-b border-gray-700 mb-2">Credit Card Overview</h3>
+                        <div className="space-y-2 text-sm">
+                            <div className="flex justify-between"><span className="text-gray-300">Available Spending Limit:</span> <span className="font-bold text-green-400">${(creditCardStats.totalSpendingLimit-creditCardStats.totalOutstanding).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-300">Total Outstanding Balance:</span> <span className="font-bold text-red-400">${creditCardStats.totalOutstanding.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-300">Total Spending Limit:</span> <span className="font-bold text-blue-300">${creditCardStats.totalSpendingLimit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+                            <div className="flex justify-between"><span className="text-gray-300">Average Interest Rate:</span> <span className="font-bold text-orange-300">{creditCardStats.avgInterestRate.toFixed(2)}%</span></div>
+                            <div className="flex justify-between"><span className="text-gray-300">Total Cards:</span> <span className="font-bold text-white">{creditCardStats.totalCards}</span></div>
+                        </div>
+                    </div>
                     {accounts?.length > 0 && (
                         <AccountsCard
                             accounts={accounts}
@@ -251,9 +259,9 @@ function BudgetPage() {
                         onStateUpdate={handleStateUpdate}
                         onAddItem={() => setModalType('income')}
                         budgetId={budgetId}
-                        onItemRequest={handleRequestSent}
-                        onItemRequestCancel={handleRequestCancelled}
-                        pendingRequests={pendingRequests}
+                        onItemRequest={undefined}
+                        onItemRequestCancel={undefined}
+                        pendingRequests={getPendingKeys(budget).pendingIncome}
                     />
                     <ExpensesList
                         expenseItems={budget.initial_expenses}
@@ -263,9 +271,9 @@ function BudgetPage() {
                         user={user}
                         onAddItem={(type) => setModalType(type)}
                         onStateUpdate={handleStateUpdate}
-                        onItemRequest={handleRequestSent}
-                        onItemRequestCancel={handleRequestCancelled}
-                        pendingRequests={pendingRequests}
+                        onItemRequest={undefined}
+                        onItemRequestCancel={undefined}
+                        pendingRequests={getPendingKeys(budget).pendingExpenses}
                     />
                 </div>
             </div>

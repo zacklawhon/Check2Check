@@ -26,7 +26,7 @@ class SettingsController extends BaseAPIController
     }
     public function getRecurringItems()
     {
-        if ($response = $this->blockPartners()) return $response;
+        // Allow all authenticated users (including partners) to view recurring items
         $userId = $this->getEffectiveUserId(); // Use effective ID for read operations
 
         $incomeModel = new IncomeSourceModel();
@@ -203,6 +203,9 @@ class SettingsController extends BaseAPIController
             'outstanding_balance' => $json['outstanding_balance'] ?? null,
             'maturity_date' => $json['maturity_date'] ?? null,
         ];
+        if (($json['category'] ?? null) === 'credit-card') {
+            $data['spending_limit'] = $json['spending_limit'] ?? null;
+        }
 
         if ($model->update($id, $data)) {
             $updatedItem = $model->find($id);
@@ -435,6 +438,7 @@ class SettingsController extends BaseAPIController
         } elseif ($data['category'] === 'credit-card') {
             $data['outstanding_balance'] = $json['outstanding_balance'] ?? null;
             $data['interest_rate'] = $json['interest_rate'] ?? null;
+            $data['spending_limit'] = $json['spending_limit'] ?? null;
         }
 
         $model = new RecurringExpenseModel();
@@ -469,7 +473,7 @@ class SettingsController extends BaseAPIController
         // 4. Sanitize the incoming JSON data
         $json = $this->request->getJSON(true);
         $allowedData = [];
-        $fields = ['principal_balance', 'interest_rate', 'outstanding_balance', 'maturity_date'];
+        $fields = ['principal_balance', 'interest_rate', 'outstanding_balance', 'maturity_date', 'spending_limit'];
         foreach ($fields as $field) {
             if (isset($json[$field])) {
                 $allowedData[$field] = $json[$field] === '' ? null : $json[$field];

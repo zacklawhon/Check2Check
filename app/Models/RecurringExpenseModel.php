@@ -15,6 +15,7 @@ class RecurringExpenseModel extends Model
         'principal_balance',
         'interest_rate',
         'outstanding_balance',
+        'spending_limit',
         'maturity_date',
         'is_active'
     ];

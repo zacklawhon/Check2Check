@@ -197,7 +197,7 @@ class SharingController extends BaseAPIController
         // Accept invites with status 'sent'
         $invite = $invitationModel->where('invite_token', $token)->first();
 
-        if (!$invite || $invite['invite_type'] !== 'share' || $invite['status'] !== 'sent') {
+        if (!$invite || $invite['invite_type'] !== 'share' || $invite['status'] !== 'pending') {
             return $this->failNotFound('This invitation is invalid, has expired, or has already been accepted.');
         }
 
