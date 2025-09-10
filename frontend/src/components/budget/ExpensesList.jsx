@@ -115,39 +115,45 @@ function ExpensesList({ expenseItems, transactions, budgetId, user, onAddItem, o
                 <div key={category} className="mb-4">
                     <h4 className="font-semibold text-gray-400 capitalize mb-2">{category.replace('-', ' ')}</h4>
                     <ul className="space-y-2">
-                        {items.map((item) => (
-                            <RecurringExpenseItem
-                                key={item.id || item.label}
-                                item={item}
-                                budgetId={budgetId}
-                                user={user}
-                                // Pass down the new state handlers
-                                onStateUpdate={onStateUpdate}
-                                onEdit={setItemToEdit}
-                                onRemove={setItemToRemove}
-                                onItemRequest={onItemRequest}
-                                onItemRequestCancel={onItemRequestCancel}
-                                isPending={pendingRequests.includes(item.label)}
-                            />
-                        ))}
+                        {items.map((item) => {
+                            const pendingKey = `${item.label}`;
+                            return (
+                                <RecurringExpenseItem
+                                    key={item.id || item.label}
+                                    item={item}
+                                    budgetId={budgetId}
+                                    user={user}
+                                    // Pass down the new state handlers
+                                    onStateUpdate={onStateUpdate}
+                                    onEdit={setItemToEdit}
+                                    onRemove={setItemToRemove}
+                                    onItemRequest={onItemRequest}
+                                    onItemRequestCancel={onItemRequestCancel}
+                                    isPending={pendingRequests.includes(pendingKey)}
+                                />
+                            );
+                        })}
                     </ul>
                 </div>
             ))}
             <h4 className="font-semibold text-gray-400 capitalize mb-2 mt-6">Variable Expenses</h4>
             <ul className="space-y-2">
-                {variableExpenses.map((item, index) => (
-                    <VariableExpenseItem
-                        key={`var-exp-${item.label}-${index}`}
-                        item={item}
-                        budgetId={budgetId}
-                        user={user}
-                        onStateUpdate={onStateUpdate}
-                        itemTransactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}
-                        onItemRequest={onItemRequest}
-                        onRemove={setItemToRemove}
-                        isPending={pendingRequests.includes(item.label)}
-                    />
-                ))}
+                {variableExpenses.map((item, index) => {
+                    const pendingKey = `${item.label}`;
+                    return (
+                        <VariableExpenseItem
+                            key={`var-exp-${item.label}-${index}`}
+                            item={item}
+                            budgetId={budgetId}
+                            user={user}
+                            onStateUpdate={onStateUpdate}
+                            itemTransactions={transactions.filter(t => t.type === 'expense' && t.category_name === item.label)}
+                            onItemRequest={onItemRequest}
+                            onRemove={setItemToRemove}
+                            isPending={pendingRequests.includes(pendingKey)}
+                        />
+                    );
+                })}
             </ul>
 
             {/* All expense-related modals are now managed and rendered here */}

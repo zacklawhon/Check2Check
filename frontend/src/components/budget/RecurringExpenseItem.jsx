@@ -105,16 +105,12 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
         if (!item.pending_request) return;
         setLoading(true);
         try {
-            await api.cancelRequest(item.pending_request.id);
+            const response = await api.cancelRequest(item.pending_request.id);
             toast.success("Request cancelled!");
-
-            // --- THIS IS THE FIX ---
-            // Call the correct function to REMOVE the item from the pending list
-            if (onItemRequestCancel) {
-                onItemRequestCancel(item.label);
-            } else {
-                // Fallback to a full refresh
-                onUpdate();
+            if (onStateUpdate && response) {
+                onStateUpdate(response);
+            } else if (onUpdate) {
+                onUpdate(response);
             }
         } catch (err) {
             // API client will show an error toast
@@ -242,7 +238,7 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                     <button
                         onClick={e => { e.stopPropagation(); handleDeleteClick(e); }}
                         className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed"
-                        disabled={item.is_paid || deleting || loading || isReadOnly}
+                        disabled={item.is_paid || deleting || loading || isReadOnly || user.is_partner}
                     >
                         &times;
                     </button>

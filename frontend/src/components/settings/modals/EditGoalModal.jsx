@@ -4,14 +4,18 @@ import * as api from '../../../utils/api'; // 1. Import the API client
 
 function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
     const [goalName, setGoalName] = useState('');
-    const [error, setError] = useState('');
+    const [targetAmount, setTargetAmount] = useState('');
     const [isSaving, setIsSaving] = useState(false);
+    const [error, setError] = useState('');
 
     useEffect(() => {
         if (goal) {
-            setGoalName(goal.goal_name);
+            setGoalName(goal.goal_name || '');
+            setTargetAmount(goal.target_amount || '');
         }
     }, [goal]);
+
+    const isSavingsGoal = goal && goal.goal_type === 'savings';
 
     // 2. The handler is now much simpler
     const handleSubmit = async (e) => {
@@ -19,7 +23,10 @@ function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
         setError('');
         setIsSaving(true);
         try {
-            const updatedGoal = await api.updateGoal(goal.id, { goal_name: goalName });
+            const updatedGoal = await api.updateGoal(goal.id, {
+                goal_name: goalName,
+                target_amount: targetAmount
+            });
             // Pass updated goal data to parent for seamless update
             onSuccess(updatedGoal);
         } catch (err) {
@@ -49,6 +56,23 @@ function EditGoalModal({ isOpen, goal, onClose, onSuccess }) {
                             required
                         />
                     </div>
+                    {isSavingsGoal && (
+                    <div className="mb-4">
+                        <label htmlFor="targetAmount" className="block text-gray-300 text-sm font-bold mb-2">
+                            Target Amount
+                        </label>
+                        <input
+                            type="number"
+                            id="targetAmount"
+                            min="0.01"
+                            step="0.01"
+                            value={targetAmount}
+                            onChange={(e) => setTargetAmount(e.target.value)}
+                            className="shadow appearance-none border rounded w-full py-2 px-3 bg-gray-700 text-white leading-tight focus:outline-none focus:shadow-outline"
+                            required
+                        />
+                    </div>
+                    )}
                     {error && <p className="text-red-500 text-xs italic mb-4">{error}</p>}
                     <div className="flex items-center justify-end gap-3">
                         <button

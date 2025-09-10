@@ -130,8 +130,8 @@ class BudgetItemController extends BaseAPIController
         $label = $this->request->getVar('label');
         $date = $this->request->getVar('date');
         $id = $this->request->getVar('id');
-        if (empty($label)) {
-            return $this->failValidationErrors('Label is required.');
+        if (empty($id) && empty($label)) {
+            return $this->failValidationErrors('ID or Label is required.');
         }
 
         // Handle partner requests.

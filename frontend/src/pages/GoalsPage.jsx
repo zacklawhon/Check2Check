@@ -38,8 +38,8 @@ function GoalsPage() {
                 setGoals(goalsData);
 
                 const validDebts = itemsData.recurring_expenses.filter(exp =>
-                    (exp.category === 'loan' || exp.category === 'credit-card') &&
-                    exp.outstanding_balance && exp.interest_rate
+                    ((exp.category === 'loan' && exp.outstanding_balance && exp.interest_rate) ||
+                    (exp.category === 'credit-card' && exp.outstanding_balance && exp.interest_rate && parseFloat(exp.outstanding_balance) > 0))
                 );
                 setDebts(validDebts);
 
@@ -85,7 +85,7 @@ function GoalsPage() {
                 strategy: 'savings',
             };
             await api.createGoal(payload);
-            navigate('/account');
+            navigate('/settings');
         } catch (err) {
             setError(err.message);
             setLoading(false);
@@ -125,7 +125,7 @@ function GoalsPage() {
                 };
                 await api.createGoal(payload);
             }
-            navigate('/account');
+            navigate('/settings');
         } catch (err) {
             setError(err.message);
         } finally {
@@ -136,7 +136,7 @@ function GoalsPage() {
         switch (step) {
             case 1:
                 return hasEmergencyFundGoal ? (
-                    <GoalTypeStep onSelect={handleGoalTypeSelect} onBack={() => navigate('/account')} />
+                    <GoalTypeStep onSelect={handleGoalTypeSelect} onBack={() => navigate('/settings')} />
                 ) : (
                     <EmergencyFundStep accounts={accounts} onComplete={handleEmergencyFundComplete} />
                 );
@@ -163,7 +163,7 @@ function GoalsPage() {
         }
     };
 
-    if (loading) return <div className="text-center p-8 text-white">Loading your account data...</div>;
+    if (loading) return <div className="text-center p-8 text-white">Loading your settings data...</div>;
     if (error) return <div className="text-center p-8 text-red-500">{error}</div>;
 
     return (

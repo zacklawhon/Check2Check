@@ -10,6 +10,9 @@ import EditBudgetItemModal from '../components/budget/modals/EditBudgetItemModal
 import BudgetSummaryCard from '../components/budget/BudgetSummaryCard';
 import IncomeList from '../components/budget/IncomeList';
 import ExpensesList from '../components/budget/ExpensesList';
+import GoalsCard from '../components/goals/GoalsCard';
+import EditGoalModal from '../components/settings/modals/EditGoalModal';
+import ConfirmationModal from '../components/common/ConfirmationModal';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -35,7 +38,36 @@ function BudgetPage() {
         totalCards: 0,
         avgInterestRate: 0
     });
+    // --- Goal edit/delete handlers ---
+    const [goalToDelete, setGoalToDelete] = useState(null);
+    const [editingGoal, setEditingGoal] = useState(null);
 
+    const handleDeleteGoal = (goal) => {
+        setGoalToDelete(goal);
+    };
+
+    const confirmDeleteGoal = async () => {
+        if (!goalToDelete) return;
+        try {
+            await api.deleteGoal(goalToDelete.id);
+            setGoals(currentGoals => currentGoals.filter(g => g.id !== goalToDelete.id));
+        } catch (err) {
+            // Error toast is handled by the client
+        } finally {
+            setGoalToDelete(null);
+        }
+    };
+
+    const handleEditGoal = (goal) => {
+        setEditingGoal(goal);
+    };
+
+    const handleEditGoalSuccess = (updatedGoal) => {
+        setEditingGoal(null);
+        setGoals(currentGoals =>
+            currentGoals.map(g => g.id === updatedGoal.id ? { ...g, ...updatedGoal } : g)
+        );
+    };
 
     // --- ADD: Helper functions for merging requests ---
     // Helper: Attach pending_request to items
@@ -193,6 +225,28 @@ function BudgetPage() {
         }
     };
 
+    useEffect(() => {
+        // Fetch all recurring items for credit card stats
+        api.getRecurringItems().then(data => {
+            const cards = (data.recurring_expenses || []).filter(e => e.category === 'credit-card');
+            setAllCreditCards(cards);
+            if (cards.length > 0) {
+                const totalSpendingLimit = cards.reduce((sum, c) => sum + (parseFloat(c.spending_limit) || 0), 0);
+                const totalOutstanding = cards.reduce((sum, c) => sum + (parseFloat(c.outstanding_balance) || 0), 0);
+                const interestRates = cards.map(c => parseFloat(c.interest_rate)).filter(v => !isNaN(v));
+                const avgInterestRate = interestRates.length > 0 ? (interestRates.reduce((a, b) => a + b, 0) / interestRates.length) : 0;
+                setCreditCardStats({
+                    totalSpendingLimit,
+                    totalOutstanding,
+                    totalCards: cards.length,
+                    avgInterestRate
+                });
+            } else {
+                setCreditCardStats({ totalSpendingLimit: 0, totalOutstanding: 0, totalCards: 0, avgInterestRate: 0 });
+            }
+        });
+    }, []);
+
     if (loading || !user) {
         return <div className="text-white p-8 text-center">Loading your budget...</div>;
     }
@@ -208,7 +262,12 @@ function BudgetPage() {
             <header className="text-center mb-8">
                 <h1 className="text-4xl font-bold">Your Active Budget</h1>
                 <p className="text-gray-400">
-                    <button onClick={() => setIsEditDatesModalOpen(true)} className="hover:text-indigo-300 transition-colors">
+                    <button
+                        onClick={() => setIsEditDatesModalOpen(true)}
+                        className="hover:text-indigo-300 transition-colors"
+                        disabled={user.is_partner}
+                        style={user.is_partner ? { cursor: 'not-allowed', opacity: 0.5 } : {}}
+                    >
                         {new Date(`${budget.start_date}T00:00:00`).toLocaleDateString()} - {new Date(`${budget.end_date}T00:00:00`).toLocaleDateString()}
                     </button>
                 </p>
@@ -220,6 +279,16 @@ function BudgetPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* --- Left Column --- */}
                 <div className="md:col-span-1 flex flex-col gap-8">
+                    {goals.length > 0 && (
+                        <GoalsCard
+                            goals={goals}
+                            budgetId={budgetId}
+                            onGoalUpdated={fetchPageData}
+                            surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)}
+                            onEdit={handleEditGoal}
+                            onDelete={handleDeleteGoal}
+                        />
+                    )}
                     <BudgetSummaryCard
                         onStateUpdate={handleStateUpdate}
                         budget={budget}
@@ -230,6 +299,13 @@ function BudgetPage() {
                         onCloseBudget={handleCloseBudget}
                         isClosing={isClosing}
                     />
+                    {accounts?.length > 0 && (
+                        <AccountsCard
+                            accounts={accounts}
+                            budgetId={budgetId}
+                            onUpdate={fetchPageData}
+                        />
+                    )}
                     {/* --- Credit Card Stats Card --- */}
                     <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
                         <h3 className="text-lg font-bold text-white-300 border-b border-gray-700 mb-2">Credit Card Overview</h3>
@@ -241,13 +317,6 @@ function BudgetPage() {
                             <div className="flex justify-between"><span className="text-gray-300">Total Cards:</span> <span className="font-bold text-white">{creditCardStats.totalCards}</span></div>
                         </div>
                     </div>
-                    {accounts?.length > 0 && (
-                        <AccountsCard
-                            accounts={accounts}
-                            budgetId={budgetId}
-                            onUpdate={fetchPageData}
-                        />
-                    )}
                 </div>
 
                 {/* --- Right Column --- */}
@@ -285,8 +354,19 @@ function BudgetPage() {
                 onClose={() => setIsEditDatesModalOpen(false)}
                 onSuccess={handleStateUpdate}
             />
-
-            {goals.length > 0 && <AccelerateGoalModal isOpen={isAccelerateModalOpen} onClose={() => setIsAccelerateModalOpen(false)} onSuccess={(handleStateUpdate) => { setIsAccelerateModalOpen(false); }} goal={goals.find(g => g.status === 'active')} surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)} budgetId={budgetId} />}
+            <EditGoalModal
+                isOpen={!!editingGoal}
+                goal={editingGoal}
+                onClose={() => setEditingGoal(null)}
+                onSuccess={handleEditGoalSuccess}
+            />
+            <ConfirmationModal
+                isOpen={!!goalToDelete}
+                onClose={() => setGoalToDelete(null)}
+                onConfirm={confirmDeleteGoal}
+                title="Delete Goal"
+                message={`Are you sure you want to delete the goal "${goalToDelete?.goal_name}"? This action cannot be undone.`}
+            />
         </div>
     );
 }

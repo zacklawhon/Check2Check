@@ -64,17 +64,15 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
     if (!item.pending_request) return;
     setLoading(true);
     try {
-      await api.cancelRequest(item.pending_request.id);
+      const response = await api.cancelRequest(item.pending_request.id);
       toast.success("Request cancelled!");
-      if (onRefresh) onRefresh();
-
-      if (onItemRequestCancel) {
-        onItemRequestCancel(item);
-      } else {
-        onUpdate();
+      if (onStateUpdate && response) {
+        onStateUpdate(response);
+      } else if (onRefresh) {
+        onRefresh();
       }
     } catch (err) {
-
+      // API client shows toast
     } finally {
       setLoading(false);
     }
@@ -98,12 +96,12 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
               if (!item.pending_request) return;
               setLoading(true);
               try {
-                await api.cancelRequest(item.pending_request.id);
+                const response = await api.cancelRequest(item.pending_request.id);
                 toast.success("Request cancelled!");
-                if (onItemRequestCancel) {
-                  onItemRequestCancel(item);
-                } else {
-                  if (onRefresh) onRefresh();
+                if (onStateUpdate && response) {
+                  onStateUpdate(response);
+                } else if (onRefresh) {
+                  onRefresh();
                 }
               } catch (err) {
               } finally {
@@ -164,8 +162,8 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
           {/* SVG for Edit */}
         </button>
         <button
-          onClick={(e) => { e.stopPropagation(); onRemove(item); }} // This should now call the function from props
-          disabled={isReceived || isReadOnly}
+          onClick={(e) => { e.stopPropagation(); onRemove(item); }}
+          disabled={isReceived || isReadOnly || user.is_partner}
           title="Remove"
           className="text-gray-400 hover:text-red-500 disabled:text-gray-600 disabled:cursor-not-allowed"
         >

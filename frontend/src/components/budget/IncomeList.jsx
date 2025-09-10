@@ -17,7 +17,8 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
   const handleRemoveIncome = async () => {
     if (!itemToRemove) return;
     try {
-      const response = await api.removeIncomeItem(budgetId, itemToRemove.label);
+      // Send id, label, and date for precise deletion
+      const response = await api.removeIncomeItem(budgetId, itemToRemove.label, itemToRemove.date, itemToRemove.id);
       onStateUpdate(response);
       setItemToRemove(null);
     } catch (err) {
@@ -87,10 +88,10 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
         ))}
         {/* Render normal income items */}
         {incomeItems && incomeItems.map((item, index) => {
-          const uniqueId = `${item.label}-${item.date}`;
+          const pendingKey = `${item.label}|||${item.date}`;
           return (
             <IncomeListItem
-              key={`${uniqueId}-${index}`}
+              key={`${pendingKey}-${index}`}
               item={item}
               user={user}
               onReceive={setItemToReceive}
@@ -100,7 +101,7 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
               onStateUpdate={onStateUpdate}
               onItemRequestCancel={onItemRequestCancel}
               onItemRequest={onItemRequest}
-              isPending={pendingRequests && pendingRequests.includes(uniqueId)}
+              isPending={pendingRequests.includes(pendingKey)}
             />
           );
         })}

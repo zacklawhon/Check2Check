@@ -3,15 +3,15 @@ import * as api from '../utils/api';
 import { useNavigate, useOutletContext } from 'react-router-dom';
 import ConfirmationModal from '../components/common/ConfirmationModal';
 import EditItemModal from '../components/settings/modals/EditItemModal';
-import EditIncomeRuleModal from '../components/settings/modals/EditIncomeRuleModal'; 
+import EditIncomeRuleModal from '../components/settings/modals/EditIncomeRuleModal';
 import EditGoalModal from '../components/settings/modals/EditGoalModal';
 import ProfileForm from '../components/settings/ProfileForm';
 import AccountActions from '../components/settings/AccountActions';
 import AccountManager from '../components/settings/AccountManager';
-import GoalsDisplay from '../components/settings/GoalsDisplay';
-import IntroGoalCard from '../components/settings/IntroGoalCard'; 
+import IntroGoalCard from '../components/settings/IntroGoalCard';
 import SharedAccessCard from '../components/settings/SharedAccessCard';
 import { getDayWithOrdinal } from '../components/utils/formatters';
+import GoalsCard from '../components/goals/GoalsCard';
 
 function SettingsPage() {
     const outletContext = useOutletContext();
@@ -30,13 +30,14 @@ function SettingsPage() {
     const navigate = useNavigate();
 
     const fetchData = async () => {
-        setLoading(true); 
+        setLoading(true);
         try {
             const [fetchedItems, fetchedGoals, fetchedPartnersAndInvites] = await Promise.all([
                 api.getRecurringItems(),
                 api.getGoals(),
                 api.getPartnersAndInvites()
             ]);
+
             setItems(fetchedItems);
             setGoals(fetchedGoals);
             setPartners(fetchedPartnersAndInvites.partners);
@@ -162,14 +163,13 @@ function SettingsPage() {
                 {error && <p className="text-red-500 text-center mb-4">{error}</p>}
                 <div className="space-y-8 max-w-4xl mx-auto">
                     {/* 4. Conditionally render the "Nudge" card */}
-                     {goals.length === 0 ? (
+                    {goals.length === 0 ? (
                         <IntroGoalCard onStart={() => navigate('/goals')} />
                     ) : (
-                        <GoalsDisplay 
+                        <GoalsCard
                             goals={goals}
                             onEdit={handleEditGoal}
                             onDelete={handleDeleteGoal}
-                            onAddMore={() => navigate('/goals')}
                         />
                     )}
 
@@ -232,7 +232,7 @@ function SettingsPage() {
                                                                 {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
                                                                 {item.spending_limit && <div><span className="text-blue-300">Spending Limit:</span> <span className="text-gray-300">${item.spending_limit}</span></div>}
                                                                 {item.spending_limit && item.outstanding_balance && (
-                                                                    <div><span className="text-blue-300">Available Spending Limit:</span> <span className="text-green-400">${(parseFloat(item.spending_limit) - parseFloat(item.outstanding_balance)).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
+                                                                    <div><span className="text-blue-300">Available Spending Limit:</span> <span className="text-green-400">${(parseFloat(item.spending_limit) - parseFloat(item.outstanding_balance)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                                                                 )}
                                                             </>
                                                         )}

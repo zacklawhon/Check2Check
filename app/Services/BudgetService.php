@@ -322,7 +322,10 @@ class BudgetService
                 $dataToSave = [
                     'user_id' => $userId,
                     'label' => $incomeData['label'],
-                    'frequency' => $incomeData['frequency']
+                    'frequency' => $incomeData['frequency'],
+                    'frequency_day' => $incomeData['frequency_day'] ?? null,
+                    'frequency_date_1' => $incomeData['frequency_date_1'] ?? null,
+                    'frequency_date_2' => $incomeData['frequency_date_2'] ?? null,
                 ];
 
                 $exists = $incomeSourceModel->where('user_id', $userId)
@@ -333,26 +336,54 @@ class BudgetService
                 }
             }
 
-            // --- START: FIX ---
-
-            // Step 2: Build a complete income item object
-            $newItem = [
-                'id' => uniqid('inc_', true), // Add a unique ID
-                'label' => $incomeData['label'],
-                'amount' => $incomeData['amount'],
-                'date' => $incomeData['date'],
-                'is_received' => false, // Set the default status correctly
-                'frequency' => $incomeData['frequency'] ?? 'one-time'
-            ];
-
-            // Add the new, complete item to the budget's JSON data
+            // --- NEW: Project all occurrences for recurring income ---
             $incomeArray = json_decode($budgetCycle['initial_income'], true);
-            $incomeArray[] = $newItem;
+            $startDate = $budgetCycle['start_date'];
+            $endDate = $budgetCycle['end_date'];
+            $frequency = $incomeData['frequency'] ?? 'one-time';
+            $projectedItems = [];
+            if ($frequency !== 'one-time') {
+                $projectionService = new ProjectionService();
+                $rules = [
+                    [
+                        'label' => $incomeData['label'],
+                        'amount' => $incomeData['amount'],
+                        'frequency' => $frequency,
+                        'frequency_day' => $incomeData['frequency_day'] ?? null,
+                        'frequency_date_1' => $incomeData['frequency_date_1'] ?? null,
+                        'frequency_date_2' => $incomeData['frequency_date_2'] ?? null,
+                    ]
+                ];
+                $projected = $projectionService->projectIncome($startDate, $endDate, $rules);
+                // Filter out occurrences before the expected date (if provided)
+                $minDate = !empty($incomeData['date']) ? $incomeData['date'] : $startDate;
+                foreach ($projected as $occurrence) {
+                    if ($occurrence['date'] < $minDate) {
+                        continue;
+                    }
+                    $projectedItems[] = [
+                        'id' => uniqid('inc_', true),
+                        'label' => $incomeData['label'],
+                        'amount' => $incomeData['amount'],
+                        'date' => $occurrence['date'],
+                        'is_received' => false,
+                        'frequency' => $frequency
+                    ];
+                }
+            } else {
+                // One-time: just add the single item
+                $projectedItems[] = [
+                    'id' => uniqid('inc_', true),
+                    'label' => $incomeData['label'],
+                    'amount' => $incomeData['amount'],
+                    'date' => $incomeData['date'],
+                    'is_received' => false,
+                    'frequency' => $frequency
+                ];
+            }
+            // Add all projected items to the budget's JSON data
+            $incomeArray = array_merge($incomeArray, $projectedItems);
             $budgetCycleModel->update($cycleId, ['initial_income' => json_encode($incomeArray)]);
-
-            // Step 3: The premature transaction log has been REMOVED.
-
-            // --- END: FIX ---
 
             $db->transComplete();
             if ($db->transStatus() === false) {
@@ -391,13 +422,29 @@ class BudgetService
 
         if (!empty($id)) {
             // Remove by id (most precise)
-            $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['id'] !== $id);
+            $updatedIncomeItems = array_filter($incomeItems, function($item) use ($id) {
+                return !isset($item['id']) || $item['id'] !== $id;
+            });
         } elseif (!empty($date)) {
             // Remove by label and date
-            $updatedIncomeItems = array_filter($incomeItems, fn($item) => !($item['label'] === $label && $item['date'] === $date));
+            $updatedIncomeItems = array_filter($incomeItems, function($item) use ($label, $date) {
+                return !(isset($item['label'], $item['date']) && $item['label'] === $label && $item['date'] === $date);
+            });
+        } elseif (!empty($label)) {
+            // Only allow deletion by label if it is unique in the array
+            $matches = array_filter($incomeItems, function($item) use ($label) {
+                return isset($item['label']) && $item['label'] === $label;
+            });
+            if (count($matches) === 1) {
+                $updatedIncomeItems = array_filter($incomeItems, function($item) use ($label) {
+                    return !(isset($item['label']) && $item['label'] === $label);
+                });
+            } else {
+                throw new \Exception('Ambiguous label: multiple income items found with this label. Please use the delete button for the specific item.');
+            }
         } else {
-            // Fallback: Remove by label only (for backward compatibility)
-            $updatedIncomeItems = array_filter($incomeItems, fn($item) => $item['label'] !== $label);
+            // If no valid identifier, do not remove anything
+            $updatedIncomeItems = $incomeItems;
         }
 
         $db = \Config\Database::connect();
@@ -726,10 +773,10 @@ class BudgetService
      * @param int   $budgetId  The ID of the budget cycle.
      * @param int   $incomeId  The unique ID of the income item to update.
      * @param float $newAmount The new amount for the income item.
-     * @return bool
+     * @return array
      * @throws \Exception
      */
-    public function updateInitialIncomeAmount(int $userId, int $budgetId, int $incomeId, float $newAmount): bool
+    public function updateInitialIncomeAmount(int $userId, int $budgetId, int $incomeId, float $newAmount): array
     {
         $budgetModel = new BudgetCycleModel();
         $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
@@ -882,6 +929,10 @@ class BudgetService
     /**
      * Creates a new budget cycle for a user.
      *
+     * Note: This method does NOT filter out projected income items with dates in the past.
+     * This is intentional, as users may create a budget after the period has started and need to record past income.
+     * Only addIncomeToCycle enforces a minimum date for projected income occurrences.
+     *
      * @param int   $userId              The owner's user ID.
      * @param array $cycleData           Data for the new cycle (start_date, end_date).
      * @param array $incomeSources       Array of initial income items.
@@ -915,6 +966,14 @@ class BudgetService
                 'type' => 'variable',
             ];
         }
+
+        // Ensure every income item has a unique 'id' property
+        foreach ($incomeSources as &$income) {
+            if (empty($income['id'])) {
+                $income['id'] = uniqid('inc_', true);
+            }
+        }
+        unset($income); // break reference
 
         $newCycleData = [
             'user_id' => $userId,

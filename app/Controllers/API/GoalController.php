@@ -48,7 +48,9 @@ class GoalController extends BaseAPIController
 
         $data = $this->validator->getValidated();
         $data['user_id'] = $userId;
-        $data['status'] = 'active';
+        if (!isset($data['status']) || empty($data['status'])) {
+            $data['status'] = 'active';
+        }
 
         if ($data['goal_type'] === 'savings' && !empty($data['linked_account_id'])) {
             $accountModel = new UserAccountModel();
@@ -94,6 +96,7 @@ class GoalController extends BaseAPIController
 
         $rules = [
             'goal_name' => 'required|string|max_length[255]',
+            'target_amount' => 'permit_empty|decimal',
         ];
 
         if (!$this->validate($rules)) {
@@ -106,7 +109,8 @@ class GoalController extends BaseAPIController
             return $this->fail($goalModel->errors());
         }
 
-        return $this->respondUpdated(['message' => 'Goal updated successfully.']);
+        $updatedGoal = $goalModel->find($id);
+        return $this->respondUpdated($updatedGoal);
     }
 
     public function delete($id = null)
@@ -184,32 +188,32 @@ class GoalController extends BaseAPIController
 
         try {
             $currentAmount = (float) $goal['current_amount'];
-            $newAmount = $currentAmount;
-            $transactionType = 'expense';
-            $transactionCategory = 'Extra Debt Payment';
-
+            $adjustedAmount = $amount;
             if ($paymentType === 'debt') {
-                $newAmount -= $amount;
-            } else { // savings
-                $newAmount += $amount;
-                $transactionType = 'savings';
-                $transactionCategory = 'Goal Contribution';
-
-                if ($goal['linked_account_id']) {
-                    $accountModel = new UserAccountModel();
-                    // SECURE: Ensures the account being updated also belongs to the owner.
-                    $accountModel->where('id', $goal['linked_account_id'])
-                        ->where('user_id', $userId)
-                        ->increment('current_balance', $amount);
+                if ($currentAmount - $amount < 0) {
+                    $adjustedAmount = $currentAmount;
                 }
+                $newAmount = $currentAmount - $adjustedAmount;
+            } else { // savings
+                if ($currentAmount + $amount > (float) $goal['target_amount']) {
+                    $adjustedAmount = (float) $goal['target_amount'] - $currentAmount;
+                }
+                $newAmount = $currentAmount + $adjustedAmount;
+            }
+            $transactionType = $paymentType === 'debt' ? 'expense' : 'savings';
+            $transactionCategory = $paymentType === 'debt' ? 'Extra Debt Payment' : 'Goal Contribution';
+
+            if ($paymentType === 'savings' && $goal['linked_account_id']) {
+                $accountModel = new UserAccountModel();
+                $accountModel->where('id', $goal['linked_account_id'])
+                    ->where('user_id', $userId)
+                    ->increment('current_balance', $adjustedAmount);
             }
 
             $updateData = ['current_amount' => $newAmount];
-
             if (($paymentType === 'debt' && $newAmount <= 0) || ($paymentType === 'savings' && $newAmount >= (float) $goal['target_amount'])) {
                 $updateData['status'] = 'completed';
             }
-
             $goalModel->update($id, $updateData);
 
             $transactionModel = new TransactionModel();
@@ -218,25 +222,24 @@ class GoalController extends BaseAPIController
                 $budgetId,
                 $transactionType,
                 $transactionCategory,
-                $amount,
+                $adjustedAmount,
                 "Payment for goal: {$goal['goal_name']}"
             );
 
             $budgetModel = new BudgetCycleModel();
-            // SECURE: Ensures the budget being updated also belongs to the owner.
             $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
             if ($budget) {
                 $expenses = json_decode($budget['initial_expenses'], true);
-
                 $newExpenseItem = [
                     'label' => "Goal Payment: {$goal['goal_name']}",
-                    'estimated_amount' => $amount,
+                    'estimated_amount' => $adjustedAmount,
                     'type' => 'variable',
-                    'is_goal_payment' => true
+                    'is_goal_payment' => true,
+                    'is_paid' => true
                 ];
-
                 $expenses[] = $newExpenseItem;
                 $budgetModel->update($budgetId, ['initial_expenses' => json_encode($expenses)]);
+                $budget = $budgetModel->where('id', $budgetId)->where('user_id', $userId)->first();
             }
 
             $db->transComplete();
@@ -245,7 +248,11 @@ class GoalController extends BaseAPIController
                 throw new \Exception('Database transaction failed.');
             }
 
-            return $this->respondUpdated(['message' => 'Payment logged successfully.']);
+            $updatedGoal = $goalModel->find($id);
+            return $this->respondUpdated([
+                'goal' => $updatedGoal,
+                'budget' => $budget
+            ]);
 
         } catch (\Exception $e) {
             log_message('error', '[GOAL_PAYMENT_ERROR] ' . $e->getMessage());

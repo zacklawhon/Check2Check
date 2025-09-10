@@ -38,7 +38,7 @@ function GoalTypeStep({ onSelect, onBack }) {
 
             <div className="mt-8 text-center">
                 <button onClick={onBack} className="text-gray-400 hover:text-white font-semibold py-2 px-5 rounded-lg transition">
-                    &larr; Back to Account
+                    &larr; Back to Settings
                 </button>
             </div>
         </div>

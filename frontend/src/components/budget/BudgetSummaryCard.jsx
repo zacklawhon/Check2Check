@@ -68,20 +68,6 @@ function BudgetSummaryCard({ budget, transactions, goals, onOpenAccelerateModal,
   return (
     <div className="flex flex-col gap-8">
       
-      {canAccelerateGoal && expectedSurplus > 0 && activeGoal && (
-        <div className="bg-indigo-800 p-6 rounded-lg shadow-xl border border-indigo-500">
-          <h2 className="text-2xl font-bold mb-3 text-center">Accelerate Your Goal!</h2>
-          <p className="text-indigo-200 text-center mb-4">
-            You have an expected surplus of <strong className="text-white">${expectedSurplus.toFixed(2)}</strong>.
-          </p>
-          <button
-            onClick={onOpenAccelerateModal}
-            className="w-full bg-white text-indigo-800 font-bold py-2 px-4 rounded-lg hover:bg-indigo-100"
-          >
-            Apply Surplus
-          </button>
-        </div>
-      )}
       <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
         <h2 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Summary</h2>
         <div className="space-y-3">

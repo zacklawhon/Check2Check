@@ -15,9 +15,13 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
     const [expenseType, setExpenseType] = useState('recurring');
+    const [showList, setShowList] = useState(true);
+    const [recurringItems, setRecurringItems] = useState({ income: [], expenses: [] });
+    const [loadingList, setLoadingList] = useState(false);
+    const [listError, setListError] = useState('');
 
     useEffect(() => {
-        // Reset form when the modal type changes
+        setShowList(true);
         setFormData({
             label: '',
             amount: '',
@@ -28,6 +32,20 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
             save_recurring: true
         });
         setExpenseType('recurring');
+        setListError('');
+        setLoadingList(true);
+        api.getRecurringItems()
+            .then(data => {
+                setRecurringItems({
+                    income: data.income_sources || [],
+                    expenses: data.recurring_expenses || []
+                });
+                setLoadingList(false);
+            })
+            .catch(err => {
+                setListError('Could not load saved items.');
+                setLoadingList(false);
+            });
     }, [type]);
 
     const handleChange = (e) => {
@@ -66,7 +84,10 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                     amount: formData.amount,
                     date: formData.date,
                     frequency: formData.frequency,
-                    save_recurring: saveRecurringValue
+                    save_recurring: saveRecurringValue,
+                    frequency_day: formData.frequency_day,
+                    frequency_date_1: formData.frequency_date_1,
+                    frequency_date_2: formData.frequency_date_2
                 };
             } else if (type === 'variable') {
                 apiCall = api.addVariableExpense;
@@ -99,6 +120,32 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
         } finally {
             setLoading(false);
         }
+    };
+
+    const handleSelectSaved = (item) => {
+        // Pre-fill form with selected item
+        if (type === 'income') {
+            setFormData({
+                label: item.label,
+                amount: item.amount,
+                date: '',
+                frequency: item.frequency || 'one-time',
+                frequency_day: item.frequency_day,
+                frequency_date_1: item.frequency_date_1,
+                frequency_date_2: item.frequency_date_2,
+                save_recurring: true
+            });
+        } else {
+            setFormData({
+                label: item.label,
+                amount: item.estimated_amount,
+                due_date: item.due_date,
+                category: item.category || 'other',
+                save_recurring: true
+            });
+            setExpenseType('recurring');
+        }
+        setShowList(false);
     };
 
     const renderTitle = () => {
@@ -189,6 +236,81 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
         );
     }
 
+    if (showList) {
+        // Group expenses by category if type is not income
+        let groupedExpenses = {};
+        if (type !== 'income') {
+            recurringItems.expenses.forEach(item => {
+                const cat = item.category || 'Other';
+                if (!groupedExpenses[cat]) groupedExpenses[cat] = [];
+                groupedExpenses[cat].push(item);
+            });
+        }
+        return (
+            <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
+                <div className="bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md relative max-h-[90vh] overflow-y-auto">
+                    <button onClick={onClose} className="absolute top-3 right-3 text-gray-500 hover:text-white text-2xl">&times;</button>
+                    <h2 className="text-2xl font-bold text-center mb-6 text-white">{type === 'income' ? 'Add Income' : 'Add Expense'}</h2>
+                    {loadingList ? (
+                        <div className="text-center text-gray-400">Loading...</div>
+                    ) : listError ? (
+                        <div className="text-center text-red-400">{listError}</div>
+                    ) : (
+                        <>
+                            <div className="mb-4">
+                                <div className="text-gray-300 mb-2">Select a saved {type === 'income' ? 'income source' : 'recurring expense'}:</div>
+                                <ul className="mb-4 max-h-[50vh] overflow-y-auto pr-2">
+                                    {type === 'income' ? (
+                                        recurringItems.income.map((item, idx) => (
+                                            <li key={item.label + idx} className="py-2 flex justify-between items-center border-b border-gray-700 last:border-b-0">
+                                                <div>
+                                                    <div className="font-semibold text-white">{item.label}</div>
+                                                    <div className="text-gray-400 text-sm">{item.amount} {item.frequency ? `(${item.frequency})` : ''}</div>
+                                                </div>
+                                                <button
+                                                    className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg text-sm"
+                                                    onClick={() => handleSelectSaved(item)}
+                                                >
+                                                    Add
+                                                </button>
+                                            </li>
+                                        ))
+                                    ) : (
+                                        Object.entries(groupedExpenses).map(([cat, items]) => (
+                                            <React.Fragment key={cat}>
+                                                <li className="pt-2 pb-1 text-green-400 font-bold uppercase text-xs tracking-wider text-center bg-gray-900 rounded">{cat}</li>
+                                                {items.map((item, idx) => (
+                                                    <li key={item.label + idx} className="py-2 flex justify-between items-center border-b border-gray-700 last:border-b-0">
+                                                        <div>
+                                                            <div className="font-semibold text-white">{item.label}</div>
+                                                            <div className="text-gray-400 text-sm">{item.estimated_amount} {item.frequency ? `(${item.frequency})` : ''}</div>
+                                                        </div>
+                                                        <button
+                                                            className="bg-indigo-600 hover:bg-indigo-700 text-white px-3 py-1 rounded-lg text-sm"
+                                                            onClick={() => handleSelectSaved(item)}
+                                                        >
+                                                            Add
+                                                        </button>
+                                                    </li>
+                                                ))}
+                                            </React.Fragment>
+                                        ))
+                                    )}
+                                </ul>
+                                <button
+                                    className="w-full mt-2 bg-gray-700 hover:bg-gray-600 text-white font-bold py-2 px-4 rounded-lg"
+                                    onClick={() => setShowList(false)}
+                                >
+                                    + Add New
+                                </button>
+                            </div>
+                        </>
+                    )}
+                </div>
+            </div>
+        );
+    }
+
     return (
         <div className="fixed inset-0 bg-black bg-opacity-75 flex items-center justify-center z-50">
             <div className="bg-gray-800 p-8 rounded-2xl shadow-lg w-full max-w-md relative">
@@ -268,11 +390,79 @@ function AddItemModal({ type, budgetId, onClose, onSuccess }) {
                                     <span>Save for future budgets</span>
                                 </label>
                             )}
+
+                            {/* Add frequency detail fields for recurring income */}
+                            {type === 'income' && formData.frequency !== 'one-time' && (
+                                <>
+                                    {(formData.frequency === 'weekly' || formData.frequency === 'bi-weekly') && (
+                                        <div>
+                                            <label htmlFor="frequency_day" className="block text-sm font-semibold mb-1 text-gray-400">Day of the Week</label>
+                                            <select
+                                                name="frequency_day"
+                                                id="frequency_day"
+                                                value={formData.frequency_day || '5'}
+                                                onChange={handleChange}
+                                                className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                            >
+                                                <option value="1">Sunday</option>
+                                                <option value="2">Monday</option>
+                                                <option value="3">Tuesday</option>
+                                                <option value="4">Wednesday</option>
+                                                <option value="5">Thursday</option>
+                                                <option value="6">Friday</option>
+                                                <option value="7">Saturday</option>
+                                            </select>
+                                        </div>
+                                    )}
+                                    {formData.frequency === 'semi-monthly' && (
+                                        <div className="grid grid-cols-2 gap-2">
+                                            <div>
+                                                <label className="block text-sm font-semibold mb-1 text-gray-400">First Pay Day</label>
+                                                <input
+                                                    type="number"
+                                                    name="frequency_date_1"
+                                                    value={formData.frequency_date_1 || '15'}
+                                                    onChange={handleChange}
+                                                    min="1"
+                                                    max="31"
+                                                    className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                                />
+                                            </div>
+                                            <div>
+                                                <label className="block text-sm font-semibold mb-1 text-gray-400">Second Pay Day</label>
+                                                <input
+                                                    type="number"
+                                                    name="frequency_date_2"
+                                                    value={formData.frequency_date_2 || '30'}
+                                                    onChange={handleChange}
+                                                    min="1"
+                                                    max="31"
+                                                    className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                                />
+                                            </div>
+                                        </div>
+                                    )}
+                                    {formData.frequency === 'monthly' && (
+                                        <div>
+                                            <label className="block text-sm font-semibold mb-1 text-gray-400">Day of the Month</label>
+                                            <input
+                                                type="number"
+                                                name="frequency_date_1"
+                                                value={formData.frequency_date_1 || '15'}
+                                                onChange={handleChange}
+                                                min="1"
+                                                max="31"
+                                                className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                            />
+                                        </div>
+                                    )}
+                                </>
+                            )}
                         </>
                     )}
 
-                    <div className="flex justify-end gap-4 pt-4">
-                        <button type="button" onClick={onClose} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Cancel</button>
+                    <div className="flex justify-between gap-4 pt-4">
+                        <button type="button" onClick={() => setShowList(true)} className="bg-gray-600 hover:bg-gray-700 text-white font-bold py-2 px-6 rounded-lg">Back to List</button>
                         <button type="submit" disabled={loading} className="bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-2 px-6 rounded-lg disabled:bg-gray-500">
                             {loading ? 'Adding...' : 'Add Item'}
                         </button>
