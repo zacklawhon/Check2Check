@@ -279,7 +279,7 @@ function BudgetPage() {
             <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* --- Left Column --- */}
                 <div className="md:col-span-1 flex flex-col gap-8">
-                    {goals.length > 0 && (
+                    {!user.is_partner && goals.length > 0 && (
                         <GoalsCard
                             goals={goals}
                             budgetId={budgetId}
@@ -299,7 +299,7 @@ function BudgetPage() {
                         onCloseBudget={handleCloseBudget}
                         isClosing={isClosing}
                     />
-                    {accounts?.length > 0 && (
+                    {!user.is_partner && accounts?.length > 0 && (
                         <AccountsCard
                             accounts={accounts}
                             budgetId={budgetId}
