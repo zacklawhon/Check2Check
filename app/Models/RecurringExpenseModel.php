@@ -9,6 +9,7 @@ class RecurringExpenseModel extends Model
 
     protected $allowedFields = [
         'user_id',
+        'manage_url',
         'label',
         'due_date',
         'category',

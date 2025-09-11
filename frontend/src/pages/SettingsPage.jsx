@@ -12,6 +12,7 @@ import IntroGoalCard from '../components/settings/IntroGoalCard';
 import SharedAccessCard from '../components/settings/SharedAccessCard';
 import { getDayWithOrdinal } from '../components/utils/formatters';
 import GoalsCard from '../components/goals/GoalsCard';
+import AddCreditCardModal from '../components/settings/modals/AddCreditCardModal';
 
 function SettingsPage() {
     const outletContext = useOutletContext();
@@ -27,6 +28,7 @@ function SettingsPage() {
     const [editingGoal, setEditingGoal] = useState(null);
     const [partners, setPartners] = useState([]);
     const [pendingInvites, setPendingInvites] = useState([]);
+    const [isAddCreditCardOpen, setIsAddCreditCardOpen] = useState(false);
     const navigate = useNavigate();
 
     const fetchData = async () => {
@@ -154,6 +156,12 @@ function SettingsPage() {
         return acc;
     }, {});
 
+    // --- Add Credit Card success handler ---
+    const handleAddCreditCardSuccess = async () => {
+        setIsAddCreditCardOpen(false);
+        await fetchData();
+    };
+
     if (loading) return <div className="text-center p-8 text-white">Loading...</div>;
 
     return (
@@ -209,7 +217,17 @@ function SettingsPage() {
                         <div className="space-y-4">
                             {Object.keys(groupedExpenses).sort().map(category => (
                                 <div key={category}>
-                                    <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider mb-2">{category}</h3>
+                                    <div className="flex items-center justify-between mb-2">
+                                        <h3 className="text-sm font-bold text-gray-100 uppercase tracking-wider">{category}</h3>
+                                        {category === 'credit-card' && (
+                                            <button
+                                                className="ml-2 text-xs bg-indigo-600 hover:bg-indigo-700 text-white font-bold py-1 px-3 rounded-lg"
+                                                onClick={() => setIsAddCreditCardOpen(true)}
+                                            >
+                                                + Add Credit Card
+                                            </button>
+                                        )}
+                                    </div>
                                     <ul className="space-y-3">
                                         {groupedExpenses[category].map(item => (
                                             <li key={item.id} className="bg-gray-700 p-3 rounded-md flex justify-between items-center cursor-pointer group hover:bg-gray-600 transition-colors"
@@ -228,32 +246,41 @@ function SettingsPage() {
                                                     <div className="mt-1 space-y-0.5">
                                                         {item.category === 'credit-card' && (
                                                             <>
-                                                                {item.outstanding_balance && <div><span className="text-blue-300">Outstanding Balance:</span> <span className="text-red-400">${item.outstanding_balance}</span></div>}
-                                                                {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
-                                                                {item.spending_limit && <div><span className="text-blue-300">Spending Limit:</span> <span className="text-gray-300">${item.spending_limit}</span></div>}
-                                                                {item.spending_limit && item.outstanding_balance && (
+                                                                {parseFloat(item.outstanding_balance) > 0 && <div><span className="text-blue-300">Outstanding Balance:</span> <span className="text-red-400">${item.outstanding_balance}</span></div>}
+                                                                {parseFloat(item.interest_rate) > 0 && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
+                                                                {parseFloat(item.spending_limit) > 0 && <div><span className="text-blue-300">Spending Limit:</span> <span className="text-gray-300">${item.spending_limit}</span></div>}
+                                                                {parseFloat(item.spending_limit) > 0 && parseFloat(item.outstanding_balance) > 0 && (
                                                                     <div><span className="text-blue-300">Available Spending Limit:</span> <span className="text-green-400">${(parseFloat(item.spending_limit) - parseFloat(item.outstanding_balance)).toLocaleString(undefined, { minimumFractionDigits: 2, maximumFractionDigits: 2 })}</span></div>
                                                                 )}
                                                             </>
                                                         )}
                                                         {item.category === 'loan' && (
                                                             <>
-                                                                {item.principal_balance && <div><span className="text-blue-300">Principal Balance:</span> <span className="text-red-400">${item.principal_balance}</span></div>}
-                                                                {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
+                                                                {parseFloat(item.principal_balance) > 0 && <div><span className="text-blue-300">Principal Balance:</span> <span className="text-red-400">${item.principal_balance}</span></div>}
+                                                                {parseFloat(item.interest_rate) > 0 && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300">{item.interest_rate}%</span></div>}
                                                                 {item.maturity_date && <div><span className="text-blue-300">Maturity Date:</span> <span className="text-indigo-300">{item.maturity_date}</span></div>}
                                                             </>
                                                         )}
                                                         {item.category !== 'credit-card' && item.category !== 'loan' && (
                                                             <>
-                                                                {item.outstanding_balance && <div><span className="text-blue-300">Outstanding Balance:</span> <span className="text-red-400">${item.outstanding_balance}</span></div>}
-                                                                {item.interest_rate && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300 ">{item.interest_rate}%</span></div>}
-                                                                {item.principal_balance && <div><span className="text-blue-300">Principal Balance:</span> <span className="text-red-400">${item.principal_balance}</span></div>}
-                                                                {item.maturity_date && <div><span className="text-blue-300">Maturity Date:</span> <span className="text-indigo-300">{item.maturity_date}</span></div>}
+                                                                {parseFloat(item.outstanding_balance) > 0 && <div><span className="text-blue-300">Outstanding Balance:</span> <span className="text-red-400">${item.outstanding_balance}</span></div>}
+                                                                {parseFloat(item.interest_rate) > 0 && <div><span className="text-blue-300">Interest Rate:</span> <span className="text-yellow-300 ">{item.interest_rate}%</span></div>}
                                                             </>
                                                         )}
                                                     </div>
                                                 </div>
                                                 <div className="flex gap-2">
+                                                    {item.manage_url && (
+                                                        <a
+                                                            href={item.manage_url}
+                                                            target="_blank"
+                                                            rel="noopener noreferrer"
+                                                            className="text-xs text-indigo-400 hover:text-indigo-300 bg-gray-900 px-2 py-1 rounded-md font-semibold"
+                                                            onClick={e => e.stopPropagation()}
+                                                        >
+                                                            Manage
+                                                        </a>
+                                                    )}
                                                     <button onClick={() => handleDeleteClick(item, 'expense')} className="text-xs text-red-400 hover:text-red-300 delete-btn">Delete</button>
                                                 </div>
                                             </li>
@@ -302,6 +329,11 @@ function SettingsPage() {
                 incomeSource={editingIncome}
                 onClose={() => setEditingIncome(null)}
                 onSuccess={handleEditIncomeSuccess}
+            />
+            <AddCreditCardModal
+                isOpen={isAddCreditCardOpen}
+                onClose={() => setIsAddCreditCardOpen(false)}
+                onSuccess={handleAddCreditCardSuccess}
             />
         </>
     );

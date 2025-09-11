@@ -72,6 +72,16 @@ function AccountManager() {
                                 <div className="flex items-center gap-4">
                                     <span className="font-semibold text-gray-200">${parseFloat(acc.current_balance).toFixed(2)}</span>
                                     <div className="flex gap-2">
+                                        {acc.manage_url && (
+                                            <a
+                                                href={acc.manage_url}
+                                                target="_blank"
+                                                rel="noopener noreferrer"
+                                                className="text-xs text-indigo-400 hover:text-indigo-300 bg-gray-900 px-2 py-1 rounded-md font-semibold"
+                                            >
+                                                Manage
+                                            </a>
+                                        )}
                                         <button onClick={() => { setActiveAccount(acc); setIsAdjustModalOpen(true); }} className="text-xs text-yellow-400 hover:text-yellow-300">Adjust</button>
                                         <button onClick={() => { setActiveAccount(acc); setIsEditModalOpen(true); }} className="text-xs text-blue-400 hover:text-blue-300">Edit</button>
                                         <button onClick={() => setDeletingAccount(acc)} className="text-xs text-red-400 hover:text-red-300">Delete</button>

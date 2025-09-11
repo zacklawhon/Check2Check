@@ -13,6 +13,7 @@ class UserAccountModel extends Model
     protected $protectFields    = true;
     protected $allowedFields    = [
         'user_id',
+        'manage_url',
         'account_name',
         'account_type',
         'current_balance',

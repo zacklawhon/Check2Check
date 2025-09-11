@@ -43,7 +43,8 @@ function BudgetList({ budgetCycles, onRefresh }) {
     const sortedCycles = [...budgetCycles].sort((a, b) => new Date(b.start_date) - new Date(a.start_date));
     
     return (
-        <div className="space-y-4 max-w-2xl mx-auto">
+        <div className="space-y-4 max-w-2xl mx-auto bg-gray-800 p-6 rounded-lg shadow-xl mb-12">
+            <h3 className="text-2xl font-bold mb-4 border-b border-gray-700 pb-2">Your Budgets</h3>
             {!hasActiveBudget && (
                 <div className="text-center p-4">
                      <button onClick={() => navigate('/wizard')} className="bg-green-600 hover:bg-green-700 text-white font-bold py-2 px-6 rounded-lg">

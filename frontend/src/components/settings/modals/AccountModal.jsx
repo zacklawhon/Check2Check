@@ -6,7 +6,8 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
     const [formData, setFormData] = useState({
         account_name: '',
         account_type: 'savings',
-        current_balance: ''
+        current_balance: '',
+        manage_url: ''
     });
     const [loading, setLoading] = useState(false);
     const [error, setError] = useState('');
@@ -16,10 +17,11 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
             setFormData({
                 account_name: account.account_name || '',
                 account_type: account.account_type || 'savings',
-                current_balance: account.current_balance || ''
+                current_balance: account.current_balance || '',
+                manage_url: account.manage_url || ''
             });
         } else {
-            setFormData({ account_name: '', account_type: 'savings', current_balance: '' });
+            setFormData({ account_name: '', account_type: 'savings', current_balance: '', manage_url: '' });
         }
     }, [account, isEditing]);
 
@@ -38,7 +40,7 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
             setError(err.message); // The API client already shows a toast
         } finally {
             setLoading(false);
-            onUpdate();
+            if (onUpdate) onUpdate();
         }
     };
 
@@ -56,6 +58,7 @@ function AccountModal({ isOpen, onClose, onSuccess, account }) {
                         <option value="other">Other</option>
                     </select>
                     {!isEditing && <input type="number" placeholder="Current Balance" value={formData.current_balance} onChange={e => setFormData({...formData, current_balance: e.target.value})} className="w-full bg-gray-700 p-2 rounded text-white"/>}
+                    <input type="url" placeholder="Manage URL (https://...)" value={formData.manage_url} onChange={e => setFormData({...formData, manage_url: e.target.value})} className="w-full bg-gray-700 p-2 rounded text-white"/>
                 </div>
                 {error && <p className="text-red-400 mt-2">{error}</p>}
                 <div className="flex justify-end gap-4 mt-4">

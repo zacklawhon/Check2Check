@@ -139,8 +139,11 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
   }
 
   // SCENARIO 2: Default view for Owners and Partners
+  const isClickable = typeof onEdit === 'function' && !isReceived && !isReadOnly;
   return (
-    <li className={`flex justify-between items-center p-3 rounded-md transition-colors ${!isReceived ? 'hover:bg-gray-600' : ''} ${isReceived ? 'bg-gray-700 cursor-default' : 'bg-gray-900/50 cursor-pointer'}`} onClick={!isReceived ? () => onEdit(item) : undefined}>
+    <li className={`flex justify-between items-center p-3 rounded-md transition-colors ${isClickable ? 'hover:bg-gray-600 cursor-pointer' : isReceived ? 'bg-gray-700 cursor-default' : 'bg-gray-900/50'}`}
+      onClick={isClickable ? () => onEdit(item) : undefined}
+    >
       <div>
         <p className={`font-semibold ${isReceived ? 'text-gray-400 line-through' : ''}`}>{item.label}</p>
         <p className="text-xs text-gray-400">
@@ -151,24 +154,26 @@ function IncomeListItem({ item, budgetId, onReceive, onEdit, onRemove, user, onU
         <span className={`font-semibold ${isReceived ? 'text-gray-500' : 'text-green-400'}`}>
           + ${parseFloat(item.amount).toFixed(2)}
         </span>
-
-        {!isReceived && !isReadOnly && (
-          <button onClick={(e) => { e.stopPropagation(); onReceive(item); }} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
-            Receive
-          </button>
+        {!isReadOnly && (
+          <>
+            {!isReceived && (
+              <button onClick={(e) => { e.stopPropagation(); onReceive(item); }} title="Mark as Received" className="bg-green-500 hover:bg-green-600 text-white text-xs font-bold py-1 px-2 rounded">
+                Receive
+              </button>
+            )}
+            <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} disabled={isReceived || isReadOnly} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
+              {/* SVG for Edit */}
+            </button>
+            <button
+              onClick={(e) => { e.stopPropagation(); onRemove(item); }}
+              disabled={isReceived || isReadOnly || user.is_partner}
+              title="Remove"
+              className="text-gray-400 hover:text-red-500 disabled:text-gray-600 disabled:cursor-not-allowed"
+            >
+              { loading ? '...' : 'X' }
+            </button>
+          </>
         )}
-
-        <button onClick={(e) => { e.stopPropagation(); onEdit(item); }} disabled={isReceived || isReadOnly} title="Edit" className="text-gray-400 hover:text-white disabled:text-gray-600 disabled:cursor-not-allowed">
-          {/* SVG for Edit */}
-        </button>
-        <button
-          onClick={(e) => { e.stopPropagation(); onRemove(item); }}
-          disabled={isReceived || isReadOnly || user.is_partner}
-          title="Remove"
-          className="text-gray-400 hover:text-red-500 disabled:text-gray-600 disabled:cursor-not-allowed"
-        >
-          { loading ? '...' : 'X' }
-        </button>
       </div>
     </li>
   );

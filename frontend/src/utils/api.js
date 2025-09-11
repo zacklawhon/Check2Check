@@ -70,8 +70,7 @@ export const deleteUserAccount = (accountId) => apiRequest(`/api/user-accounts/$
 export const dismissAccountsPrompt = () => apiRequest('/api/user/dismiss-accounts-prompt', 'POST');
 export const updateProfile = (profileData) => apiRequest('/api/settings/profile', 'POST', profileData);
 export const createAccount = (accountData) => apiRequest('/api/user-accounts', 'POST', accountData);
-export const updateAccount = (accountId, accountData) => apiRequest(`/api/user-accounts/${accountId}`, 'POST', accountData);
-
+export const updateAccount = (accountId, accountData) => apiRequest(`/api/user-accounts/${accountId}`, 'PUT', accountData);
 
 
 // Content
@@ -115,7 +114,6 @@ export const cancelRequest = (requestId) => apiRequest(`/api/sharing/request/${r
 export const getPartnersAndInvites = () => apiRequest('/api/sharing/partners-and-invites');
 
 
-
 // Goals
 export const getGoals = () => apiRequest('/api/goals');
 export const createGoal = (goalData) => apiRequest('/api/goals', 'POST', goalData);
@@ -126,7 +124,6 @@ export const logGoalPayment = (goalId, data) => apiRequest(`/api/goals/${goalId}
 export const requestEmailChange = (newEmail) => apiRequest('/api/settings/request-email-change', 'POST', { new_email: newEmail });
 export const deleteAccount = () => apiRequest('/api/settings/delete', 'DELETE');
 export const freshStart = () => apiRequest('/api/user/fresh-start', 'DELETE');
-export const updateFinancialTools = (toolsData) => apiRequest('/api/settings/financial-tools', 'POST', toolsData);
 
 // Budget Item Creation
 export const addIncomeToCycle = (budgetId, data) => apiRequest(`/api/budget-items/add-income/${budgetId}`, 'POST', data);

@@ -15,7 +15,8 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
 
     const isReadOnly = user.is_partner && user.permission_level === 'read_only';
     const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
-    const isOwner = !user.owner_user_id;
+    const isFullAccess = user.is_partner && user.permission_level === 'full_access';
+    const isOwner = !user.is_partner || isFullAccess;
 
     const handleApprove = async (action) => {
         setLoading(true);
@@ -165,7 +166,7 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
     if (!item.estimated_amount) {
         return (
             <li className="bg-gray-700 p-3 rounded-md">
-                <form onSubmit={handleSetAmount} className="flex justify-between items-center gap-4">
+                <form onSubmit={isReadOnly ? undefined : handleSetAmount} className="flex justify-between items-center gap-4">
                     <div className="flex-grow">
                         <span className="font-semibold">{item.label}</span>
                         <div className="text-xs text-gray-400 capitalize">{item.category} (Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</div>
@@ -180,9 +181,10 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                                 id={`expense-amount-${item.id}`}
                                 placeholder="0.00"
                                 value={amount}
-                                onChange={(e) => setAmount(e.target.value)}
+                                onChange={isReadOnly ? undefined : (e) => setAmount(e.target.value)}
                                 className="w-24 bg-gray-800 text-white rounded-md p-1 border border-gray-600"
                                 required
+                                disabled={isReadOnly}
                             />
                         </div>
                     </div>
@@ -196,6 +198,24 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
     }
 
     // This is for items that have an amount and can be paid or unpaid.
+    if (isReadOnly) {
+        return (
+            <li className="flex justify-between items-center bg-gray-700 p-3 rounded-md">
+                <div>
+                    <span className={`${item.is_paid ? 'line-through' : ''}`}>{item.label}</span>
+                    <div className="text-xs text-gray-400 flex items-center gap-2 flex-wrap">
+                        <span className="capitalize">{item.category}</span>
+                        {item.due_date && <span>(Due: {getDayWithOrdinal(parseInt(item.due_date, 10))})</span>}
+                        {item.principal_balance && item.principal_balance !== '0' && item.principal_balance !== 0 && parseFloat(item.principal_balance) > 0 && <span className="hidden sm:inline">(Bal: ${item.principal_balance})</span>}
+                        {item.interest_rate && item.interest_rate !== '0' && item.interest_rate !== 0 && parseFloat(item.interest_rate) > 0 && <span className="hidden sm:inline">({item.interest_rate}%)</span>}
+                        {item.spending_limit && item.spending_limit !== '0' && item.spending_limit !== 0 && parseFloat(item.spending_limit) > 0 && <span className="hidden sm:inline">(Limit: ${item.spending_limit})</span>}
+                    </div>
+                </div>
+                <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
+            </li>
+        );
+    }
+
     return (
         <>
             <li
@@ -218,9 +238,20 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                 </div>
                 <div className="flex items-center gap-2">
                     <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
+                    {item.manage_url && (
+                        <a
+                            href={item.manage_url}
+                            target="_blank"
+                            rel="noopener noreferrer"
+                            className="text-xs text-indigo-400 hover:text-indigo-300 bg-gray-900 px-2 py-1 rounded-md font-semibold"
+                            onClick={e => e.stopPropagation()}
+                        >
+                            Manage
+                        </a>
+                    )}
                     {item.is_paid ? (
                         <button
-                            onClick={e => { e.stopPropagation(); handleUndoPaid(); }}
+                            onClick={e => { e.stopPropagation(); if (!isReadOnly) handleUndoPaid(); }}
                             disabled={loading || isReadOnly}
                             className="bg-yellow-600 hover:bg-yellow-700 text-gray-900 font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
@@ -228,7 +259,7 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                         </button>
                     ) : (
                         <button
-                            onClick={e => { e.stopPropagation(); handleMarkPaid(); }}
+                            onClick={e => { e.stopPropagation(); if (!isReadOnly) handleMarkPaid(); }}
                             disabled={loading || isReadOnly}
                             className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500"
                         >
@@ -236,9 +267,9 @@ function RecurringExpenseItem({ item, budgetId, user, onStateUpdate, onEdit, onR
                         </button>
                     )}
                     <button
-                        onClick={e => { e.stopPropagation(); handleDeleteClick(e); }}
+                        onClick={e => { e.stopPropagation(); if (!isReadOnly) handleDeleteClick(e); }}
                         className="text-gray-400 hover:text-white font-bold text-lg disabled:text-gray-600 disabled:cursor-not-allowed"
-                        disabled={item.is_paid || deleting || loading || isReadOnly || user.is_partner}
+                        disabled={item.is_paid || deleting || loading || isReadOnly}
                     >
                         &times;
                     </button>

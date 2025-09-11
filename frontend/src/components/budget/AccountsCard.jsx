@@ -23,7 +23,20 @@ function AccountsCard({ accounts, budgetId, onUpdate }) {
                                 <p className="font-semibold text-gray-200">{acc.account_name}</p>
                                 <p className="text-xs text-gray-400 capitalize">{acc.account_type}</p>
                             </div>
-                            <span className="font-semibold text-teal-400">${parseFloat(acc.current_balance).toFixed(2)}</span>
+                            <div className="flex items-center gap-2">
+                                <span className="font-semibold text-teal-400">${parseFloat(acc.current_balance).toFixed(2)}</span>
+                                {acc.manage_url && (
+                                    <a
+                                        href={acc.manage_url}
+                                        target="_blank"
+                                        rel="noopener noreferrer"
+                                        className="text-xs text-indigo-400 hover:text-indigo-300 bg-gray-900 px-2 py-1 rounded-md font-semibold"
+                                        onClick={e => e.stopPropagation()}
+                                    >
+                                        Manage
+                                    </a>
+                                )}
+                            </div>
                         </li>
                     ))}
                 </ul>

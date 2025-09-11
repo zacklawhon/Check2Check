@@ -68,7 +68,8 @@ class UserAccountController extends BaseAPIController
 
         $rules = [
             'account_name' => 'required|string|max_length[255]',
-            'account_type' => 'required|in_list[checking,savings,credit_card,other]'
+            'account_type' => 'required|in_list[checking,savings,credit_card,other]',
+            'manage_url' => 'permit_empty|valid_url|max_length[255]'
         ];
         if (!$this->validate($rules)) {
             return $this->fail($this->validator->getErrors());

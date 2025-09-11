@@ -6,7 +6,10 @@ import ReceiveIncomeModal from '../budget/modals/ReceiveIncomeModal'; // Import 
 import * as api from '../../utils/api';
 
 function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingRequests, budgetId, onStateUpdate, onItemRequestCancel, budget, onRefresh }) {
-  const canEdit = !user.is_partner || user.permission_level !== 'read_only';
+  const isReadOnly = user.is_partner && user.permission_level === 'read_only';
+  const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
+  const isFullAccess = user.is_partner && user.permission_level === 'full_access';
+  const canEdit = !user.is_partner || isFullAccess;
 
   // --- REFACTOR START ---
   // State for all income-related actions now lives here.
@@ -60,7 +63,7 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
     <div className="mb-8">
       <div className="flex justify-between items-center mb-3">
         <h3 className="text-xl font-bold text-green-400">Planned Income</h3>
-        {canEdit && (
+        {canEdit && !isReadOnly && (
           <button
             onClick={onAddItem}
             className="text-sm bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 rounded-lg"
@@ -94,9 +97,9 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
               key={`${pendingKey}-${index}`}
               item={item}
               user={user}
-              onReceive={setItemToReceive}
-              onEdit={setItemToEdit}
-              onRemove={setItemToRemove}
+              onReceive={isReadOnly ? undefined : setItemToReceive}
+              onEdit={isReadOnly ? undefined : setItemToEdit}
+              onRemove={isReadOnly ? undefined : setItemToRemove}
               budgetId={budgetId}
               onStateUpdate={onStateUpdate}
               onItemRequestCancel={onItemRequestCancel}
@@ -120,6 +123,7 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
         budgetId={budgetId}
         onClose={() => setItemToEdit(null)}
         onSuccess={(response) => { onStateUpdate(response); setItemToEdit(null); }}
+        disabled={isReadOnly}
       />
       <ReceiveIncomeModal
         isOpen={!!itemToReceive}
@@ -130,6 +134,7 @@ function IncomeList({ incomeItems, user, onAddItem, onItemRequest, pendingReques
           onStateUpdate(response); // 1. Pass the new state up to the BudgetPage
           setItemToReceive(null); // 2. Close the modal by setting the local state to null
         }}
+        disabled={isReadOnly}
       />
     </div>
   );

@@ -13,6 +13,7 @@ import ExpensesList from '../components/budget/ExpensesList';
 import GoalsCard from '../components/goals/GoalsCard';
 import EditGoalModal from '../components/settings/modals/EditGoalModal';
 import ConfirmationModal from '../components/common/ConfirmationModal';
+import CreditCardOverviewCard from '../components/budget/CreditCardOverviewCard';
 
 function BudgetPage() {
     const { budgetId } = useParams();
@@ -276,19 +277,68 @@ function BudgetPage() {
                 </button>
             </header>
 
-            <div className="grid grid-cols-1 md:grid-cols-3 gap-8">
+            {/* Mobile: Summary, then Income/Expense, then other cards. Desktop: grid layout. */}
+            <div className="block md:hidden space-y-8">
+                <BudgetSummaryCard
+                    onStateUpdate={handleStateUpdate}
+                    budget={budget}
+                    transactions={transactions}
+                    user={user}
+                    goals={goals}
+                    onOpenAccelerateModal={() => setIsAccelerateModalOpen(true)}
+                    onCloseBudget={handleCloseBudget}
+                    isClosing={isClosing}
+                />
+                <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
+                    <IncomeList
+                        incomeItems={budget.initial_income}
+                        user={user}
+                        budget={budget}
+                        onStateUpdate={handleStateUpdate}
+                        onAddItem={() => setModalType('income')}
+                        budgetId={budgetId}
+                        onItemRequest={undefined}
+                        onItemRequestCancel={undefined}
+                        pendingRequests={getPendingKeys(budget).pendingIncome}
+                    />
+                    <ExpensesList
+                        expenseItems={budget.initial_expenses}
+                        transactions={transactions}
+                        budget={budget}
+                        budgetId={budgetId}
+                        user={user}
+                        onAddItem={(type) => setModalType(type)}
+                        onStateUpdate={handleStateUpdate}
+                        onItemRequest={undefined}
+                        onItemRequestCancel={undefined}
+                        pendingRequests={getPendingKeys(budget).pendingExpenses}
+                    />
+                </div>
+                {!user.is_partner && goals.length > 0 && (
+                    <GoalsCard
+                        goals={goals}
+                        budgetId={budgetId}
+                        onGoalUpdated={fetchPageData}
+                        surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)}
+                        onEdit={handleEditGoal}
+                        onDelete={handleDeleteGoal}
+                    />
+                )}
+                {!user.is_partner && accounts?.length > 0 && (
+                    <AccountsCard
+                        accounts={accounts}
+                        budgetId={budgetId}
+                        onUpdate={fetchPageData}
+                    />
+                )}
+                {creditCardStats.totalCards > 0 && (
+                    <CreditCardOverviewCard creditCardStats={creditCardStats} />
+                )}
+            </div>
+
+            <div className="hidden md:grid grid-cols-1 md:grid-cols-3 gap-8">
                 {/* --- Left Column --- */}
                 <div className="md:col-span-1 flex flex-col gap-8">
-                    {!user.is_partner && goals.length > 0 && (
-                        <GoalsCard
-                            goals={goals}
-                            budgetId={budgetId}
-                            onGoalUpdated={fetchPageData}
-                            surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)}
-                            onEdit={handleEditGoal}
-                            onDelete={handleDeleteGoal}
-                        />
-                    )}
                     <BudgetSummaryCard
                         onStateUpdate={handleStateUpdate}
                         budget={budget}
@@ -299,6 +349,16 @@ function BudgetPage() {
                         onCloseBudget={handleCloseBudget}
                         isClosing={isClosing}
                     />
+                    {!user.is_partner && goals.length > 0 && (
+                        <GoalsCard
+                            goals={goals}
+                            budgetId={budgetId}
+                            onGoalUpdated={fetchPageData}
+                            surplus={budget.initial_income.reduce((s, i) => s + parseFloat(i.amount || 0), 0) - budget.initial_expenses.reduce((s, e) => s + parseFloat(e.estimated_amount || 0), 0)}
+                            onEdit={handleEditGoal}
+                            onDelete={handleDeleteGoal}
+                        />
+                    )}
                     {!user.is_partner && accounts?.length > 0 && (
                         <AccountsCard
                             accounts={accounts}
@@ -306,17 +366,9 @@ function BudgetPage() {
                             onUpdate={fetchPageData}
                         />
                     )}
-                    {/* --- Credit Card Stats Card --- */}
-                    <div className="bg-gray-800 p-6 rounded-lg shadow-xl">
-                        <h3 className="text-lg font-bold text-white-300 border-b border-gray-700 mb-2">Credit Card Overview</h3>
-                        <div className="space-y-2 text-sm">
-                            <div className="flex justify-between"><span className="text-gray-300">Available Spending Limit:</span> <span className="font-bold text-green-400">${(creditCardStats.totalSpendingLimit-creditCardStats.totalOutstanding).toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-300">Total Outstanding Balance:</span> <span className="font-bold text-red-400">${creditCardStats.totalOutstanding.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-300">Total Spending Limit:</span> <span className="font-bold text-blue-300">${creditCardStats.totalSpendingLimit.toLocaleString(undefined, {minimumFractionDigits:2, maximumFractionDigits:2})}</span></div>
-                            <div className="flex justify-between"><span className="text-gray-300">Average Interest Rate:</span> <span className="font-bold text-orange-300">{creditCardStats.avgInterestRate.toFixed(2)}%</span></div>
-                            <div className="flex justify-between"><span className="text-gray-300">Total Cards:</span> <span className="font-bold text-white">{creditCardStats.totalCards}</span></div>
-                        </div>
-                    </div>
+                    {creditCardStats.totalCards > 0 && (
+                        <CreditCardOverviewCard creditCardStats={creditCardStats} />
+                    )}
                 </div>
 
                 {/* --- Right Column --- */}

@@ -17,14 +17,14 @@ class IncomeSourceModel extends Model
 
     protected $allowedFields = [
         'user_id',
+        'manage_url',
         'label',
         'description',
         'frequency',
         'is_active',
-        // --- NEW FIELDS FOR PROJECTION ENGINE ---
-        'frequency_day',      // For weekly/bi-weekly: day of the week (e.g., 5 for Friday)
-        'frequency_date_1',   // For monthly/semi-monthly: first day of the month (e.g., 15)
-        'frequency_date_2',   // For semi-monthly: second day of the month (e.g., 30)
+        'frequency_day',      
+        'frequency_date_1',   
+        'frequency_date_2',  
     ];
 
     public function findOrCreate($userId, $data)

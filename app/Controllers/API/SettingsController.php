@@ -6,7 +6,6 @@ use CodeIgniter\API\ResponseTrait;
 use App\Models\IncomeSourceModel;
 use App\Models\RecurringExpenseModel;
 use App\Models\UserModel;
-use App\Models\UserFinancialToolsModel;
 use App\Models\BudgetCycleModel;
 use App\Models\UserAccountModel;
 use App\Services\ProjectionService;
@@ -202,6 +201,7 @@ class SettingsController extends BaseAPIController
             'interest_rate' => $json['interest_rate'] ?? null,
             'outstanding_balance' => $json['outstanding_balance'] ?? null,
             'maturity_date' => $json['maturity_date'] ?? null,
+            'manage_url' => $json['manage_url'] ?? null,
         ];
         if (($json['category'] ?? null) === 'credit-card') {
             $data['spending_limit'] = $json['spending_limit'] ?? null;
@@ -247,46 +247,6 @@ class SettingsController extends BaseAPIController
             log_message('error', '[ERROR_UPDATE_PROFILE] {exception}', ['exception' => $e]);
             return $this->failServerError('Could not update profile.');
         }
-    }
-
-    public function updateFinancialTools()
-    {
-        if ($response = $this->blockPartners()) return $response;
-        $userId = $this->getEffectiveUserId();
-        $json = $this->request->getJSON(true);
-        $toolsModel = new UserFinancialToolsModel();
-
-        $data = [
-            'has_checking_account' => $json['has_checking_account'] ?? false,
-            'has_savings_account' => $json['has_savings_account'] ?? false,
-            'has_credit_card' => $json['has_credit_card'] ?? false,
-            'savings_goal' => $json['savings_goal'] ?? 2000.00,
-        ];
-
-        $record = $toolsModel->where('user_id', $userId)->first();
-        if (!$record) {
-            return $this->failNotFound('User financial tools profile not found.');
-        }
-
-        if ($toolsModel->update($record['id'], $data)) {
-            return $this->respondUpdated(['message' => 'Financial tools updated successfully.']);
-        }
-
-        return $this->fail($toolsModel->errors());
-    }
-
-    public function getFinancialTools()
-    {
-        if ($response = $this->blockPartners()) return $response;
-        $userId = $this->getEffectiveUserId();
-        $toolsModel = new UserFinancialToolsModel();
-        $tools = $toolsModel->where('user_id', $userId)->first();
-        if (!$tools) {
-            // Create a default record if one doesn't exist
-            $toolsModel->insert(['user_id' => $userId]);
-            $tools = $toolsModel->where('user_id', $userId)->first();
-        }
-        return $this->respond($tools);
     }
 
     public function requestEmailChange()
@@ -427,7 +387,8 @@ class SettingsController extends BaseAPIController
             'user_id' => $userId,
             'label' => $json['label'],
             'due_date' => $json['dueDate'] ?? null,
-            'category' => $json['category'] ?? 'other'
+            'category' => $json['category'] ?? 'other',
+            'manage_url' => $json['manage_url'] ?? null
         ];
 
         // FIX: Add category-specific fields based on the request

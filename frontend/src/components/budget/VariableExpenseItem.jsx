@@ -21,6 +21,7 @@ function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, it
 
   const isReadOnly = user.is_partner && user.permission_level === 'read_only';
   const isUpdateByRequest = user.is_partner && user.permission_level === 'update_by_request';
+  const isFullAccess = user.is_partner && user.permission_level === 'full_access';
 
   const totalSpent = itemTransactions.reduce((sum, t) => sum + parseFloat(t.amount), 0);
   const remainingBudget = Math.max(parseFloat(item.estimated_amount || 0) - totalSpent, 0);
@@ -129,6 +130,22 @@ function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, it
     );
   }
 
+  if (isReadOnly) {
+    return (
+      <li className="flex justify-between items-center bg-gray-700 p-3 rounded-md">
+        <div>
+          <span className="font-semibold">{item.label}</span>
+          <div className="text-xs text-gray-400">
+            <span>Spent: ${totalSpent.toFixed(2)}</span>
+            <span className="mx-2">|</span>
+            <span>Remaining: ${remainingBudget.toFixed(2)}</span>
+          </div>
+        </div>
+        <span>- ${parseFloat(item.estimated_amount).toFixed(2)}</span>
+      </li>
+    );
+  }
+
   return (
     <>
       <li
@@ -147,7 +164,7 @@ function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, it
           </div>
           {/* 2. This container for the buttons now takes up the full width and stacks its content on mobile. */}
           <div className="w-full md:w-auto flex flex-col sm:flex-row items-stretch sm:items-center justify-end gap-2">
-            <form onSubmit={handleBudgetSet} className="flex items-center gap-2">
+            <form onSubmit={isReadOnly ? undefined : handleBudgetSet} className="flex items-center gap-2">
               <span className="text-gray-400">$</span>
               <div className="flex-grow">
                 {/* The label is hidden visually but available for screen readers. */}
@@ -158,18 +175,19 @@ function VariableExpenseItem({ item, budgetId, user, onStateUpdate, onRemove, it
                   step="0.01"
                   id={`budget-amount-${item.label}`}
                   value={inputAmount}
-                  onChange={(e) => setInputAmount(e.target.value)}
+                  onChange={isReadOnly ? undefined : (e) => setInputAmount(e.target.value)}
                   placeholder="Budget"
                   className="bg-gray-600 w-full sm:w-24 text-white rounded-lg p-1 border border-gray-500 text-right focus:ring-2 focus:ring-indigo-500 focus:outline-none"
                   required
+                  disabled={isReadOnly}
                 />
               </div>
-              <button type="submit" disabled={loading} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500">
+              <button type="submit" disabled={loading || isReadOnly} className="bg-green-600 hover:bg-green-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500">
                 {loading ? '...' : 'Set'}
               </button>
             </form>
-            <button onClick={() => setIsLogModalOpen(true)} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 text-sm rounded-lg">Log</button>
-            <button onClick={() => setIsConfirmModalOpen(true)} className="absolute top-2 right-2 md:static text-gray-400 hover:text-white font-bold text-lg">&times;</button>
+            <button onClick={isReadOnly ? undefined : () => setIsLogModalOpen(true)} disabled={isReadOnly} className="bg-blue-600 hover:bg-blue-700 text-white font-bold py-1 px-3 text-sm rounded-lg disabled:bg-gray-500">Log</button>
+            <button onClick={isReadOnly ? undefined : () => setIsConfirmModalOpen(true)} disabled={isReadOnly} className="absolute top-2 right-2 md:static text-gray-400 hover:text-white font-bold text-lg">&times;</button>
           </div>
         </div>
         {error && <p className="text-red-500 text-xs mt-1 text-right">{error}</p>}

@@ -10,7 +10,6 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
 
     useEffect(() => {
         if (item) {
-            // Ensure all potential fields have a default value to prevent React warnings
             setFormData({
                 label: item.label || '',
                 frequency: item.frequency || 'one-time',
@@ -21,6 +20,7 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                 outstanding_balance: item.outstanding_balance || '',
                 maturity_date: item.maturity_date || '',
                 spending_limit: item.spending_limit || '',
+                manage_url: item.manage_url || '',
             });
         }
     }, [item]);
@@ -117,6 +117,20 @@ function EditItemModal({ isOpen, item, onClose, onSuccess }) {
                                     <option value="subscription">Subscription</option>
                                 </select>
                             </div>
+                            {formData.category !== 'other' && (
+                                <div>
+                                    <label htmlFor="manage_url" className="block text-sm text-gray-400 mb-1">Manage URL</label>
+                                    <input
+                                        type="url"
+                                        name="manage_url"
+                                        id="manage_url"
+                                        value={formData.manage_url || ''}
+                                        onChange={handleChange}
+                                        placeholder="https://..."
+                                        className="w-full bg-gray-700 text-white rounded-lg p-3 border border-gray-600"
+                                    />
+                                </div>
+                            )}
 
                             {/* --- FIX: Added the conditional inputs for optional data --- */}
                             {formData.category === 'loan' && (
